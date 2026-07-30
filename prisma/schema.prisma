@@ -66,7 +66,7 @@ model Account {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  @@unique([userId, platform, pageId])
+  @@unique([platform, pageId])
   @@index([userId])
 }
 

@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { productSchema } from "@/app/api/products/route";
+import { productSchema } from "@/lib/validation";
 
 type Params = { params: { id: string } };
 

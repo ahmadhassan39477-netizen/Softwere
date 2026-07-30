@@ -33,6 +33,14 @@ export async function getFacebookPages(userToken: string) {
   );
 }
 
+export async function subscribeFacebookPage(pageId: string, pageToken: string) {
+  const body = new URLSearchParams({
+    access_token: pageToken,
+    subscribed_fields: "messages",
+  });
+  return graph<{ success: boolean }>(`${pageId}/subscribed_apps`, { method: "POST", body });
+}
+
 export async function sendFacebookMessage(pageToken: string, recipientId: string, text: string) {
   return graph<{ message_id: string }>("me/messages", {
     method: "POST",

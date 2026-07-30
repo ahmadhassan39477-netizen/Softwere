@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
-import { exchangeFacebookCode, getFacebookPages } from "@/lib/facebook";
+import { exchangeFacebookCode, getFacebookPages, subscribeFacebookPage } from "@/lib/facebook";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -23,16 +23,15 @@ export async function GET(request: Request) {
     const redirectUri = `${base}/api/facebook/callback`;
     const token = await exchangeFacebookCode(code, redirectUri);
     const pages = await getFacebookPages(token.access_token);
-    await Promise.all(
-      pages.data.map((page) =>
-        prisma.account.upsert({
-          where: {
-            userId_platform_pageId: {
-              userId: session.user.id,
-              platform: "FACEBOOK",
-              pageId: page.id,
-            },
-          },
+    const connected = await Promise.all(
+      pages.data.map(async (page) => {
+        const existing = await prisma.account.findUnique({
+          where: { platform_pageId: { platform: "FACEBOOK", pageId: page.id } },
+        });
+        if (existing && existing.userId !== session.user.id) return false;
+        await subscribeFacebookPage(page.id, page.access_token);
+        await prisma.account.upsert({
+          where: { platform_pageId: { platform: "FACEBOOK", pageId: page.id } },
           update: { name: page.name, externalAccountId: page.id, accessToken: encryptSecret(page.access_token) },
           create: {
             userId: session.user.id,
@@ -41,10 +40,13 @@ export async function GET(request: Request) {
             pageId: page.id,
             accessToken: encryptSecret(page.access_token),
           },
-        }),
-      ),
+        });
+        return true;
+      }),
     );
-    const response = NextResponse.redirect(new URL(`/accounts?connected=${pages.data.length}`, base));
+    const response = NextResponse.redirect(
+      new URL(`/accounts?connected=${connected.filter(Boolean).length}`, base),
+    );
     response.cookies.delete("facebook_oauth_state");
     return response;
   } catch (error) {
