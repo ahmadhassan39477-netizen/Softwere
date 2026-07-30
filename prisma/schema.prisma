@@ -38,33 +38,32 @@ enum MessageDirection {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
+  id            String             @id @default(cuid())
+  email         String             @unique
   password      String
   name          String
-  plan          Plan           @default(FREE)
-  accounts      Account[]
+  plan          Plan               @default(FREE)
+  accounts      ConnectedAccount[]
   products      Product[]
+  conversations Conversation[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model ConnectedAccount {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform      Platform       @default(FACEBOOK)
+  pageName      String
+  pageId        String
+  accessToken   String
+  profilePic    String?
+  catalogId     String?
+  aiAutoReply   Boolean        @default(false)
   conversations Conversation[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-}
-
-model Account {
-  id                String         @id @default(cuid())
-  userId            String
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform          Platform       @default(FACEBOOK)
-  name              String
-  externalAccountId String
-  pageId            String
-  catalogId         String?
-  accessToken       String
-  tokenExpiresAt    DateTime?
-  aiAutoReply       Boolean        @default(false)
-  conversations     Conversation[]
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
 
   @@unique([platform, pageId])
   @@index([userId])
@@ -92,20 +91,20 @@ model Product {
 }
 
 model Conversation {
-  id                     String    @id @default(cuid())
+  id                     String           @id @default(cuid())
   userId                 String
-  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId              String
-  account                Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account                ConnectedAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   productId              String?
-  product                Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  product                Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
   platformConversationId String
   customerId             String
   customerName           String
-  lastMessageAt          DateTime  @default(now())
+  lastMessageAt          DateTime         @default(now())
   messages               Message[]
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
   @@unique([accountId, platformConversationId])
   @@index([userId, lastMessageAt])

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   const [product, account] = await Promise.all([
     prisma.product.findFirst({ where: { id: parsed.data.productId, userId: session.user.id } }),
-    prisma.account.findFirst({ where: { id: parsed.data.accountId, userId: session.user.id } }),
+    prisma.connectedAccount.findFirst({ where: { id: parsed.data.accountId, userId: session.user.id } }),
   ]);
   if (!product || !account) return NextResponse.json({ error: "Product or account not found." }, { status: 404 });
   if (!account.catalogId) {

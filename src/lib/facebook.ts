@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-const graphVersion = process.env.FACEBOOK_GRAPH_VERSION || "v23.0";
+const graphVersion = "v19.0";
 const graphBase = `https://graph.facebook.com/${graphVersion}`;
 
 async function graph<T>(path: string, init?: RequestInit): Promise<T> {
@@ -25,20 +25,19 @@ export async function exchangeFacebookCode(code: string, redirectUri: string) {
 export async function getFacebookPages(userToken: string) {
   const query = new URLSearchParams({
     access_token: userToken,
-    fields: "id,name,access_token",
+    fields: "id,name,access_token,picture.type(large){url}",
     limit: "100",
   });
-  return graph<{ data: Array<{ id: string; name: string; access_token: string }> }>(
+  return graph<{
+    data: Array<{
+      id: string;
+      name: string;
+      access_token: string;
+      picture?: { data?: { url?: string } };
+    }>;
+  }>(
     `me/accounts?${query}`,
   );
-}
-
-export async function subscribeFacebookPage(pageId: string, pageToken: string) {
-  const body = new URLSearchParams({
-    access_token: pageToken,
-    subscribed_fields: "messages",
-  });
-  return graph<{ success: boolean }>(`${pageId}/subscribed_apps`, { method: "POST", body });
 }
 
 export async function sendFacebookMessage(pageToken: string, recipientId: string, text: string) {

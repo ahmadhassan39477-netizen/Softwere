@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 export default async function InboxPage() {
   const user = await requireUser();
   const [accounts, conversations] = await Promise.all([
-    prisma.account.findMany({ where: { userId: user.id, platform: "FACEBOOK" }, select: { id: true, name: true, aiAutoReply: true } }),
+    prisma.connectedAccount.findMany({ where: { userId: user.id, platform: "FACEBOOK" }, select: { id: true, pageName: true, aiAutoReply: true } }),
     prisma.conversation.findMany({
       where: { userId: user.id },
       include: { account: { select: { name: true } }, product: { select: { title: true } }, messages: { orderBy: { createdAt: "asc" }, take: 100 } },
@@ -17,14 +17,14 @@ export default async function InboxPage() {
     id: item.id,
     customerName: item.customerName,
     lastMessageAt: item.lastMessageAt.toISOString(),
-    accountName: item.account.name,
+    accountName: item.account.pageName,
     productTitle: item.product?.title || null,
     messages: item.messages.map((message) => ({ ...message, createdAt: message.createdAt.toISOString() })),
   }));
   return (
     <>
       <p className="text-sm text-slate-500">Facebook Page conversations</p><h1 className="mt-1 text-3xl font-bold">Unified inbox</h1>
-      <InboxView initialAccounts={accounts} conversations={serialized} />
+      <InboxView initialAccounts={accounts.map(({ pageName, ...account }) => ({ ...account, name: pageName }))} conversations={serialized} />
     </>
   );
 }

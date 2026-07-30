@@ -64,12 +64,12 @@ Open [http://localhost:3000](http://localhost:3000).
 2. Add this exact valid OAuth redirect URI:
 
    ```text
-   http://localhost:3000/api/facebook/callback
+   http://localhost:3000/api/auth/facebook/callback
    ```
 
    Add the production equivalent when deploying.
 3. Configure the app ID and secret in `.env`.
-4. Request the permissions used by the app: `pages_show_list`, `pages_read_engagement`, `pages_messaging`, `pages_manage_metadata`, `catalog_management`, and `business_management`. Meta App Review and Business Verification may be required before use by people without an app role.
+4. Request the Graph API v19.0 permissions used by Facebook connection: `pages_show_list`, `pages_read_engagement`, `pages_messaging`, and `business_management`. Meta App Review and Business Verification may be required before use by people without an app role. Shop catalog publishing additionally requires `catalog_management`.
 5. Add the Webhooks product, subscribe the app to the Page `messages` field, and configure:
 
    ```text

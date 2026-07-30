@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   if (payload.object !== "page") return new NextResponse("Ignored", { status: 200 });
 
   for (const entry of payload.entry || []) {
-    const account = await prisma.account.findFirst({ where: { pageId: entry.id, platform: "FACEBOOK" } });
+    const account = await prisma.connectedAccount.findFirst({ where: { pageId: entry.id, platform: "FACEBOOK" } });
     if (!account) continue;
     for (const event of entry.messaging || []) {
       if (!event.message?.text || event.message.is_echo) continue;

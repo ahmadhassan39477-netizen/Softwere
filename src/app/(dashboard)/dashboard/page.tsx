@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   start.setUTCHours(0, 0, 0, 0);
   const [products, accounts, messages, recent] = await Promise.all([
     prisma.product.count({ where: { userId: user.id } }),
-    prisma.account.count({ where: { userId: user.id } }),
+    prisma.connectedAccount.count({ where: { userId: user.id } }),
     prisma.message.count({ where: { conversation: { userId: user.id }, createdAt: { gte: start } } }),
     prisma.product.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 5 }),
   ]);
