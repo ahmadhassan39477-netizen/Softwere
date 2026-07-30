@@ -22,6 +22,16 @@ export async function exchangeFacebookCode(code: string, redirectUri: string) {
   return graph<{ access_token: string; expires_in?: number }>(`oauth/access_token?${query}`);
 }
 
+export async function exchangeForLongLivedFacebookToken(shortLivedToken: string) {
+  const query = new URLSearchParams({
+    grant_type: "fb_exchange_token",
+    client_id: process.env.FACEBOOK_APP_ID || "",
+    client_secret: process.env.FACEBOOK_APP_SECRET || "",
+    fb_exchange_token: shortLivedToken,
+  });
+  return graph<{ access_token: string; expires_in?: number }>(`oauth/access_token?${query}`);
+}
+
 export async function getFacebookPages(userToken: string) {
   const query = new URLSearchParams({
     access_token: userToken,

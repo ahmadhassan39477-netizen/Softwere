@@ -8,7 +8,7 @@ export default async function InboxPage() {
     prisma.connectedAccount.findMany({ where: { userId: user.id, platform: "FACEBOOK" }, select: { id: true, pageName: true, aiAutoReply: true } }),
     prisma.conversation.findMany({
       where: { userId: user.id },
-      include: { account: { select: { name: true } }, product: { select: { title: true } }, messages: { orderBy: { createdAt: "asc" }, take: 100 } },
+      include: { account: { select: { pageName: true } }, product: { select: { title: true } }, messages: { orderBy: { createdAt: "asc" }, take: 100 } },
       orderBy: { lastMessageAt: "desc" },
       take: 50,
     }),

@@ -3,7 +3,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
-import { exchangeFacebookCode, getFacebookPages } from "@/lib/facebook";
+import {
+  exchangeFacebookCode,
+  exchangeForLongLivedFacebookToken,
+  getFacebookPages,
+} from "@/lib/facebook";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -29,7 +33,8 @@ export async function GET(request: Request) {
 
   try {
     const redirectUri = `${appUrl}/api/auth/facebook/callback`;
-    const token = await exchangeFacebookCode(code, redirectUri);
+    const shortLivedToken = await exchangeFacebookCode(code, redirectUri);
+    const token = await exchangeForLongLivedFacebookToken(shortLivedToken.access_token);
     const { data: pages } = await getFacebookPages(token.access_token);
 
     const results = await Promise.all(
