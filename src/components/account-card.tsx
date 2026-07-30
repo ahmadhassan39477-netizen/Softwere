@@ -13,7 +13,7 @@ export function AccountCard({ account }: { account: { id: string; pageName: stri
     if (response.ok) { setSaved(true); setTimeout(() => setSaved(false), 1500); router.refresh(); }
   }
   async function remove() {
-    if (!confirm(`Disconnect ${account.pageName}? Stored conversations for this Page will also be removed.`)) return;
+    if (!confirm(`Disconnect ${account.pageName}? Stored messages for this Page will also be removed.`)) return;
     if ((await fetch(`/api/accounts/${account.id}`, { method: "DELETE" })).ok) router.refresh();
   }
   return (

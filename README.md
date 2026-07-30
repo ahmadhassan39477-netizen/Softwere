@@ -85,7 +85,7 @@ Page tokens are encrypted before storage. Use HTTPS in production and keep `TOKE
 
 The listing rewriter returns a title and description, adds five bullets, and targets fewer than 150 words. Users should review generated copy.
 
-AI auto-reply only runs when enabled for a connected Page and when an active product is available as context. For a new conversation, the MVP associates the most recently updated active product. Replies are saved in the inbox and identify the sender as an AI assistant. Production deployments should add explicit conversation-to-product selection where message metadata does not identify a product.
+AI auto-reply only runs when enabled for a connected Page. Incoming text is checked case-insensitively against active product names; an exact name match supplies that product's description, price, stock, condition, and SKU to `gpt-4o-mini`. If no product name matches, the assistant receives only the active product names and asks the customer to clarify. Incoming and generated messages are saved in the inbox, and generated replies identify the sender as an AI assistant.
 
 ## Commands
 

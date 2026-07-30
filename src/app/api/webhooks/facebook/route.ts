@@ -41,50 +41,51 @@ export async function POST(request: Request) {
       if (!event.message?.text || event.message.is_echo) continue;
       if (await prisma.message.findUnique({ where: { platformMessageId: event.message.mid } })) continue;
 
-      const product = await prisma.product.findFirst({
+      const products = await prisma.product.findMany({
         where: { userId: account.userId, status: "ACTIVE" },
-        orderBy: { updatedAt: "desc" },
-      });
-      const conversation = await prisma.conversation.upsert({
-        where: {
-          accountId_platformConversationId: {
-            accountId: account.id,
-            platformConversationId: event.sender.id,
-          },
-        },
-        update: { lastMessageAt: new Date(event.timestamp), ...(product ? { productId: product.id } : {}) },
-        create: {
-          userId: account.userId,
-          accountId: account.id,
-          productId: product?.id,
-          platformConversationId: event.sender.id,
-          customerId: event.sender.id,
-          customerName: "Facebook customer",
-          lastMessageAt: new Date(event.timestamp),
+        orderBy: { title: "asc" },
+        select: {
+          title: true,
+          description: true,
+          price: true,
+          stock: true,
+          condition: true,
+          sku: true,
         },
       });
       await prisma.message.create({
         data: {
-          conversationId: conversation.id,
+          connectedAccountId: account.id,
+          senderId: event.sender.id,
+          messageText: event.message.text,
+          timestamp: new Date(event.timestamp),
+          isFromUser: true,
           platformMessageId: event.message.mid,
-          direction: "INBOUND",
-          body: event.message.text,
-          createdAt: new Date(event.timestamp),
         },
       });
 
-      if (account.aiAutoReply && product) {
+      if (account.aiAutoReply) {
         try {
-          const details = `${product.title}; ${product.description}; price ${product.price}; stock ${product.stock}`;
-          const reply = await createSalesReply(details, event.message.text);
+          const messageText = event.message.text.toLocaleLowerCase();
+          const product = [...products]
+            .sort((a, b) => b.title.length - a.title.length)
+            .find((item) => messageText.includes(item.title.toLocaleLowerCase()));
+          const productContext = product
+            ? `Matched product: ${product.title}. Description: ${product.description}. Price: ${product.price}. Stock: ${product.stock}. Condition: ${product.condition}. SKU: ${product.sku}.`
+            : products.length
+              ? `No exact product name was found in the customer's message. Available products: ${products.map((item) => item.title).join(", ")}. Ask which product they mean before giving product-specific details.`
+              : "The Product Library has no active products. Explain that product details are unavailable and ask what they are looking for.";
+          const reply = await createSalesReply(productContext, event.message.text);
           if (reply) {
             const sent = await sendFacebookMessage(decryptSecret(account.accessToken), event.sender.id, reply);
             await prisma.message.create({
               data: {
-                conversationId: conversation.id,
+                connectedAccountId: account.id,
+                senderId: event.sender.id,
+                messageText: reply,
+                timestamp: new Date(),
+                isFromUser: false,
                 platformMessageId: sent.message_id,
-                direction: "OUTBOUND",
-                body: reply,
               },
             });
           }

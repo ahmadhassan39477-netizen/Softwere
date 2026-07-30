@@ -29,7 +29,7 @@ export async function rewriteListing(title: string, description: string) {
 
 export async function createSalesReply(productDetails: string, message: string) {
   const response = await client().chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    model: "gpt-4o-mini",
     temperature: 0.6,
     max_tokens: 180,
     messages: [
@@ -40,7 +40,7 @@ export async function createSalesReply(productDetails: string, message: string) 
       },
       {
         role: "user",
-        content: `Product is ${productDetails}. Customer asks: ${message}. Reply in friendly, human, short style in English and Roman Urdu. Ask if they want to confirm order. Never claim to be human, say you are AI assistant.`,
+        content: `Product context: ${productDetails}\nCustomer asks: ${message}\nReply in a friendly, natural, short style in English and Roman Urdu. Ask if they want to confirm the order when a product is clearly identified. Never claim to be human; say you are an AI assistant.`,
       },
     ],
   });
