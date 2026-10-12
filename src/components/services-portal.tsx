@@ -223,7 +223,7 @@ export function ServicesPortal() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[280px_1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
         {/* Countries */}
         <section className="panel p-4 flex flex-col min-h-[420px]">
           <h2 className="font-semibold mb-3">Countries</h2>
