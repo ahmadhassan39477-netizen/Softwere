@@ -324,7 +324,7 @@ export default function LandingPage() {
           </div>
 
           <motion.div
-            className="relative z-0 flex justify-center lg:justify-end"
+            className="relative z-0 flex justify-center overflow-visible px-2 lg:justify-end lg:pr-2"
             style={{ y: emblemY }}
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
