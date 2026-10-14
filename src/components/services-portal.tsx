@@ -355,32 +355,32 @@ export function ServicesPortal() {
               transition={{ duration: 0.3, ease: easeOut }}
               className="panel panel-accent p-4"
             >
-              {!isDesktop && (
-                <button
-                  type="button"
-                  className="mb-3 inline-flex items-center gap-1.5 text-sm text-[var(--accent)]"
-                  onClick={() => setMobileStep("country")}
-                >
-                  <ChevronLeft size={16} /> Change country
-                </button>
-              )}
-
               {selectedCountry && (
-                <div className="mb-4 flex items-center gap-3 rounded-xl border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-3 py-2.5">
-                  <span className="text-xl">{selectedCountry.flag}</span>
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-2.5 py-2">
+                  {!isDesktop && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost p-1.5 shrink-0"
+                      aria-label="Change country"
+                      onClick={() => setMobileStep("country")}
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                  )}
+                  <span className="text-lg leading-none">{selectedCountry.flag}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium truncate">{selectedCountry.name}</div>
-                    <div className="text-xs text-[var(--text-muted)] mono-data">
+                    <div className="font-medium truncate text-sm">{selectedCountry.name}</div>
+                    <div className="text-[11px] text-[var(--text-muted)] mono-data">
                       {selectedCountry.dialCode} · {selectedCountry.code}
                     </div>
                   </div>
                   {!isDesktop && (
                     <button
                       type="button"
-                      className="btn btn-ghost text-xs px-2.5 py-1.5"
+                      className="text-xs text-[var(--accent)] shrink-0 px-1"
                       onClick={() => setMobileStep("country")}
                     >
-                      Edit
+                      Change
                     </button>
                   )}
                 </div>

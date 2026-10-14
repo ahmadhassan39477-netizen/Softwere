@@ -205,10 +205,10 @@ export default function LandingPage() {
           <button className="btn btn-ghost p-2" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/login" className="btn btn-ghost hidden sm:inline-flex">
+          <Link href="/login" className="btn btn-ghost hidden md:inline-flex">
             Sign in
           </Link>
-          <Link href="/services" className="btn btn-primary">
+          <Link href="/services" className="btn btn-primary text-sm px-3 sm:px-4">
             Open portal
           </Link>
         </motion.div>
