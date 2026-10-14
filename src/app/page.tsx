@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   ChevronDown,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { BrandMark } from "@/components/brand-mark";
 import { HeroEmblem } from "@/components/hero-emblem";
@@ -139,21 +139,31 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export default function LandingPage() {
   const { theme, toggle } = useTheme();
   const heroRef = useRef<HTMLElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
   const glowScale = useTransform(scrollYProgress, [0, 1], [1, 1.35]);
   const emblemY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  // Tighter entrance timing on phones so the hero reads in order, not as a pile-up
+  const d = (desktop: number, mobile = desktop * 0.45) => (isMobile ? mobile : desktop);
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
       <motion.div
-        className="pointer-events-none absolute top-[-20%] left-1/2 -translate-x-1/2 h-[640px] w-[900px] rounded-full bg-[radial-gradient(circle,var(--glow),transparent_68%)]"
+        className="pointer-events-none absolute top-[-20%] left-1/2 -translate-x-1/2 h-[420px] w-[min(100%,640px)] sm:h-[640px] sm:w-[900px] rounded-full bg-[radial-gradient(circle,var(--glow),transparent_68%)]"
         style={{ scale: glowScale }}
       />
 
-      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -204,41 +214,41 @@ export default function LandingPage() {
         </motion.div>
       </header>
 
-      {/* HERO — two columns so the vault mark never covers the wordmark */}
+      {/* HERO — copy first on mobile; emblem below so sequence stays clear */}
       <section
         ref={heroRef}
-        className="relative z-10 mx-auto max-w-6xl px-6 pt-10 pb-24 sm:pt-16 sm:pb-32 min-h-[85vh]"
+        className="relative z-10 mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-16 sm:pb-32 min-h-0 sm:min-h-[70vh] lg:min-h-[85vh]"
       >
-        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-10">
-          <div className="relative z-10 min-w-0">
-            <div className="mb-10 flex items-center gap-4">
+        <div className="grid items-center gap-8 sm:gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-10">
+          <div className="relative z-10 min-w-0 order-1">
+            <div className="mb-6 sm:mb-10 flex items-center gap-3 sm:gap-4">
               <motion.div
                 initial={{ scale: 0.2, opacity: 0, rotate: -120 }}
                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                transition={{ duration: 0.85, ease }}
-                className="relative"
+                transition={{ duration: d(0.85, 0.55), ease }}
+                className="relative shrink-0"
               >
                 <motion.div
                   className="absolute inset-[-10px] rounded-2xl bg-[var(--accent)] blur-xl"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: [0, 0.45, 0.15] }}
-                  transition={{ duration: 1.4, times: [0, 0.4, 1] }}
+                  transition={{ duration: 1.2, times: [0, 0.4, 1] }}
                 />
-                <BrandMark size={64} />
+                <BrandMark size={isMobile ? 48 : 64} />
               </motion.div>
               <div className="overflow-hidden">
                 <motion.p
                   className="eyebrow"
                   initial={{ y: "100%", opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.45, duration: 0.5, ease }}
+                  transition={{ delay: d(0.45, 0.2), duration: 0.45, ease }}
                 >
                   Temporary verification marketplace
                 </motion.p>
               </div>
             </div>
 
-            <h1 className="relative text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-semibold leading-[0.95] tracking-[-0.05em]">
+            <h1 className="relative text-[2.65rem] leading-[0.98] sm:text-6xl lg:text-7xl xl:text-8xl font-semibold tracking-[-0.05em]">
               <span className="sr-only">temp empire</span>
               <span className="flex flex-wrap items-baseline gap-x-[0.28em] gap-y-1" aria-hidden>
                 <span className="inline-flex whitespace-nowrap">
@@ -246,9 +256,9 @@ export default function LandingPage() {
                     <motion.span
                       key={`t-${i}`}
                       className="inline-block"
-                      initial={{ y: 80, opacity: 0, rotate: -6 }}
+                      initial={{ y: 48, opacity: 0, rotate: -6 }}
                       animate={{ y: 0, opacity: 1, rotate: 0 }}
-                      transition={{ delay: 0.55 + i * 0.05, duration: 0.55, ease }}
+                      transition={{ delay: d(0.55, 0.28) + i * 0.04, duration: 0.45, ease }}
                     >
                       {ch}
                     </motion.span>
@@ -259,9 +269,9 @@ export default function LandingPage() {
                     <motion.span
                       key={`e-${i}`}
                       className="inline-block"
-                      initial={{ y: 90, opacity: 0, filter: "blur(8px)" }}
+                      initial={{ y: 48, opacity: 0, filter: "blur(8px)" }}
                       animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                      transition={{ delay: 0.9 + i * 0.055, duration: 0.55, ease }}
+                      transition={{ delay: d(0.9, 0.42) + i * 0.04, duration: 0.45, ease }}
                     >
                       {ch}
                     </motion.span>
@@ -271,25 +281,33 @@ export default function LandingPage() {
             </h1>
 
             <motion.p
-              className="mt-7 max-w-lg text-base sm:text-lg text-[var(--text-muted)] leading-relaxed"
+              className="mt-5 sm:mt-7 max-w-lg text-[0.95rem] sm:text-lg text-[var(--text-muted)] leading-relaxed"
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.35, duration: 0.55, ease }}
+              transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
               Buy SMS OTP numbers across countries and services, spin up temp inboxes, and fund with
               crypto — one credit wallet, built like a product.
             </motion.p>
 
             <motion.div
-              className="mt-9 flex flex-wrap items-center gap-3"
+              className="mt-7 sm:mt-9 flex flex-wrap items-center gap-3"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.5, duration: 0.5, ease }}
+              transition={{ delay: d(1.5, 0.85), duration: 0.45, ease }}
             >
               <motion.div
-                animate={{
-                  boxShadow: ["0 0 0 0 var(--glow)", "0 0 28px var(--glow)", "0 0 0 0 var(--glow)"],
-                }}
+                animate={
+                  isMobile
+                    ? undefined
+                    : {
+                        boxShadow: [
+                          "0 0 0 0 var(--glow)",
+                          "0 0 28px var(--glow)",
+                          "0 0 0 0 var(--glow)",
+                        ],
+                      }
+                }
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-full"
               >
@@ -303,12 +321,14 @@ export default function LandingPage() {
             </motion.div>
 
             <motion.div
-              className="mt-14 flex flex-wrap gap-2"
+              className="mt-8 sm:mt-14 flex flex-wrap gap-2"
               initial="hidden"
               animate="show"
               variants={{
                 hidden: {},
-                show: { transition: { staggerChildren: 0.12, delayChildren: 1.65 } },
+                show: {
+                  transition: { staggerChildren: 0.1, delayChildren: d(1.65, 0.95) },
+                },
               }}
             >
               {beats.map((b) => (
@@ -324,29 +344,29 @@ export default function LandingPage() {
           </div>
 
           <motion.div
-            className="relative z-0 flex justify-center overflow-visible px-2 lg:justify-end lg:pr-2"
-            style={{ y: emblemY }}
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.55, duration: 0.75, ease }}
+            className="relative z-0 order-2 flex justify-center overflow-visible px-1 sm:px-2 lg:justify-end lg:pr-2"
+            style={{ y: isMobile ? 0 : emblemY }}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: d(0.95, 1.05), duration: 0.55, ease }}
             aria-hidden
           >
-            <HeroEmblem />
+            <HeroEmblem compact={isMobile} />
           </motion.div>
         </div>
 
         <motion.div
-          className="divider-neon mt-16"
+          className="divider-neon mt-10 sm:mt-16"
           initial={{ scaleX: 0, opacity: 0 }}
           animate={{ scaleX: 1, opacity: 0.7 }}
-          transition={{ delay: 1.9, duration: 0.8, ease }}
+          transition={{ delay: d(1.9, 1.2), duration: 0.7, ease }}
           style={{ originX: 0 }}
         />
       </section>
 
       {/* Trust / social proof */}
       <section className="relative z-10 border-y border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_55%,transparent)]">
-        <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-14">
           <SectionHead
             eyebrow="Trust signals"
             title="Infrastructure tone, not marketing fluff."
@@ -371,7 +391,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHead
           eyebrow="How it works"
           title="Three beats from wallet to OTP."
@@ -404,7 +424,7 @@ export default function LandingPage() {
       </section>
 
       {/* Product pillars */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
           eyebrow="Operating system"
           title="Built for velocity, not dashboards."
@@ -437,7 +457,7 @@ export default function LandingPage() {
       </section>
 
       {/* Featured services */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
           eyebrow="Featured services"
           title="Routes teams actually buy."
@@ -473,7 +493,7 @@ export default function LandingPage() {
 
       {/* Security */}
       <section className="relative z-10 border-y border-[var(--border)]">
-        <div className="mx-auto max-w-6xl px-6 py-24 grid gap-10 lg:grid-cols-[1fr_1.1fr] items-start">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 grid gap-8 sm:gap-10 lg:grid-cols-[1fr_1.1fr] items-start">
           <SectionHead
             eyebrow="Security & privacy"
             title="Controls that belong in a fintech shell."
@@ -505,7 +525,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing teaser */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHead
           eyebrow="Pricing"
           title="Pay per number. Markup you control."
@@ -543,13 +563,13 @@ export default function LandingPage() {
       </section>
 
       {/* API / reseller */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.55, ease }}
-          className="panel panel-accent relative overflow-hidden px-6 py-12 sm:px-12"
+          className="panel panel-accent relative overflow-hidden px-5 py-10 sm:px-12 sm:py-12"
         >
           <motion.div
             className="pointer-events-none absolute -right-8 -bottom-8 opacity-15"
@@ -581,7 +601,7 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead eyebrow="FAQ" title="Straight answers." />
         <div className="panel px-6">
           {faqs.map((f) => (
