@@ -630,7 +630,10 @@ export default function LandingPage() {
           <div className="sm:col-span-2">
             <div className="flex items-center gap-2.5 mb-3">
               <BrandMark size={28} />
-              <span className="font-semibold tracking-tight">temp empire</span>
+              <span className="font-semibold tracking-[-0.035em]">
+                <span>temp </span>
+                <span className="text-[var(--accent)]">empire</span>
+              </span>
             </div>
             <p className="text-sm text-[var(--text-muted)] max-w-sm leading-relaxed">
               Self-service temporary verification — SMS OTP, temp mail, wallet credits.
@@ -684,7 +687,7 @@ export default function LandingPage() {
         <div className="divider-neon opacity-40" />
         <div className="mx-auto max-w-6xl px-6 py-5 flex flex-wrap justify-between gap-2 mono-data text-[10px] text-[var(--text-muted)] uppercase tracking-[0.14em]">
           <span>© {new Date().getFullYear()} Temp Empire</span>
-          <span>Verification OS · v0.1</span>
+          <span>Temp Empire · v0.1</span>
         </div>
       </footer>
     </div>
