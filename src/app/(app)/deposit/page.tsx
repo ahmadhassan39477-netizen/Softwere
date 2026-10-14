@@ -69,13 +69,15 @@ export default function DepositPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold">Deposit</h1>
-        <p className="text-[var(--text-muted)] text-sm">
-          Balance: <span className="font-mono text-[var(--accent-2)]">${session?.user?.balance}</span>
+        <p className="eyebrow mb-2">Wallet</p>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">Deposit</h1>
+        <p className="text-[var(--text-muted)] text-sm mt-1">
+          Balance:{" "}
+          <span className="mono-data text-[var(--accent)]">${session?.user?.balance}</span>
         </p>
       </div>
 
-      <div className="panel p-5 space-y-4">
+      <div className="panel panel-accent p-5 space-y-4">
         <div>
           <label className="text-sm text-[var(--text-muted)]">Amount (USD)</label>
           <input

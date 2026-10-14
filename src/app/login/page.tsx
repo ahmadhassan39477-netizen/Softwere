@@ -4,7 +4,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Zap } from "lucide-react";
+import { BrandWordmark } from "@/components/brand-mark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,19 +33,26 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={onSubmit} className="panel w-full max-w-md p-8 space-y-5">
-        <div className="flex items-center gap-2 font-bold text-xl">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
-            <Zap size={18} />
-          </span>
-          Temp Empire
+      <form onSubmit={onSubmit} className="panel panel-accent w-full max-w-md p-8 space-y-5 rise-in">
+        <BrandWordmark />
+        <div>
+          <p className="eyebrow">Access</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
         </div>
-        <p className="text-sm text-[var(--text-muted)]">
-          Demo: demo@tempempire.com / demo1234 · Admin: admin@tempempire.com / admin1234
+        <p className="text-sm text-[var(--text-muted)] mono-data leading-relaxed">
+          demo@tempempire.com / demo1234
+          <br />
+          admin@tempempire.com / admin1234
         </p>
         <div>
           <label className="text-sm text-[var(--text-muted)]">Email</label>
-          <input className="input mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input
+            className="input mt-1"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
         <div>
           <label className="text-sm text-[var(--text-muted)]">Password</label>
@@ -57,13 +64,13 @@ export default function LoginPage() {
             required
           />
         </div>
-        {error && <p className="text-sm text-[#fca5a5]">{error}</p>}
+        {error && <p className="text-sm text-[#fda4af]">{error}</p>}
         <button className="btn btn-primary w-full" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </button>
         <p className="text-sm text-[var(--text-muted)] text-center">
           No account?{" "}
-          <Link href="/register" className="text-[var(--accent-2)]">
+          <Link href="/register" className="text-[var(--accent)]">
             Register
           </Link>
         </p>

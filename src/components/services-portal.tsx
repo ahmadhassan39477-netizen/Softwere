@@ -211,8 +211,9 @@ export function ServicesPortal() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Services</h1>
-        <p className="text-[var(--text-muted)] mt-1">
+        <p className="eyebrow mb-2">Marketplace</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">Services</h1>
+        <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-xl">
           Choose a country and service — matching the easyotps-style purchase flow.
         </p>
       </div>
@@ -225,8 +226,8 @@ export function ServicesPortal() {
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
         {/* Countries */}
-        <section className="panel p-4 flex flex-col min-h-[420px]">
-          <h2 className="font-semibold mb-3">Countries</h2>
+        <section className="panel panel-accent p-4 flex flex-col min-h-[420px]">
+          <h2 className="font-semibold mb-3 tracking-tight">Countries</h2>
           <div className="relative mb-3">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
@@ -260,9 +261,9 @@ export function ServicesPortal() {
         </section>
 
         {/* Services */}
-        <section className="panel p-4">
+        <section className="panel panel-accent p-4">
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <h2 className="font-semibold flex-1">Services</h2>
+            <h2 className="font-semibold flex-1 tracking-tight">Services</h2>
             <div className="flex gap-1">
               {[1, 2, 3].map((s) => (
                 <button
@@ -297,7 +298,7 @@ export function ServicesPortal() {
                     layout
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3"
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -309,7 +310,7 @@ export function ServicesPortal() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="font-mono text-[var(--accent-2)]">${offer.price}</div>
+                      <div className="mono-data text-[var(--accent)]">${offer.price}</div>
                       <div className="text-xs text-[var(--text-muted)]">Srv {offer.server}</div>
                     </div>
                     <button
@@ -333,8 +334,8 @@ export function ServicesPortal() {
         </section>
 
         {/* Live order panel */}
-        <section className={`panel p-4 ${active?.status === "ACTIVE" ? "live-pulse" : ""}`}>
-          <h2 className="font-semibold mb-3">Live order</h2>
+        <section className={`panel panel-accent p-4 ${active?.status === "ACTIVE" ? "live-pulse" : ""}`}>
+          <h2 className="font-semibold mb-3 tracking-tight">Live order</h2>
           {!active ? (
             <p className="text-sm text-[var(--text-muted)]">
               Purchase a number to open the OTP inbox with countdown and auto-copy.

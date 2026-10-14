@@ -31,10 +31,11 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Order history</h1>
-        <p className="text-sm text-[var(--text-muted)]">SMS OTP purchases and statuses.</p>
+        <p className="eyebrow mb-2">History</p>
+        <h1 className="text-2xl font-semibold tracking-[-0.03em]">Order history</h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">SMS OTP purchases and statuses.</p>
       </div>
-      <div className="panel overflow-x-auto">
+      <div className="panel panel-accent overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--text-muted)] border-b border-[var(--border)]">
