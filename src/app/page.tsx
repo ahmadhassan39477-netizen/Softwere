@@ -20,70 +20,34 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { BrandMark } from "@/components/brand-mark";
 import { HeroEmblem } from "@/components/hero-emblem";
+import {
+  CATALOG_SERVICES,
+  HOW_IT_WORKS,
+  MARKETPLACE_FACTS,
+  PRODUCT_PILLARS,
+  SERVER_POOLS,
+} from "@/lib/catalog-content";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-const features = [
-  {
-    k: "01",
-    title: "Multi-country OTP",
-    body: "Searchable catalogs, live stock, server pools across global routes.",
-    icon: Radio,
-  },
-  {
-    k: "02",
-    title: "Live inbox",
-    body: "SSE + polling for codes with auto-copy and countdown timers.",
-    icon: Shield,
-  },
-  {
-    k: "03",
-    title: "Wallet first",
-    body: "4-decimal balances, crypto webhooks, and manual deposit rails.",
-    icon: Wallet,
-  },
-];
-
-const steps = [
-  { n: "01", t: "Fund wallet", d: "Top up with crypto or manual rails. Balance updates to four decimals." },
-  { n: "02", t: "Pick route", d: "Choose country, service, and server pool with live stock indicators." },
-  { n: "03", t: "Receive OTP", d: "Watch the live panel — SSE stream with polling fallback, then copy the code." },
-];
-
-const services = [
-  "WhatsApp",
-  "Telegram",
-  "Google",
-  "OpenAI",
-  "Discord",
-  "TikTok",
-  "Instagram",
-  "Binance",
-];
-
-const trusts = [
-  { label: "Countries", value: "10+" },
-  { label: "Services", value: "12+" },
-  { label: "Server pools", value: "3" },
-  { label: "API surface", value: "REST" },
-];
+const pillarIcons = [Radio, Shield, Wallet] as const;
 
 const faqs = [
   {
     q: "Do I need a wholesale SMS account?",
-    a: "No. Temp Empire sits on top of provider adapters. Locally it runs on mocks; production wires SMS-Activate, 5SIM, and peers via env.",
+    a: "No. Temp Empire sits on provider adapters. Demo mode uses mocks; production wires SMS-Activate, 5SIM, and peers via env.",
   },
   {
     q: "What happens if an OTP never arrives?",
-    a: "Orders auto-refund on expiry with no code. Manual cancel within the first two minutes also returns credit.",
+    a: "Numbers wait up to 20 minutes. No code → automatic full refund. You can also cancel within the first 2 minutes for an instant credit return.",
+  },
+  {
+    q: "What do Server 1 / 2 / 3 mean?",
+    a: "Three wholesale pools. Server 1 is standard price; Server 2/3 cost more (~8% steps) and usually have better success on congested apps.",
   },
   {
     q: "Can resellers automate purchases?",
-    a: "Yes. API keys live in Settings. REST covers countries, services, purchase, OTP, cancel, and balance — with docs snippets.",
-  },
-  {
-    q: "Is my balance safe?",
-    a: "Wallet debits and credits run in Prisma transactions. Payment webhooks validate signatures before settling deposits.",
+    a: "Yes. API keys live in Settings. REST covers countries, services, purchase, OTP, cancel, and balance — with cURL and language samples in API Docs.",
   },
 ];
 
@@ -355,26 +319,28 @@ export default function LandingPage() {
         />
       </section>
 
-      {/* Trust / social proof */}
+      {/* Marketplace facts */}
       <section className="relative z-10 border-y border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_55%,transparent)]">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-14">
           <SectionHead
-            eyebrow="Trust signals"
-            title="Infrastructure tone, not marketing fluff."
-            body="Numbers that reflect the product surface — routes, pools, and API — not invented vanity metrics."
+            eyebrow="Marketplace facts"
+            title="Real catalog numbers — not vanity stats."
+            body="Aligned with the seeded routes: ten countries, twelve services, three pools, clear TTL and cancel rules."
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {trusts.map((t, i) => (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+            {MARKETPLACE_FACTS.map((t, i) => (
               <motion.div
                 key={t.label}
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.08, duration: 0.45, ease }}
+                whileHover={{ y: -4 }}
                 className="panel panel-accent px-4 py-5"
               >
-                <div className="mono-data text-2xl text-[var(--accent)]">{t.value}</div>
-                <div className="mt-1 text-sm text-[var(--text-muted)]">{t.label}</div>
+                <div className="mono-data text-2xl sm:text-3xl text-[var(--accent)]">{t.value}</div>
+                <div className="mt-1 text-sm font-medium">{t.label}</div>
+                <div className="mt-1 text-xs text-[var(--text-muted)]">{t.hint}</div>
               </motion.div>
             ))}
           </div>
@@ -385,11 +351,11 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHead
           eyebrow="How it works"
-          title="Three beats from wallet to OTP."
-          body="A linear path — fund, route, receive — with refunds if the code never lands."
+          title="Wallet → route → OTP in three steps."
+          body="Same flow as the Services portal: fund once, buy numbers on demand, refunds when SMS never lands."
         />
         <div className="grid gap-4 md:grid-cols-3">
-          {steps.map((s, i) => (
+          {HOW_IT_WORKS.map((s, i) => (
             <motion.div
               key={s.n}
               initial={{ opacity: 0, x: -20 }}
@@ -417,12 +383,13 @@ export default function LandingPage() {
       {/* Product pillars */}
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
-          eyebrow="Operating system"
-          title="Built for velocity, not dashboards."
+          eyebrow="Product"
+          title="Everything you need to verify at speed."
+          body="Catalog, live inbox, and wallet — built for operators and resellers, not slideware."
         />
         <div className="grid gap-4 sm:grid-cols-3">
-          {features.map((f, i) => {
-            const Icon = f.icon;
+          {PRODUCT_PILLARS.map((f, i) => {
+            const Icon = pillarIcons[i] ?? Radio;
             return (
               <motion.div
                 key={f.title}
@@ -447,37 +414,70 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Featured services */}
+      {/* Featured services — rich catalog cards */}
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
-          eyebrow="Featured services"
-          title="Routes teams actually buy."
-          body="WhatsApp to OpenAI — same purchase flow, dynamic pricing, stock badges."
+          eyebrow="Service catalog"
+          title="Popular verification routes."
+          body="Reference pricing from seed markup (provider cost × ~20%). Live stock and pools update in the portal."
         />
-        <div className="flex flex-wrap gap-2">
-          {services.map((name, i) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {CATALOG_SERVICES.map((svc, i) => (
             <motion.div
-              key={name}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.04, duration: 0.35, ease }}
-              whileHover={{ scale: 1.04 }}
-              className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-sm"
+              key={svc.name}
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ delay: (i % 4) * 0.06, duration: 0.4, ease }}
+              whileHover={{ y: -5, borderColor: "var(--accent)" }}
+              className="panel panel-accent p-4 flex flex-col gap-3"
             >
-              <span className="text-[var(--accent)] mr-2">●</span>
-              {name}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-semibold tracking-tight">{svc.name}</div>
+                  <div className="text-xs text-[var(--text-muted)] mt-0.5">{svc.category}</div>
+                </div>
+                <span className="badge badge-success">Live</span>
+              </div>
+              <div className="mono-data text-[var(--accent)] text-lg">
+                from ${svc.from}
+              </div>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">{svc.note}</p>
             </motion.div>
           ))}
         </div>
+
+        <motion.div
+          className="mt-8 grid gap-3 sm:grid-cols-3"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.1 } },
+          }}
+        >
+          {SERVER_POOLS.map((p) => (
+            <motion.div
+              key={p.id}
+              variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+              className="rounded-xl border border-[var(--border)] px-4 py-3"
+            >
+              <div className="mono-data text-[11px] text-[var(--accent)]">{p.label}</div>
+              <div className="font-medium mt-1">{p.title}</div>
+              <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">{p.blurb}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+
         <motion.div
           className="mt-8"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <Link href="/services" className="btn btn-ghost">
-            Browse full catalog <ArrowRight size={16} />
+          <Link href="/services" className="btn btn-primary">
+            Open services catalog <ArrowRight size={16} />
           </Link>
         </motion.div>
       </section>

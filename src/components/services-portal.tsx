@@ -4,8 +4,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Search, RefreshCw, XCircle, Check, ChevronLeft } from "lucide-react";
+import {
+  Copy,
+  Search,
+  RefreshCw,
+  XCircle,
+  Check,
+  ChevronLeft,
+  Clock,
+  ShieldCheck,
+  Signal,
+} from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
+import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
 import Link from "next/link";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -243,6 +254,8 @@ export function ServicesPortal() {
   const showServices = isDesktop || mobileStep === "services";
   const showOrder = isDesktop || mobileStep === "order" || (mobileStep === "services" && !!active);
 
+  const pool = SERVER_POOLS.find((p) => p.id === server) ?? SERVER_POOLS[0];
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <motion.div
@@ -250,17 +263,40 @@ export function ServicesPortal() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: easeOut }}
       >
-        <p className="eyebrow mb-2">Marketplace</p>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">Services</h1>
-        <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-xl">
+        <p className="eyebrow mb-2">OTP marketplace</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">Buy a number</h1>
+        <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-2xl leading-relaxed">
           {isDesktop
-            ? "Choose a country and service — matching the easyotps-style purchase flow."
+            ? "Select a country, pick a service and server pool, then receive the SMS OTP in the live panel. Unused numbers refund automatically."
             : mobileStep === "country"
-              ? "Pick a country first."
+              ? "Step 1 — choose the country route for your verification."
               : mobileStep === "services"
-                ? "Choose a service and buy a number."
-                : "Your live OTP inbox."}
+                ? "Step 2 — pick the app and server pool, then buy."
+                : "Step 3 — watch the inbox for your code."}
         </p>
+      </motion.div>
+
+      {/* Reference facts */}
+      <motion.div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.06 } },
+        }}
+      >
+        {MARKETPLACE_FACTS.map((f) => (
+          <motion.div
+            key={f.label}
+            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+            className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
+          >
+            <div className="mono-data text-[var(--accent)] text-sm">{f.value}</div>
+            <div className="text-xs font-medium mt-0.5">{f.label}</div>
+            <div className="text-[11px] text-[var(--text-muted)]">{f.hint}</div>
+          </motion.div>
+        ))}
       </motion.div>
 
       {/* Mobile step indicator */}
@@ -273,8 +309,9 @@ export function ServicesPortal() {
               ["order", "3 · OTP"],
             ] as const
           ).map(([key, label]) => (
-            <span
+            <motion.span
               key={key}
+              layout
               className={`rounded-full border px-2.5 py-1 ${
                 mobileStep === key
                   ? "border-[var(--accent)] text-[var(--accent)]"
@@ -282,15 +319,19 @@ export function ServicesPortal() {
               }`}
             >
               {label}
-            </span>
+            </motion.span>
           ))}
         </div>
       )}
 
       {error && (
-        <div className="panel border-[color-mix(in_oklab,var(--danger)_50%,var(--border))] px-4 py-3 text-sm text-[#fca5a5]">
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="panel border-[color-mix(in_oklab,var(--danger)_50%,var(--border))] px-4 py-3 text-sm text-[#fca5a5]"
+        >
           {error}
-        </div>
+        </motion.div>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
@@ -386,21 +427,35 @@ export function ServicesPortal() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex flex-wrap items-center gap-3 mb-3">
                 <h2 className="font-semibold flex-1 tracking-tight">Services</h2>
                 <div className="flex gap-1">
-                  {[1, 2, 3].map((s) => (
+                  {SERVER_POOLS.map((s) => (
                     <button
-                      key={s}
+                      key={s.id}
                       type="button"
-                      onClick={() => setServer(s)}
-                      className={`btn text-xs px-3 py-1.5 ${server === s ? "btn-primary" : "btn-ghost"}`}
+                      onClick={() => setServer(s.id)}
+                      className={`btn text-xs px-3 py-1.5 ${server === s.id ? "btn-primary" : "btn-ghost"}`}
+                      title={s.blurb}
                     >
-                      Server {s}
+                      {s.label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              <motion.div
+                key={pool.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 flex gap-2 rounded-xl border border-[var(--hairline)] px-3 py-2.5 text-xs text-[var(--text-muted)]"
+              >
+                <Signal size={14} className="text-[var(--accent)] shrink-0 mt-0.5" />
+                <p>
+                  <span className="text-[var(--text)] font-medium">{pool.title} pool.</span> {pool.blurb}
+                </p>
+              </motion.div>
+
               <div className="relative mb-4">
                 <Search
                   size={16}
@@ -416,7 +471,7 @@ export function ServicesPortal() {
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <AnimatePresence mode="popLayout">
-                  {services.map((svc) => {
+                  {services.map((svc, idx) => {
                     const offer = svc.offers.find((o) => o.server === server) ?? svc.offers[0];
                     if (!offer) return null;
                     const inStock = offer.inStock;
@@ -426,22 +481,32 @@ export function ServicesPortal() {
                         layout
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: easeOut, delay: Math.min(idx, 8) * 0.03 }}
                         whileHover={{ y: -3 }}
-                        transition={{ duration: 0.35, ease: easeOut }}
                         className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="font-semibold">{svc.name}</div>
-                            <div className="text-xs text-[var(--text-muted)]">{svc.category}</div>
+                            <div className="font-semibold tracking-tight">{svc.name}</div>
+                            <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                              {svc.category ?? "General"}
+                            </div>
                           </div>
                           <span className={`badge ${inStock ? "badge-success" : "badge-danger"}`}>
-                            {inStock ? "In Stock" : "Out of Stock"}
+                            {inStock ? `${offer.stock} left` : "Sold out"}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="mono-data text-[var(--accent)]">${offer.price}</div>
-                          <div className="text-xs text-[var(--text-muted)]">Srv {offer.server}</div>
+                        <div className="flex items-end justify-between gap-2">
+                          <div>
+                            <div className="text-[11px] text-[var(--text-muted)]">Price</div>
+                            <div className="mono-data text-[var(--accent)] text-lg">${offer.price}</div>
+                          </div>
+                          <div className="text-right text-[11px] text-[var(--text-muted)]">
+                            <div className="inline-flex items-center gap-1">
+                              <Clock size={12} /> 20 min TTL
+                            </div>
+                            <div className="mt-0.5">{pool.label}</div>
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -487,9 +552,31 @@ export function ServicesPortal() {
               )}
               <h2 className="font-semibold mb-3 tracking-tight">Live order</h2>
               {!active ? (
-                <p className="text-sm text-[var(--text-muted)]">
-                  Purchase a number to open the OTP inbox with countdown and auto-copy.
-                </p>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-3 text-sm text-[var(--text-muted)]"
+                >
+                  <p>Buy a number to open the OTP inbox here.</p>
+                  <ul className="space-y-2">
+                    {[
+                      { icon: Clock, t: "20-minute wait window" },
+                      { icon: ShieldCheck, t: "Auto-refund if no SMS" },
+                      { icon: Copy, t: "Phone & OTP auto-copy" },
+                    ].map((row, i) => (
+                      <motion.li
+                        key={row.t}
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.15 + i * 0.08 }}
+                        className="flex items-center gap-2"
+                      >
+                        <row.icon size={14} className="text-[var(--accent)]" />
+                        {row.t}
+                      </motion.li>
+                    ))}
+                  </ul>
+                </motion.div>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
