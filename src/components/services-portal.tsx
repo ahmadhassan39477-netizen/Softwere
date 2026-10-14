@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const easeOut = [0.22, 1, 0.36, 1] as const;
 import { Copy, Search, RefreshCw, XCircle, Check } from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
 import Link from "next/link";
@@ -210,13 +212,17 @@ export function ServicesPortal() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: easeOut }}
+      >
         <p className="eyebrow mb-2">Marketplace</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">Services</h1>
         <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-xl">
           Choose a country and service — matching the easyotps-style purchase flow.
         </p>
-      </div>
+      </motion.div>
 
       {error && (
         <div className="panel border-[color-mix(in_oklab,var(--danger)_50%,var(--border))] px-4 py-3 text-sm text-[#fca5a5]">
@@ -296,8 +302,10 @@ export function ServicesPortal() {
                   <motion.div
                     key={svc.id}
                     layout
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -3 }}
+                    transition={{ duration: 0.35, ease: easeOut }}
                     className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">

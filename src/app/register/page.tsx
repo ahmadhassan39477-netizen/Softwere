@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandWordmark } from "@/components/brand-mark";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,9 +27,19 @@ export default function RegisterPage() {
       setError(data.error ?? "Registration failed");
       return;
     }
-    await signIn("credentials", { email, password, redirect: false });
+    const sign = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+      callbackUrl: "/services",
+    });
     setLoading(false);
-    router.push("/services");
+    if (sign?.error) {
+      setError(sign.error);
+      return;
+    }
+    // Relative navigation keeps the public tunnel host
+    window.location.assign("/services");
   }
 
   return (

@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandWordmark } from "@/components/brand-mark";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("demo@tempempire.com");
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState("");
@@ -21,6 +19,7 @@ export default function LoginPage() {
       email,
       password,
       redirect: false,
+      // Relative only — never absolute localhost (breaks Cloudflare / public hosts)
       callbackUrl: "/services",
     });
     setLoading(false);
@@ -28,8 +27,8 @@ export default function LoginPage() {
       setError(res?.error === "CredentialsSignin" ? "Invalid email or password" : res?.error || "Sign-in failed");
       return;
     }
-    // Prefer hard navigation so session cookie is picked up across hosts
-    window.location.assign(res.url || "/services");
+    // Stay on the current public host; ignore Auth.js absolute URLs that may point at localhost
+    window.location.assign("/services");
   }
 
   return (

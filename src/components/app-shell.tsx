@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid,
   Mail,
@@ -59,24 +60,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="px-3 pt-2 pb-2 mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
             Portal
           </p>
-          {NAV.map((item) => {
+          {NAV.map((item, i) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
             return (
-              <Link
+              <motion.div
                 key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors border border-transparent",
-                  active
-                    ? "nav-active"
-                    : "text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]",
-                )}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.04 * i, duration: 0.35 }}
               >
-                <Icon size={17} className={active ? "text-[var(--accent)]" : undefined} />
-                {item.label}
-              </Link>
+                <Link
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors border border-transparent",
+                    active
+                      ? "nav-active"
+                      : "text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-glow"
+                      className="absolute inset-0 rounded-xl bg-[color-mix(in_oklab,var(--accent)_10%,transparent)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <Icon size={17} className={cn("relative z-[1]", active && "text-[var(--accent)]")} />
+                  <span className="relative z-[1]">{item.label}</span>
+                </Link>
+              </motion.div>
             );
           })}
           {session?.user?.role === "ADMIN" && (
@@ -138,23 +152,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </span>
                   <ChevronDown size={16} />
                 </button>
-                {profileOpen && (
-                  <div className="absolute right-0 mt-2 w-52 panel p-2 shadow-xl">
-                    <Link
-                      href="/settings"
-                      className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--card-hover)]"
-                      onClick={() => setProfileOpen(false)}
+                <AnimatePresence>
+                  {profileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      className="absolute right-0 mt-2 w-52 panel p-2 shadow-xl"
                     >
-                      Settings
-                    </Link>
-                    <button
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[var(--card-hover)]"
-                      onClick={() => signOut({ callbackUrl: "/" })}
-                    >
-                      <LogOut size={14} /> Sign out
-                    </button>
-                  </div>
-                )}
+                      <Link
+                        href="/settings"
+                        className="block rounded-lg px-3 py-2 text-sm hover:bg-[var(--card-hover)]"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        Settings
+                      </Link>
+                      <button
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-[var(--card-hover)]"
+                        onClick={() => signOut({ callbackUrl: "/" })}
+                      >
+                        <LogOut size={14} /> Sign out
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <Link href="/login" className="btn btn-primary">

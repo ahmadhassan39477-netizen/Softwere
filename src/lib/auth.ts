@@ -57,6 +57,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Keep users on the host they signed in from (public tunnel, not NEXTAUTH_URL localhost)
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const target = new URL(url);
+        const base = new URL(baseUrl);
+        if (target.origin === base.origin) return url;
+      } catch {
+        /* fall through */
+      }
+      return baseUrl;
+    },
     async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id!;
@@ -88,6 +100,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
+  // Infer host from request (x-forwarded-host / Host) so tunnels work without pinning localhost
   trustHost: true,
   secret: process.env.AUTH_SECRET,
 });

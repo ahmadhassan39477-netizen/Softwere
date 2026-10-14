@@ -47,7 +47,7 @@ export async function createDepositIntent(input: {
     currency,
     method: input.method,
     payAddress: `TMock${nanoid(28)}`,
-    payUrl: `${process.env.NEXT_PUBLIC_APP_URL}/deposit?pending=${id}`,
+    payUrl: `/deposit?pending=${id}`,
     status: "PENDING",
   };
 }
