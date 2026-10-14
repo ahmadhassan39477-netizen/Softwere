@@ -27,19 +27,18 @@ export function BrandMark({ className = "", size = 36 }: { className?: string; s
   );
 }
 
+/** Clean wordmark — mark + name only (no noisy tagline under the logo). */
 export function BrandWordmark({ compact = false }: { compact?: boolean }) {
   return (
     <span className="brand-wordmark inline-flex items-center gap-2.5">
-      <BrandMark size={compact ? 28 : 34} />
-      <span className="leading-none">
-        <span className="block font-semibold tracking-[-0.03em] text-[1.05rem] sm:text-[1.15rem]">
-          temp empire
-        </span>
-        {!compact && (
-          <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
-            verification OS
-          </span>
-        )}
+      <BrandMark size={compact ? 28 : 32} />
+      <span
+        className={`font-semibold tracking-[-0.035em] leading-none ${
+          compact ? "text-[1.02rem]" : "text-[1.12rem] sm:text-[1.2rem]"
+        }`}
+      >
+        <span className="text-[var(--text)]">temp </span>
+        <span className="text-[var(--accent)]">empire</span>
       </span>
     </span>
   );

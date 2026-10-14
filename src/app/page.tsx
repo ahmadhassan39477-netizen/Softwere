@@ -177,24 +177,15 @@ export default function LandingPage() {
           >
             <BrandMark size={34} />
           </motion.div>
-          <div className="leading-none">
-            <motion.span
-              className="block font-semibold tracking-[-0.03em] text-[1.1rem]"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.25, duration: 0.45 }}
-            >
-              temp empire
-            </motion.span>
-            <motion.span
-              className="mt-0.5 block font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              verification OS
-            </motion.span>
-          </div>
+          <motion.span
+            className="font-semibold tracking-[-0.035em] text-[1.1rem] leading-none"
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.25, duration: 0.45 }}
+          >
+            <span className="text-[var(--text)]">temp </span>
+            <span className="text-[var(--accent)]">empire</span>
+          </motion.span>
         </motion.div>
         <motion.div
           className="flex items-center gap-2"
