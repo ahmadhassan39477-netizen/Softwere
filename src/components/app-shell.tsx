@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="p-3 space-y-1">
           <p className="px-3 pt-2 pb-2 mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            Portal
+            Menu
           </p>
           {NAV.map((item, i) => {
             const Icon = item.icon;
