@@ -200,7 +200,7 @@ export default function LandingPage() {
             Sign in
           </Link>
           <Link href="/services" className="btn btn-primary text-sm px-3 sm:px-4">
-            Open portal
+            Get started
           </Link>
         </motion.div>
       </header>
