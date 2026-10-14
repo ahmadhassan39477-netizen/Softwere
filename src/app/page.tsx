@@ -238,32 +238,35 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <h1 className="relative text-5xl sm:text-7xl lg:text-[5.5rem] xl:text-8xl font-semibold leading-[0.92] tracking-[-0.05em]">
+            <h1 className="relative text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-semibold leading-[0.95] tracking-[-0.05em]">
               <span className="sr-only">temp empire</span>
-              <span className="flex flex-wrap gap-x-[0.28em]" aria-hidden>
-                {"temp".split("").map((ch, i) => (
-                  <motion.span
-                    key={`t-${i}`}
-                    className="inline-block"
-                    initial={{ y: 80, opacity: 0, rotate: -6 }}
-                    animate={{ y: 0, opacity: 1, rotate: 0 }}
-                    transition={{ delay: 0.55 + i * 0.05, duration: 0.55, ease }}
-                  >
-                    {ch}
-                  </motion.span>
-                ))}
-                <span className="inline-block w-[0.28em]" />
-                {"empire".split("").map((ch, i) => (
-                  <motion.span
-                    key={`e-${i}`}
-                    className="inline-block text-[var(--accent)]"
-                    initial={{ y: 90, opacity: 0, filter: "blur(8px)" }}
-                    animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                    transition={{ delay: 0.9 + i * 0.055, duration: 0.55, ease }}
-                  >
-                    {ch}
-                  </motion.span>
-                ))}
+              <span className="flex flex-wrap items-baseline gap-x-[0.28em] gap-y-1" aria-hidden>
+                <span className="inline-flex whitespace-nowrap">
+                  {"temp".split("").map((ch, i) => (
+                    <motion.span
+                      key={`t-${i}`}
+                      className="inline-block"
+                      initial={{ y: 80, opacity: 0, rotate: -6 }}
+                      animate={{ y: 0, opacity: 1, rotate: 0 }}
+                      transition={{ delay: 0.55 + i * 0.05, duration: 0.55, ease }}
+                    >
+                      {ch}
+                    </motion.span>
+                  ))}
+                </span>
+                <span className="inline-flex whitespace-nowrap text-[var(--accent)]">
+                  {"empire".split("").map((ch, i) => (
+                    <motion.span
+                      key={`e-${i}`}
+                      className="inline-block"
+                      initial={{ y: 90, opacity: 0, filter: "blur(8px)" }}
+                      animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                      transition={{ delay: 0.9 + i * 0.055, duration: 0.55, ease }}
+                    >
+                      {ch}
+                    </motion.span>
+                  ))}
+                </span>
               </span>
             </h1>
 
