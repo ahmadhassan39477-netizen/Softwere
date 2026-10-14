@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack -H :: -p 3000",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H :: -p 3000",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
