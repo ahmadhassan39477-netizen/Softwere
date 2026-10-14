@@ -33,10 +33,10 @@ export const SERVER_POOLS = [
 ] as const;
 
 export const MARKETPLACE_FACTS = [
-  { label: "Countries", value: "10", hint: "US, UK, NG, IN…" },
-  { label: "Services", value: "12", hint: "Messaging → Crypto" },
-  { label: "OTP window", value: "20m", hint: "Auto-refund if empty" },
-  { label: "Cancel", value: "2m", hint: "Full credit return" },
+  { label: "Countries", value: "10+", hint: "US, UK, NG, IN…" },
+  { label: "Services", value: "12+", hint: "Messaging → Crypto" },
+  { label: "OTP window", value: "20m", hint: "Live inbox countdown" },
+  { label: "Auto-refunds", value: "Yes", hint: "If SMS never lands" },
 ] as const;
 
 export const HOW_IT_WORKS = [

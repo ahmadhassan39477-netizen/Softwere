@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -344,32 +345,73 @@ export function ServicesPortal() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -16 }}
               transition={{ duration: 0.28, ease: easeOut }}
-              className="panel panel-accent p-4 flex flex-col min-h-[min(70vh,520px)] lg:min-h-[420px]"
+              className="panel panel-accent p-4 flex flex-col lg:min-h-[420px]"
             >
-              <h2 className="font-semibold mb-3 tracking-tight">Countries</h2>
+              <h2 className="font-semibold mb-1 tracking-tight text-lg lg:text-base">
+                Select country
+              </h2>
+              <p className="text-xs text-[var(--text-muted)] mb-3 lg:hidden">
+                Tap a route — large targets for thumb use.
+              </p>
               <div className="relative mb-3">
                 <Search
                   size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
                 />
                 <input
-                  className="input pl-9"
+                  className="input pl-9 min-h-12"
                   placeholder="Search country…"
                   value={countryQ}
                   onChange={(e) => setCountryQ(e.target.value)}
                 />
               </div>
-              <div className="flex-1 overflow-y-auto scrollbar-thin space-y-1 max-h-[60vh] lg:max-h-[520px]">
+
+              {/* Mobile: thumb-friendly 2-col cards */}
+              <div className="grid grid-cols-2 gap-2.5 lg:hidden">
+                {(countriesQuery.data?.countries ?? []).map((c, i) => {
+                  const selected = countryCode === c.code;
+                  return (
+                    <motion.button
+                      key={c.code}
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.03, duration: 0.28 }}
+                      onClick={() => pickCountry(c.code)}
+                      className={cn(
+                        "min-h-[7.5rem] flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-4 text-center transition-colors",
+                        "active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                        selected
+                          ? "border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_18%,transparent)]"
+                          : "border-[var(--border)] bg-[var(--bg-elevated)] active:bg-[var(--card-hover)]",
+                      )}
+                    >
+                      <span className="text-3xl leading-none" aria-hidden>
+                        {c.flag}
+                      </span>
+                      <span className="font-semibold text-sm leading-tight">{c.name}</span>
+                      <span className="mono-data text-[10px] text-[var(--text-muted)]">
+                        {c.dialCode} · {c.availability}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: compact list */}
+              <div className="hidden lg:block flex-1 overflow-y-auto scrollbar-thin space-y-1 max-h-[520px]">
                 {(countriesQuery.data?.countries ?? []).map((c) => (
                   <button
                     key={c.code}
                     type="button"
                     onClick={() => pickCountry(c.code)}
-                    className={`w-full flex items-center gap-3 rounded-lg px-3 py-3 lg:py-2.5 text-left text-sm transition-colors ${
+                    className={cn(
+                      "w-full min-h-12 flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                      "active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                       countryCode === c.code
                         ? "bg-[color-mix(in_oklab,var(--accent)_22%,transparent)]"
-                        : "hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]"
-                    }`}
+                        : "hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]",
+                    )}
                   >
                     <span className="text-lg">{c.flag}</span>
                     <span className="flex-1 min-w-0">
