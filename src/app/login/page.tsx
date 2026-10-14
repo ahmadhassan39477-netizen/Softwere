@@ -21,14 +21,15 @@ export default function LoginPage() {
       email,
       password,
       redirect: false,
+      callbackUrl: "/services",
     });
     setLoading(false);
-    if (res?.error) {
-      setError("Invalid email or password");
+    if (!res || res.error) {
+      setError(res?.error === "CredentialsSignin" ? "Invalid email or password" : res?.error || "Sign-in failed");
       return;
     }
-    router.push("/services");
-    router.refresh();
+    // Prefer hard navigation so session cookie is picked up across hosts
+    window.location.assign(res.url || "/services");
   }
 
   return (
