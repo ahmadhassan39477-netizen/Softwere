@@ -1,0 +1,17 @@
+# Named Cloudflare Tunnel — permanent hostname on YOUR domain.
+# Quick tunnels (trycloudflare.com) cannot use this; they always expire.
+#
+# Setup:
+#   cloudflared tunnel login
+#   cloudflared tunnel create temp-empire
+#   cloudflared tunnel route dns temp-empire app.yourdomain.com
+#   cp config.example.yml ~/.cloudflared/config.yml  # edit IDs/host
+#   sudo cloudflared service install && sudo systemctl enable --now cloudflared
+
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /home/ubuntu/.cloudflared/REPLACE_WITH_TUNNEL_UUID.json
+
+ingress:
+  - hostname: app.yourdomain.com
+    service: http://127.0.0.1:3000
+  - service: http_status:404

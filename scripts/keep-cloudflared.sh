@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Durable Cloudflare quick tunnel. Writes live URL to public-url.txt on (re)start.
-# Auth uses AUTH_URL from that file (see keep-temp-empire.sh) + relative client redirects.
+# DEMO ONLY — Cloudflare *quick* tunnels (*.trycloudflare.com).
+# Hostnames expire / NXDOMAIN when the process or Cloudflare session ends.
+# For a permanent business URL use a named tunnel + your domain:
+#   deploy/cloudflare-tunnel/README.md
+#   (project docs) production-hosting.md
+# Writes current demo URL to public-url.txt on (re)start.
 set -u
 CF="${CF_BIN:-/tmp/cloudflared}"
 [ -x "$CF" ] || CF=$(command -v cloudflared)
