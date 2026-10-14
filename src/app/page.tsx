@@ -19,6 +19,7 @@ import {
 import { useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { BrandMark } from "@/components/brand-mark";
+import { HeroEmblem } from "@/components/hero-emblem";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -142,9 +143,8 @@ export default function LandingPage() {
     target: heroRef,
     offset: ["start start", "end start"],
   });
-  const parallaxY = useTransform(scrollYProgress, [0, 1], [0, 140]);
-  const parallaxOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.15]);
   const glowScale = useTransform(scrollYProgress, [0, 1], [1, 1.35]);
+  const emblemY = useTransform(scrollYProgress, [0, 1], [0, 80]);
 
   return (
     <div className="min-h-screen relative overflow-x-hidden">
@@ -204,130 +204,133 @@ export default function LandingPage() {
         </motion.div>
       </header>
 
-      {/* HERO — brand only, no secondary marketing clutter */}
+      {/* HERO — two columns so the vault mark never covers the wordmark */}
       <section
         ref={heroRef}
         className="relative z-10 mx-auto max-w-6xl px-6 pt-10 pb-24 sm:pt-16 sm:pb-32 min-h-[85vh]"
       >
-        <motion.div
-          className="pointer-events-none absolute right-[-20px] top-8 opacity-[0.12] sm:right-8 sm:opacity-20 lg:right-16"
-          style={{ y: parallaxY, opacity: parallaxOpacity }}
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 32, ease: "linear", repeat: Infinity }}
-          >
-            <BrandMark size={280} />
-          </motion.div>
-        </motion.div>
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-10">
+          <div className="relative z-10 min-w-0">
+            <div className="mb-10 flex items-center gap-4">
+              <motion.div
+                initial={{ scale: 0.2, opacity: 0, rotate: -120 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ duration: 0.85, ease }}
+                className="relative"
+              >
+                <motion.div
+                  className="absolute inset-[-10px] rounded-2xl bg-[var(--accent)] blur-xl"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 0.45, 0.15] }}
+                  transition={{ duration: 1.4, times: [0, 0.4, 1] }}
+                />
+                <BrandMark size={64} />
+              </motion.div>
+              <div className="overflow-hidden">
+                <motion.p
+                  className="eyebrow"
+                  initial={{ y: "100%", opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.45, duration: 0.5, ease }}
+                >
+                  Temporary verification marketplace
+                </motion.p>
+              </div>
+            </div>
 
-        <div className="relative mb-10 flex items-center gap-4">
-          <motion.div
-            initial={{ scale: 0.2, opacity: 0, rotate: -120 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{ duration: 0.85, ease }}
-            className="relative"
-          >
-            <motion.div
-              className="absolute inset-[-10px] rounded-2xl bg-[var(--accent)] blur-xl"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 0.45, 0.15] }}
-              transition={{ duration: 1.4, times: [0, 0.4, 1] }}
-            />
-            <BrandMark size={64} />
-          </motion.div>
-          <div className="overflow-hidden">
+            <h1 className="relative text-5xl sm:text-7xl lg:text-[5.5rem] xl:text-8xl font-semibold leading-[0.92] tracking-[-0.05em]">
+              <span className="sr-only">temp empire</span>
+              <span className="flex flex-wrap gap-x-[0.28em]" aria-hidden>
+                {"temp".split("").map((ch, i) => (
+                  <motion.span
+                    key={`t-${i}`}
+                    className="inline-block"
+                    initial={{ y: 80, opacity: 0, rotate: -6 }}
+                    animate={{ y: 0, opacity: 1, rotate: 0 }}
+                    transition={{ delay: 0.55 + i * 0.05, duration: 0.55, ease }}
+                  >
+                    {ch}
+                  </motion.span>
+                ))}
+                <span className="inline-block w-[0.28em]" />
+                {"empire".split("").map((ch, i) => (
+                  <motion.span
+                    key={`e-${i}`}
+                    className="inline-block text-[var(--accent)]"
+                    initial={{ y: 90, opacity: 0, filter: "blur(8px)" }}
+                    animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                    transition={{ delay: 0.9 + i * 0.055, duration: 0.55, ease }}
+                  >
+                    {ch}
+                  </motion.span>
+                ))}
+              </span>
+            </h1>
+
             <motion.p
-              className="eyebrow"
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.45, duration: 0.5, ease }}
+              className="mt-7 max-w-lg text-base sm:text-lg text-[var(--text-muted)] leading-relaxed"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.35, duration: 0.55, ease }}
             >
-              Temporary verification marketplace
+              Buy SMS OTP numbers across countries and services, spin up temp inboxes, and fund with
+              crypto — one credit wallet, built like a product.
             </motion.p>
-          </div>
-        </div>
 
-        <h1 className="relative text-5xl sm:text-7xl lg:text-8xl font-semibold leading-[0.92] tracking-[-0.05em] max-w-4xl">
-          <span className="sr-only">temp empire</span>
-          <span className="flex flex-wrap gap-x-[0.28em]" aria-hidden>
-            {"temp".split("").map((ch, i) => (
-              <motion.span
-                key={`t-${i}`}
-                className="inline-block"
-                initial={{ y: 80, opacity: 0, rotate: -6 }}
-                animate={{ y: 0, opacity: 1, rotate: 0 }}
-                transition={{ delay: 0.55 + i * 0.05, duration: 0.55, ease }}
-              >
-                {ch}
-              </motion.span>
-            ))}
-            <span className="inline-block w-[0.28em]" />
-            {"empire".split("").map((ch, i) => (
-              <motion.span
-                key={`e-${i}`}
-                className="inline-block text-[var(--accent)]"
-                initial={{ y: 90, opacity: 0, filter: "blur(8px)" }}
-                animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                transition={{ delay: 0.9 + i * 0.055, duration: 0.55, ease }}
-              >
-                {ch}
-              </motion.span>
-            ))}
-          </span>
-        </h1>
-
-        <motion.p
-          className="mt-7 max-w-lg text-base sm:text-lg text-[var(--text-muted)] leading-relaxed"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.35, duration: 0.55, ease }}
-        >
-          Buy SMS OTP numbers across countries and services, spin up temp inboxes, and fund with
-          crypto — one credit wallet, built like a product.
-        </motion.p>
-
-        <motion.div
-          className="mt-9 flex flex-wrap items-center gap-3"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5, duration: 0.5, ease }}
-        >
-          <motion.div
-            animate={{
-              boxShadow: ["0 0 0 0 var(--glow)", "0 0 28px var(--glow)", "0 0 0 0 var(--glow)"],
-            }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            className="rounded-full"
-          >
-            <Link href="/services" className="btn btn-primary">
-              Buy OTP <ArrowRight size={16} />
-            </Link>
-          </motion.div>
-          <Link href="/api-docs" className="btn btn-ghost">
-            Reseller API
-          </Link>
-        </motion.div>
-
-        <motion.div
-          className="mt-14 flex flex-wrap gap-2"
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: {},
-            show: { transition: { staggerChildren: 0.12, delayChildren: 1.65 } },
-          }}
-        >
-          {beats.map((b) => (
-            <motion.span
-              key={b}
-              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-              className="mono-data rounded-full border border-[var(--hairline)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]"
+            <motion.div
+              className="mt-9 flex flex-wrap items-center gap-3"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.5, duration: 0.5, ease }}
             >
-              {b}
-            </motion.span>
-          ))}
-        </motion.div>
+              <motion.div
+                animate={{
+                  boxShadow: ["0 0 0 0 var(--glow)", "0 0 28px var(--glow)", "0 0 0 0 var(--glow)"],
+                }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                className="rounded-full"
+              >
+                <Link href="/services" className="btn btn-primary">
+                  Buy OTP <ArrowRight size={16} />
+                </Link>
+              </motion.div>
+              <Link href="/api-docs" className="btn btn-ghost">
+                Reseller API
+              </Link>
+            </motion.div>
+
+            <motion.div
+              className="mt-14 flex flex-wrap gap-2"
+              initial="hidden"
+              animate="show"
+              variants={{
+                hidden: {},
+                show: { transition: { staggerChildren: 0.12, delayChildren: 1.65 } },
+              }}
+            >
+              {beats.map((b) => (
+                <motion.span
+                  key={b}
+                  variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+                  className="mono-data rounded-full border border-[var(--hairline)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]"
+                >
+                  {b}
+                </motion.span>
+              ))}
+            </motion.div>
+          </div>
+
+          <motion.div
+            className="relative z-0 flex justify-center lg:justify-end"
+            style={{ y: emblemY }}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.55, duration: 0.75, ease }}
+            aria-hidden
+          >
+            <HeroEmblem />
+          </motion.div>
+        </div>
 
         <motion.div
           className="divider-neon mt-16"
