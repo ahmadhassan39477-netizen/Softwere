@@ -1,35 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { FALLBACK_COUNTRIES, FALLBACK_SERVICES } from "@/lib/catalog-fallback";
+import { ensureProviderSlots } from "@/lib/sms/provider-slots";
 
 let seeding: Promise<void> | null = null;
 
-/** Upsert ProviderSetting defaults + ServiceCountryCatalog from Country/Service/Offer or fallbacks. */
+/** Upsert ProviderSetting server slots + ServiceCountryCatalog from Country/Service/Offer or fallbacks. */
 export async function ensureServiceCountryCatalog(): Promise<void> {
   if (seeding) return seeding;
 
   seeding = (async () => {
     try {
-      const defaults = [
-        { key: "sms-activate", name: "SMS-Activate", priority: 1 },
-        { key: "5sim", name: "5SIM", priority: 2 },
-        { key: "grizzlysms", name: "Grizzly SMS", priority: 3 },
-      ];
-      for (const d of defaults) {
-        await prisma.providerSetting.upsert({
-          where: { key: d.key },
-          create: {
-            key: d.key,
-            name: d.name,
-            priority: d.priority,
-            enabled: true,
-            markupPercent: new Prisma.Decimal(
-              process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
-            ),
-          },
-          update: {},
-        });
-      }
+      await ensureProviderSlots();
 
       await prisma.setting.upsert({
         where: { key: "global_markup_percent" },

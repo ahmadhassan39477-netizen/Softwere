@@ -11,35 +11,56 @@ import {
 import { createSmsActivateAdapter } from "./adapters/sms-activate";
 import { createFiveSimAdapter } from "./adapters/fivesim";
 import { createGrizzlySmsAdapter } from "./adapters/grizzlysms";
+import { createSaCompatibleAdapter } from "./adapters/sa-compatible";
 import { mockAdapter } from "./adapters/mock";
-import { prisma } from "@/lib/prisma";
+import {
+  GRIZZLY_DEFAULT_MARKUP,
+  defaultBaseUrlForType,
+  displayNameForType,
+  envKeyForType,
+  loadProviderSlots,
+  providerKeyForType,
+  type SlotProviderType,
+  type SlotRow,
+} from "./provider-slots";
 
-const SERVER_TO_PROVIDER: Record<number, ProviderKey> = {
-  1: "sms-activate",
-  2: "5sim",
-  3: "grizzlysms",
-};
-
-export type ProviderSettingRow = {
-  key: string;
-  enabled: boolean;
-  apiKey: string | null;
-  priority: number;
-};
-
-function envKeyFor(provider: ProviderKey): string | undefined {
-  if (provider === "sms-activate") return process.env.SMS_ACTIVATE_API_KEY?.trim();
-  if (provider === "5sim") return process.env.FIVESIM_API_KEY?.trim();
-  if (provider === "grizzlysms") return process.env.GRIZZLY_SMS_API_KEY?.trim();
-  return undefined;
-}
-
-/** Demo mock only when explicitly enabled — never invent wholesale keys. */
 function mocksAllowed() {
   return process.env.USE_MOCK_PROVIDERS === "true";
 }
 
-/** Build a live adapter from env or DB key. Returns null if no key / disabled. */
+export type SlotAdapter = {
+  slot: 1 | 2 | 3;
+  providerType: SlotProviderType;
+  markupPercent: number;
+  adapter: SmsAdapter;
+};
+
+/** Build live adapter from Admin slot (Admin key preferred over env). */
+export function buildAdapterForSlot(slot: SlotRow): SmsAdapter | null {
+  if (!slot.enabled) return null;
+  // Prefer Admin ProviderSetting apiKey over env
+  const keyValue = slot.apiKey?.trim() || envKeyForType(slot.providerType);
+  if (!keyValue) return null;
+
+  const type = slot.providerType;
+  if (type === "5sim") return createFiveSimAdapter(keyValue);
+  if (type === "grizzlysms") {
+    return createGrizzlySmsAdapter(keyValue, slot.baseUrl);
+  }
+  if (type === "custom-sa") {
+    const base = slot.baseUrl?.trim();
+    if (!base) return null;
+    return createSaCompatibleAdapter({
+      apiKey: keyValue,
+      providerKey: "sms-activate",
+      displayName: "Custom SMS-Activate API",
+      baseUrl: base,
+    });
+  }
+  return createSmsActivateAdapter(keyValue, slot.baseUrl);
+}
+
+/** @deprecated Prefer buildAdapterForSlot — kept for live-stock 5SIM overlay. */
 export function buildAdapter(
   key: ProviderKey,
   apiKey: string | null | undefined,
@@ -47,7 +68,7 @@ export function buildAdapter(
 ): SmsAdapter | null {
   if (!enabled) return null;
   if (key === "mock") return mockAdapter;
-  const keyValue = apiKey?.trim() || envKeyFor(key);
+  const keyValue = apiKey?.trim() || envKeyForType(key as SlotProviderType);
   if (!keyValue) return null;
   if (key === "sms-activate") return createSmsActivateAdapter(keyValue);
   if (key === "5sim") return createFiveSimAdapter(keyValue);
@@ -55,61 +76,76 @@ export function buildAdapter(
   return null;
 }
 
-async function loadSettings(): Promise<ProviderSettingRow[]> {
-  try {
-    const rows = await prisma.providerSetting.findMany({
-      orderBy: { priority: "asc" },
-    });
-    if (rows.length > 0) {
-      return rows.map((r) => ({
-        key: r.key,
-        enabled: r.enabled,
-        apiKey: r.apiKey,
-        priority: r.priority,
-      }));
+/**
+ * Resolve ordered slot adapters for buy.
+ * - Skips empty/disabled slots (no crash on missing 5SIM).
+ * - If Server 2 empty and Server 3 is Grizzly with a key, fill Server 2 with that Grizzly
+ *   so Auto still gets two Grizzly attempts.
+ */
+export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
+  const byPriority = new Map(slots.map((s) => [s.priority, s]));
+  const slot3 = byPriority.get(3);
+  const slot2 = byPriority.get(2);
+
+  const effective: SlotRow[] = slots.map((s) => ({ ...s }));
+
+  // Fill empty Server 2 from Grizzly Server 3 when 5SIM/empty
+  if (slot2 && slot3) {
+    const s2HasKey = Boolean(slot2.apiKey?.trim() || envKeyForType(slot2.providerType));
+    const s3HasKey = Boolean(slot3.apiKey?.trim() || envKeyForType(slot3.providerType));
+    const s2EmptyOrDisabled = !slot2.enabled || !s2HasKey;
+    if (
+      s2EmptyOrDisabled &&
+      slot3.enabled &&
+      s3HasKey &&
+      slot3.providerType === "grizzlysms"
+    ) {
+      const idx = effective.findIndex((e) => e.priority === 2);
+      if (idx >= 0) {
+        effective[idx] = {
+          ...slot2,
+          enabled: true,
+          providerType: "grizzlysms",
+          apiKey: slot3.apiKey,
+          baseUrl: slot3.baseUrl,
+          markupPercent:
+            slot3.markupPercent > 0 ? slot3.markupPercent : GRIZZLY_DEFAULT_MARKUP,
+        };
+      }
     }
-  } catch {
-    // table may not exist yet on first boot — fall through to defaults
   }
-  return [
-    { key: "sms-activate", enabled: true, apiKey: null, priority: 1 },
-    { key: "5sim", enabled: true, apiKey: null, priority: 2 },
-    { key: "grizzlysms", enabled: true, apiKey: null, priority: 3 },
-  ];
+
+  const out: SlotAdapter[] = [];
+  for (const slot of effective.sort((a, b) => a.priority - b.priority)) {
+    const adapter = buildAdapterForSlot(slot);
+    if (!adapter) continue;
+    const markup =
+      slot.providerType === "grizzlysms"
+        ? slot.markupPercent > 0
+          ? slot.markupPercent
+          : GRIZZLY_DEFAULT_MARKUP
+        : slot.markupPercent > 0
+          ? slot.markupPercent
+          : 20;
+    out.push({
+      slot: slot.priority as 1 | 2 | 3,
+      providerType: slot.providerType,
+      markupPercent: markup,
+      adapter,
+    });
+  }
+  return out;
 }
 
 export class SmsAggregator {
-  /** Ordered adapters for Auto failover (1 → 2 → 3). */
-  async adaptersForBuy(server?: number | "auto"): Promise<SmsAdapter[]> {
-    const settings = await loadSettings();
-    const byKey = new Map(settings.map((s) => [s.key, s]));
+  async adaptersForBuy(server?: number | "auto"): Promise<SlotAdapter[]> {
+    const slots = await loadProviderSlots();
+    const resolved = resolveSlotAdapters(slots);
 
-    const orderedKeys: ProviderKey[] =
-      server === 1 || server === 2 || server === 3
-        ? [SERVER_TO_PROVIDER[server]]
-        : (["sms-activate", "5sim", "grizzlysms"] as ProviderKey[]);
-
-    // If settings have custom priority, sort Auto by priority
-    if (server === "auto" || server === undefined) {
-      orderedKeys.sort((a, b) => {
-        const pa = byKey.get(a)?.priority ?? 99;
-        const pb = byKey.get(b)?.priority ?? 99;
-        return pa - pb;
-      });
+    if (server === 1 || server === 2 || server === 3) {
+      return resolved.filter((r) => r.slot === server);
     }
-
-    const adapters: SmsAdapter[] = [];
-    for (const key of orderedKeys) {
-      const setting = byKey.get(key);
-      const enabled = setting?.enabled ?? true;
-      const adapter = buildAdapter(key, setting?.apiKey, enabled);
-      if (adapter) adapters.push(adapter);
-    }
-
-    if (adapters.length === 0 && mocksAllowed()) {
-      adapters.push(mockAdapter);
-    }
-    return adapters;
+    return resolved;
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {
@@ -119,16 +155,21 @@ export class SmsAggregator {
         {
           provider: "sms-activate",
           error:
-            "MISSING_KEYS — paste SMS_ACTIVATE_API_KEY, FIVESIM_API_KEY, and/or GRIZZLY_SMS_API_KEY in Vercel or Admin",
+            "MISSING_KEYS — paste wholesale API keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY)",
         },
       ]);
     }
 
     const attempts: { provider: ProviderKey; error: string }[] = [];
 
-    for (const adapter of adapters) {
+    for (const { adapter, slot, markupPercent } of adapters) {
       try {
-        return await adapter.buy(input);
+        const result = await adapter.buy(input);
+        return {
+          ...result,
+          serverSlot: slot,
+          markupPercent,
+        };
       } catch (e) {
         const msg =
           e instanceof ProviderNoStockError || e instanceof ProviderBalanceError
@@ -137,7 +178,6 @@ export class SmsAggregator {
               ? e.message.slice(0, 120)
               : "unknown";
         attempts.push({ provider: adapter.key, error: msg });
-        // Fail over on NO_NUMBERS, NO_BALANCE, timeout, HTTP errors
         continue;
       }
     }
@@ -155,33 +195,47 @@ export class SmsAggregator {
     await adapter.cancel(providerOrderId);
   }
 
+  /** Find an adapter matching order providerKey (try all slots of that type). */
   async adapterForKey(providerKey: string): Promise<SmsAdapter> {
-    if (providerKey === "mock" || mocksAllowed()) {
-      if (providerKey === "mock") return mockAdapter;
+    if (providerKey === "mock") {
+      if (mocksAllowed()) return mockAdapter;
     }
-    const settings = await loadSettings();
-    const setting = settings.find((s) => s.key === providerKey);
-    const adapter = buildAdapter(
-      providerKey as ProviderKey,
-      setting?.apiKey,
-      setting?.enabled ?? true,
-    );
-    if (adapter) return adapter;
+    const slots = await loadProviderSlots();
+    const resolved = resolveSlotAdapters(slots);
+    const match = resolved.find((r) => r.adapter.key === providerKey);
+    if (match) return match.adapter;
+
+    // Try every slot of matching type / legacy env
+    for (const slot of slots) {
+      if (providerKeyForType(slot.providerType) === providerKey || slot.providerType === providerKey) {
+        const adapter = buildAdapterForSlot(slot);
+        if (adapter) return adapter;
+      }
+    }
+
+    const legacy = buildAdapter(providerKey as ProviderKey, null, true);
+    if (legacy) return legacy;
     if (mocksAllowed()) return mockAdapter;
     throw new Error(`Provider ${providerKey} unavailable`);
   }
 
   async balances(): Promise<
-    { key: ProviderKey; name: string; balance: number | null; enabled: boolean; hasApiKey: boolean }[]
+    {
+      key: string;
+      slot: number;
+      providerType: SlotProviderType;
+      name: string;
+      balance: number | null;
+      enabled: boolean;
+      hasApiKey: boolean;
+      markupPercent: number;
+    }[]
   > {
-    const settings = await loadSettings();
-    const keys: ProviderKey[] = ["sms-activate", "5sim", "grizzlysms"];
+    const slots = await loadProviderSlots();
     const out = [];
-    for (const key of keys) {
-      const setting = settings.find((s) => s.key === key);
-      const enabled = setting?.enabled ?? true;
-      const hasApiKey = Boolean(setting?.apiKey?.trim() || envKeyFor(key));
-      const adapter = buildAdapter(key, setting?.apiKey, enabled);
+    for (const slot of slots) {
+      const hasApiKey = Boolean(slot.apiKey?.trim() || envKeyForType(slot.providerType));
+      const adapter = buildAdapterForSlot(slot);
       let balance: number | null = null;
       if (adapter) {
         try {
@@ -191,25 +245,31 @@ export class SmsAggregator {
         }
       }
       out.push({
-        key,
-        name:
-          key === "sms-activate"
-            ? "SMS-Activate"
-            : key === "5sim"
-              ? "5SIM"
-              : "Grizzly SMS",
+        key: slot.key,
+        slot: slot.priority,
+        providerType: slot.providerType,
+        name: `Server ${slot.priority} · ${displayNameForType(slot.providerType)}`,
         balance,
-        enabled,
+        enabled: slot.enabled,
         hasApiKey,
+        markupPercent:
+          slot.providerType === "grizzlysms"
+            ? slot.markupPercent > 0
+              ? slot.markupPercent
+              : GRIZZLY_DEFAULT_MARKUP
+            : slot.markupPercent,
       });
     }
     if (mocksAllowed()) {
       out.push({
-        key: "mock" as ProviderKey,
+        key: "mock",
+        slot: 0,
+        providerType: "sms-activate" as SlotProviderType,
         name: "Mock (demo)",
         balance: 999,
         enabled: true,
         hasApiKey: false,
+        markupPercent: 20,
       });
     }
     return out;
@@ -224,3 +284,5 @@ export function serverNumberForProvider(key: ProviderKey): number {
   if (key === "grizzlysms") return 3;
   return 1;
 }
+
+export { defaultBaseUrlForType };

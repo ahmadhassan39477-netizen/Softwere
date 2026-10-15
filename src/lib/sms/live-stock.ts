@@ -1,22 +1,20 @@
 import { buildAdapter } from "./aggregator";
-import { prisma } from "@/lib/prisma";
+import { loadProviderSlots, envKeyForType } from "./provider-slots";
 import type { ProviderPriceRow } from "./types";
 
 /**
- * Fetch live 5SIM stock/prices for one country when keyed.
- * Never throws; never shrinks the country list — callers overlay onto services only.
+ * Fetch live 5SIM stock/prices for one country when a slot uses 5SIM.
+ * Prefer Admin ProviderSetting key over env. Never throws.
  */
 export async function fetchFiveSimLiveStock(
   countryCode: string,
 ): Promise<Map<string, ProviderPriceRow>> {
   const out = new Map<string, ProviderPriceRow>();
   try {
-    let apiKey: string | null = process.env.FIVESIM_API_KEY?.trim() || null;
-    if (!apiKey) {
-      const row = await prisma.providerSetting.findUnique({ where: { key: "5sim" } });
-      if (row?.enabled === false) return out;
-      apiKey = row?.apiKey?.trim() || null;
-    }
+    const slots = await loadProviderSlots().catch(() => []);
+    const five = slots.find((s) => s.providerType === "5sim" && s.enabled);
+    const apiKey: string | null =
+      five?.apiKey?.trim() || envKeyForType("5sim") || process.env.FIVESIM_API_KEY?.trim() || null;
     if (!apiKey) return out;
 
     const adapter = buildAdapter("5sim", apiKey, true);

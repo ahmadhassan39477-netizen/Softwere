@@ -8,6 +8,10 @@ import { useEffect, useState } from "react";
 type ProviderRow = {
   key: string;
   name: string;
+  slot?: number;
+  providerType?: string;
+  providerLabel?: string;
+  baseUrl?: string | null;
   enabled: boolean;
   priority: number;
   markupPercent: string;
@@ -17,11 +21,15 @@ type ProviderRow = {
   envConfigured: boolean;
 };
 
+type ProviderTypeOption = { value: string; label: string; defaultMarkup: number };
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const qc = useQueryClient();
   const [markup, setMarkup] = useState("20");
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
+  const [markupDrafts, setMarkupDrafts] = useState<Record<string, string>>({});
+  const [baseUrlDrafts, setBaseUrlDrafts] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
   const [waNumber, setWaNumber] = useState("923287087121");
   const [creditEmail, setCreditEmail] = useState("");
@@ -47,6 +55,8 @@ export default function AdminPage() {
       return res.json() as Promise<{
         markupPercent: string;
         providers: ProviderRow[];
+        providerTypes?: ProviderTypeOption[];
+        grizzlyDefaultMarkup?: number;
       }>;
     },
   });
@@ -74,6 +84,24 @@ export default function AdminPage() {
   useEffect(() => {
     if (settings.data?.markupPercent) setMarkup(settings.data.markupPercent);
   }, [settings.data?.markupPercent]);
+
+  useEffect(() => {
+    if (!settings.data?.providers) return;
+    setMarkupDrafts((prev) => {
+      const next = { ...prev };
+      for (const p of settings.data.providers) {
+        if (next[p.key] === undefined) next[p.key] = p.markupPercent;
+      }
+      return next;
+    });
+    setBaseUrlDrafts((prev) => {
+      const next = { ...prev };
+      for (const p of settings.data.providers) {
+        if (next[p.key] === undefined) next[p.key] = p.baseUrl ?? "";
+      }
+      return next;
+    });
+  }, [settings.data?.providers]);
 
   useEffect(() => {
     if (whatsapp.data?.number) setWaNumber(whatsapp.data.number);
@@ -304,65 +332,167 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="panel p-5">
-        <h2 className="font-semibold mb-1">SMS providers (Server 1 → 2 → 3)</h2>
+      <div className="panel p-5" data-testid="admin-server-slots">
+        <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
         <p className="text-xs text-[var(--text-muted)] mb-4">
-          Paste keys from each wholesale site. Env: SMS_ACTIVATE_API_KEY, FIVESIM_API_KEY,
-          GRIZZLY_SMS_API_KEY.
+          Each server is a slot: pick provider type, paste API key, set margin %. Grizzly
+          default margin is {settings.data?.grizzlyDefaultMarkup ?? 40}% (retail = wholesale ×
+          1.40). Server 2 and Server 3 can both be Grizzly. Empty slots are skipped on Auto
+          failover; if only Server 3 has Grizzly, Server 2 reuses that Grizzly key for a second
+          attempt. Keys stay in Admin — never shared in chat.
         </p>
         <div className="space-y-4">
-          {providers.map((p) => (
-            <div
-              key={p.key}
-              className="rounded-xl border border-[var(--border)] px-4 py-3 space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium">
-                    Server {p.priority}: {p.name}
+          {providers.map((p) => {
+            const types = settings.data?.providerTypes ?? [
+              { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
+              { value: "5sim", label: "5SIM", defaultMarkup: 20 },
+              { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 40 },
+              { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
+            ];
+            const type = p.providerType ?? "sms-activate";
+            return (
+              <div
+                key={p.key}
+                className="rounded-xl border border-[var(--border)] px-4 py-3 space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium">
+                      Server {p.slot ?? p.priority}
+                      {p.providerLabel ? ` · ${p.providerLabel}` : ""}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      {p.key} · key {p.hasApiKey ? p.apiKeyMasked : "not set"}
+                      {p.envConfigured ? " · env fallback" : ""} · balance{" "}
+                      {p.balance != null ? `$${p.balance}` : "—"}
+                    </div>
                   </div>
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {p.key} · key {p.hasApiKey ? p.apiKeyMasked : "not set"}
-                    {p.envConfigured ? " · env OK" : ""} · balance{" "}
-                    {p.balance != null ? `$${p.balance}` : "—"}
+                  <button
+                    type="button"
+                    className={`btn text-xs ${p.enabled ? "btn-primary" : "btn-ghost"}`}
+                    disabled={patch.isPending}
+                    onClick={() => patch.mutate({ key: p.key, enabled: !p.enabled })}
+                  >
+                    {p.enabled ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs text-[var(--text-muted)]">Provider type</label>
+                    <select
+                      className="input mt-1"
+                      value={type}
+                      disabled={patch.isPending}
+                      onChange={(e) => {
+                        const providerType = e.target.value;
+                        const opt = types.find((t) => t.value === providerType);
+                        patch.mutate({
+                          key: p.key,
+                          providerType,
+                          ...(providerType === "grizzlysms"
+                            ? { markupPercent: opt?.defaultMarkup ?? 40 }
+                            : {}),
+                        });
+                      }}
+                    >
+                      {types.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                          {t.value === "grizzlysms" ? ` (${t.defaultMarkup}% margin)` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[var(--text-muted)]">
+                      Margin % (retail = wholesale × 1 + %)
+                    </label>
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        className="input w-24"
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={markupDrafts[p.key] ?? p.markupPercent}
+                        onChange={(e) =>
+                          setMarkupDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-sm"
+                        disabled={patch.isPending}
+                        onClick={() =>
+                          patch.mutate({
+                            key: p.key,
+                            markupPercent: Number(markupDrafts[p.key] ?? p.markupPercent),
+                          })
+                        }
+                      >
+                        Save margin
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className={`btn text-xs ${p.enabled ? "btn-primary" : "btn-ghost"}`}
-                  disabled={patch.isPending}
-                  onClick={() => patch.mutate({ key: p.key, enabled: !p.enabled })}
-                >
-                  {p.enabled ? "Enabled" : "Disabled"}
-                </button>
+
+                {type === "custom-sa" && (
+                  <div>
+                    <label className="text-xs text-[var(--text-muted)]">
+                      Custom handler base URL
+                    </label>
+                    <input
+                      className="input mt-1 font-mono text-sm"
+                      placeholder="https://example.com/stubs/handler_api.php"
+                      value={baseUrlDrafts[p.key] ?? ""}
+                      onChange={(e) =>
+                        setBaseUrlDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost text-sm mt-2"
+                      disabled={patch.isPending}
+                      onClick={() =>
+                        patch.mutate({
+                          key: p.key,
+                          baseUrl: (baseUrlDrafts[p.key] ?? "").trim() || null,
+                        })
+                      }
+                    >
+                      Save base URL
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    className="input flex-1 min-w-[200px] font-mono text-sm"
+                    type="password"
+                    autoComplete="off"
+                    placeholder={`Paste ${p.providerLabel ?? "provider"} API key`}
+                    value={keyDrafts[p.key] ?? ""}
+                    onChange={(e) =>
+                      setKeyDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-sm"
+                    disabled={patch.isPending || !(keyDrafts[p.key] ?? "").trim()}
+                    onClick={() =>
+                      patch.mutate({
+                        key: p.key,
+                        apiKey: (keyDrafts[p.key] ?? "").trim() || null,
+                      })
+                    }
+                  >
+                    Save key
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  className="input flex-1 min-w-[200px] font-mono text-sm"
-                  type="password"
-                  autoComplete="off"
-                  placeholder={`Paste ${p.name} API key`}
-                  value={keyDrafts[p.key] ?? ""}
-                  onChange={(e) =>
-                    setKeyDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
-                  }
-                />
-                <button
-                  type="button"
-                  className="btn btn-ghost text-sm"
-                  disabled={patch.isPending || !(keyDrafts[p.key] ?? "").trim()}
-                  onClick={() =>
-                    patch.mutate({
-                      key: p.key,
-                      apiKey: (keyDrafts[p.key] ?? "").trim() || null,
-                    })
-                  }
-                >
-                  Save key
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

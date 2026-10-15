@@ -6,23 +6,31 @@ import { requireAdmin, jsonError } from "@/lib/api-auth";
 import { smsAggregator } from "@/lib/sms/aggregator";
 import { ensureServiceCountryCatalog } from "@/lib/sms/ensure-service-catalog";
 import { maskKey } from "@/lib/sms/service-map";
-import { decimalJson } from "@/lib/money";
+import {
+  GRIZZLY_DEFAULT_MARKUP,
+  PROVIDER_TYPE_OPTIONS,
+  defaultMarkupForType,
+  displayNameForType,
+  ensureProviderSlots,
+  isSlotProviderType,
+  loadProviderSlots,
+  slotKeyForServer,
+  type SlotProviderType,
+} from "@/lib/sms/provider-slots";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return jsonError("Forbidden", 403);
 
   await ensureServiceCountryCatalog().catch(() => undefined);
+  await ensureProviderSlots().catch(() => undefined);
 
-  const settings = await prisma.providerSetting.findMany({
-    orderBy: { priority: "asc" },
-  });
+  const slots = await loadProviderSlots();
   const balances = await smsAggregator.balances();
   const markup = await prisma.setting.findUnique({
     where: { key: "global_markup_percent" },
   });
 
-  // Persist lastBalance probes (never store raw keys in response)
   for (const b of balances) {
     if (b.key === "mock") continue;
     if (b.balance != null) {
@@ -40,20 +48,31 @@ export async function GET(req: NextRequest) {
 
   return Response.json({
     markupPercent: markup?.value ?? process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
-    providers: settings.map((s) => {
+    providerTypes: PROVIDER_TYPE_OPTIONS,
+    grizzlyDefaultMarkup: GRIZZLY_DEFAULT_MARKUP,
+    providers: slots.map((s) => {
       const bal = balances.find((b) => b.key === s.key);
+      const markupPct =
+        s.providerType === "grizzlysms"
+          ? s.markupPercent > 0
+            ? s.markupPercent
+            : GRIZZLY_DEFAULT_MARKUP
+          : s.markupPercent;
       return {
-        id: s.id,
+        id: s.key,
         key: s.key,
-        name: s.name,
+        slot: s.priority,
+        name: `Server ${s.priority}`,
+        providerType: s.providerType,
+        providerLabel: displayNameForType(s.providerType),
+        baseUrl: s.baseUrl,
         enabled: s.enabled,
         priority: s.priority,
-        markupPercent: decimalJson(s.markupPercent),
-        hasApiKey: Boolean(s.apiKey?.trim()) || bal?.hasApiKey,
+        markupPercent: String(markupPct),
+        hasApiKey: Boolean(s.apiKey?.trim()) || Boolean(bal?.hasApiKey),
         apiKeyMasked: maskKey(s.apiKey),
-        balance: bal?.balance ?? (s.lastBalance != null ? Number(s.lastBalance) : null),
-        lastBalanceAt: s.lastBalanceAt,
-        envConfigured: bal?.hasApiKey ?? false,
+        balance: bal?.balance ?? null,
+        envConfigured: Boolean(bal?.hasApiKey && !s.apiKey?.trim()),
       };
     }),
   });
@@ -65,6 +84,10 @@ const patchSchema = z.object({
   apiKey: z.string().nullable().optional(),
   markupPercent: z.number().min(0).max(500).optional(),
   priority: z.number().int().min(1).max(10).optional(),
+  providerType: z
+    .enum(["sms-activate", "5sim", "grizzlysms", "custom-sa"])
+    .optional(),
+  baseUrl: z.string().nullable().optional(),
   globalMarkupPercent: z.number().min(0).max(500).optional(),
 });
 
@@ -87,27 +110,55 @@ export async function PATCH(req: NextRequest) {
     });
   }
 
+  await ensureProviderSlots().catch(() => undefined);
   await ensureServiceCountryCatalog().catch(() => undefined);
 
+  // Accept legacy keys by mapping to slots
+  let key = parsed.data.key;
+  if (key === "sms-activate") key = slotKeyForServer(1);
+  if (key === "5sim") key = slotKeyForServer(2);
+  if (key === "grizzlysms") key = slotKeyForServer(3);
+
+  const existing = await prisma.providerSetting.findUnique({ where: { key } });
+  if (!existing) return jsonError("Unknown server slot", 404);
+
+  const nextType: SlotProviderType | undefined = parsed.data.providerType;
+  let nextMarkup = parsed.data.markupPercent;
+
+  // When switching to Grizzly and markup not explicitly sent, default 40
+  if (nextType === "grizzlysms" && nextMarkup === undefined) {
+    const cur = Number(existing.markupPercent);
+    if (!isSlotProviderType(existing.providerType) || existing.providerType !== "grizzlysms") {
+      nextMarkup = GRIZZLY_DEFAULT_MARKUP;
+    } else if (cur === 20) {
+      nextMarkup = GRIZZLY_DEFAULT_MARKUP;
+    }
+  }
+
   const updated = await prisma.providerSetting.update({
-    where: { key: parsed.data.key },
+    where: { key },
     data: {
       ...(parsed.data.enabled !== undefined ? { enabled: parsed.data.enabled } : {}),
       ...(parsed.data.apiKey !== undefined ? { apiKey: parsed.data.apiKey } : {}),
       ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
-      ...(parsed.data.markupPercent !== undefined
-        ? { markupPercent: new Prisma.Decimal(parsed.data.markupPercent) }
+      ...(nextType ? { providerType: nextType, name: `Server ${existing.priority}` } : {}),
+      ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
+      ...(nextMarkup !== undefined
+        ? { markupPercent: new Prisma.Decimal(nextMarkup) }
         : {}),
     },
   });
 
-  // Keep legacy ProviderConfig in sync for older admin UI
+  // Keep legacy ProviderConfig in sync (type key for older tooling)
+  const typeKey = isSlotProviderType(updated.providerType)
+    ? updated.providerType
+    : "sms-activate";
   await prisma.providerConfig
     .upsert({
-      where: { key: updated.key },
+      where: { key: typeKey === "custom-sa" ? "sms-activate" : typeKey },
       create: {
-        key: updated.key,
-        name: updated.name,
+        key: typeKey === "custom-sa" ? "sms-activate" : typeKey,
+        name: displayNameForType(typeKey as SlotProviderType),
         enabled: updated.enabled,
         apiKey: updated.apiKey,
       },
@@ -118,13 +169,26 @@ export async function PATCH(req: NextRequest) {
     })
     .catch(() => undefined);
 
+  const markupOut =
+    updated.providerType === "grizzlysms"
+      ? Number(updated.markupPercent) || GRIZZLY_DEFAULT_MARKUP
+      : Number(updated.markupPercent);
+
   return Response.json({
     provider: {
       key: updated.key,
+      slot: updated.priority,
+      providerType: updated.providerType,
       enabled: updated.enabled,
       hasApiKey: Boolean(updated.apiKey),
-      markupPercent: decimalJson(updated.markupPercent),
+      markupPercent: String(markupOut),
+      baseUrl: updated.baseUrl,
       priority: updated.priority,
+      defaultMarkupHint: defaultMarkupForType(
+        isSlotProviderType(updated.providerType)
+          ? updated.providerType
+          : "sms-activate",
+      ),
     },
   });
 }

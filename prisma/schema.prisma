@@ -236,11 +236,18 @@ model ProviderConfig {
 /// Admin-managed wholesale provider settings (keys, enable, markup, balances).
 model ProviderSetting {
   id            String    @id @default(cuid())
-  key           String    @unique // sms-activate | 5sim | grizzlysms
+  /// Slot key: server-1 | server-2 | server-3 (legacy sms-activate/5sim/grizzlysms migrated)
+  key           String    @unique
   name          String
+  /// sms-activate | 5sim | grizzlysms | custom-sa
+  providerType  String    @default("sms-activate")
+  /// Optional SMS-Activate–compatible handler base URL (custom-sa / overrides)
+  baseUrl       String?
   apiKey        String?
   enabled       Boolean   @default(true)
-  priority      Int       @default(1) // 1 = SMS-Activate, 2 = 5SIM, 3 = Grizzly
+  /// Server slot 1 | 2 | 3
+  priority      Int       @default(1)
+  /// Retail markup % for this slot (Grizzly default 40 → retail = wholesale × 1.40)
   markupPercent Decimal   @default(20)
   lastBalance   Decimal?
   lastBalanceAt DateTime?

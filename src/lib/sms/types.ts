@@ -12,6 +12,10 @@ export type BuyResult = {
   providerOrderId: string;
   phoneNumber: string;
   wholesaleCost: number;
+  /** Admin Server slot that fulfilled the buy (1|2|3) */
+  serverSlot?: 1 | 2 | 3;
+  /** Slot markup % used for retail (Grizzly default 40) */
+  markupPercent?: number;
 };
 
 export type SmsStatus = {

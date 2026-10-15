@@ -124,25 +124,8 @@ export async function ensureCatalogSeeded(): Promise<void> {
         }
       }
 
-      for (const d of [
-        { key: "sms-activate", name: "SMS-Activate", priority: 1 },
-        { key: "5sim", name: "5SIM", priority: 2 },
-        { key: "grizzlysms", name: "Grizzly SMS", priority: 3 },
-      ]) {
-        await prisma.providerSetting.upsert({
-          where: { key: d.key },
-          create: {
-            key: d.key,
-            name: d.name,
-            priority: d.priority,
-            enabled: true,
-            markupPercent: new Prisma.Decimal(
-              process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
-            ),
-          },
-          update: {},
-        });
-      }
+      const { ensureProviderSlots } = await import("@/lib/sms/provider-slots");
+      await ensureProviderSlots().catch(() => undefined);
 
       await prisma.providerConfig.upsert({
         where: { key: "mock" },

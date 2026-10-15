@@ -8,10 +8,38 @@ import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { worldCountryByCode } from "@/lib/world-countries";
 import { fetchFiveSimLiveStock } from "@/lib/sms/live-stock";
+import {
+  GRIZZLY_DEFAULT_MARKUP,
+  loadProviderSlots,
+  retailFromWholesale,
+} from "@/lib/sms/provider-slots";
 
-function synthServices(countryCode: string, q: string) {
+async function slotMarkupMap(): Promise<Record<number, number>> {
+  try {
+    const slots = await loadProviderSlots();
+    const map: Record<number, number> = { 1: 20, 2: 20, 3: GRIZZLY_DEFAULT_MARKUP };
+    for (const s of slots) {
+      map[s.priority] =
+        s.providerType === "grizzlysms"
+          ? s.markupPercent > 0
+            ? s.markupPercent
+            : GRIZZLY_DEFAULT_MARKUP
+          : s.markupPercent > 0
+            ? s.markupPercent
+            : 20;
+    }
+    return map;
+  } catch {
+    return { 1: 20, 2: 20, 3: GRIZZLY_DEFAULT_MARKUP };
+  }
+}
+
+function synthServices(
+  countryCode: string,
+  q: string,
+  markups: Record<number, number>,
+) {
   const fb = worldCountryByCode(countryCode) ?? worldCountryByCode("US")!;
-  const markup = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") / 100;
   return {
     country: {
       id: `world-${fb.code}`,
@@ -28,10 +56,11 @@ function synthServices(countryCode: string, q: string) {
       category: s.category,
       offers: [1, 2, 3].map((server) => {
         const cost = s.base * (1 + (server - 1) * 0.08) * (fb.code === "US" ? 1.15 : 1);
+        const m = (markups[server] ?? 20) / 100;
         return {
           id: `fb-${s.slug}-${server}`,
           server,
-          price: (cost * (1 + markup)).toFixed(4),
+          price: (cost * (1 + m)).toFixed(4),
           stock: 40,
           inStock: true,
         };
@@ -52,6 +81,8 @@ export async function GET(req: NextRequest) {
   // live=1 overlays 5SIM; default fast path never blocks first paint on wholesale
   const wantLive = req.nextUrl.searchParams.get("live") === "1";
 
+  const markups = await slotMarkupMap();
+
   try {
     // Seed / offer expand in background — never block country switch first paint
     void ensureCatalogSeeded().catch(() => undefined);
@@ -60,7 +91,7 @@ export async function GET(req: NextRequest) {
     const country = await prisma.country.findUnique({ where: { code: countryCode } });
     if (!country) {
       return Response.json(
-        { ...synthServices(countryCode, q), liveStock: false },
+        { ...synthServices(countryCode, q, markups), liveStock: false },
         {
           headers: {
             ...(rateLimitHeaders(rl) as Record<string, string>),
@@ -82,7 +113,6 @@ export async function GET(req: NextRequest) {
     });
 
     const have = new Set(services.map((s) => s.slug));
-    const markup = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") / 100;
     const extras = FALLBACK_SERVICES.filter((def) => !have.has(def.slug)).map((def) => ({
       id: `fallback-${def.slug}`,
       slug: def.slug,
@@ -91,10 +121,11 @@ export async function GET(req: NextRequest) {
       offers: [1, 2, 3].map((server) => {
         const cost =
           def.base * (1 + (server - 1) * 0.08) * (country.code === "US" ? 1.15 : 1);
+        const m = (markups[server] ?? 20) / 100;
         return {
           id: `fb-${def.slug}-${server}`,
           server,
-          price: new Prisma.Decimal((cost * (1 + markup)).toFixed(4)),
+          price: new Prisma.Decimal((cost * (1 + m)).toFixed(4)),
           stock: 40,
         };
       }),
@@ -124,6 +155,10 @@ export async function GET(req: NextRequest) {
 
     // Live 5SIM only when requested — never blocks the fast catalog paint
     const live = wantLive ? await fetchFiveSimLiveStock(countryCode) : new Map();
+    // Which slots currently use 5SIM (for live overlay)
+    const fiveSimSlots = new Set(
+      (await loadProviderSlots().catch(() => [])).filter((s) => s.providerType === "5sim").map((s) => s.priority),
+    );
 
     return Response.json(
       {
@@ -143,13 +178,17 @@ export async function GET(req: NextRequest) {
             offers: s.offers.map((o) => {
               let stock = o.stock;
               let price = o.price;
-              if (o.server === 2 && liveRow) {
+              const slotM = (markups[o.server] ?? 20) / 100;
+              if (liveRow && (fiveSimSlots.has(o.server) || o.server === 2)) {
                 stock = liveRow.stock ?? (liveRow.available ? Math.max(stock, 1) : 0);
                 if (liveRow.wholesale > 0) {
                   price = new Prisma.Decimal(
-                    (liveRow.wholesale * (1 + markup)).toFixed(4),
+                    retailFromWholesale(liveRow.wholesale, markups[o.server] ?? 20).toFixed(4),
                   );
                 }
+              } else if (typeof price === "string" || price instanceof Prisma.Decimal) {
+                // leave seeded offer price; Grizzly/slot markup applied on buy from wholesale
+                void slotM;
               }
               return {
                 id: o.id,
@@ -157,12 +196,14 @@ export async function GET(req: NextRequest) {
                 price: decimalJson(price),
                 stock,
                 inStock: stock > 0,
-                live: o.server === 2 && Boolean(liveRow),
+                live: Boolean(liveRow) && (fiveSimSlots.has(o.server) || o.server === 2),
+                markupPercent: markups[o.server] ?? 20,
               };
             }),
           };
         }),
         liveStock: live.size > 0,
+        slotMarkups: markups,
       },
       {
         headers: {
@@ -173,7 +214,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (err) {
     console.error("[services]", err instanceof Error ? err.message : err);
-    return Response.json(synthServices(countryCode, q), {
+    return Response.json(synthServices(countryCode, q, markups), {
       headers: rateLimitHeaders(rl),
     });
   }

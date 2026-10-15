@@ -103,7 +103,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     if (e instanceof AllProvidersFailedError) {
       const missingKeys = e.attempts.some((a) => a.error.includes("MISSING_KEYS"));
       const message = missingKeys
-        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Add SMS_ACTIVATE_API_KEY, FIVESIM_API_KEY, or GRIZZLY_SMS_API_KEY in Vercel → Settings → Environment Variables (or paste in Admin)."
+        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Paste keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY)."
         : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
       throw Object.assign(new Error(message), {
         status: 409,
@@ -116,16 +116,36 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     );
   }
 
-  const serverUsed = serverNumberForProvider(purchase.providerKey);
+  const serverUsed =
+    purchase.serverSlot ?? serverNumberForProvider(purchase.providerKey);
   const wholesale = new Prisma.Decimal(purchase.wholesaleCost || offer.costPrice || 0);
+
+  // Grizzly (and other slots): retail = wholesale × (1 + slotMarkup/100) when wholesale known
+  const slotMarkup =
+    purchase.markupPercent ??
+    (purchase.providerKey === "grizzlysms" ? 40 : userMarkup);
+  let chargePrice = price;
+  if (Number(wholesale) > 0) {
+    const fromWholesale = new Prisma.Decimal(
+      (Number(wholesale) * (1 + slotMarkup / 100)).toFixed(4),
+    );
+    // Prefer live wholesale×margin for the fulfilling slot (Grizzly → 40%)
+    chargePrice = fromWholesale;
+  }
+  if (new Prisma.Decimal(user.balance).lt(chargePrice)) {
+    await smsAggregator
+      .cancel(purchase.providerKey, purchase.providerOrderId)
+      .catch(() => undefined);
+    throw Object.assign(new Error("Insufficient balance"), { status: 402 });
+  }
 
   try {
     const order = await prisma.$transaction(async (tx) => {
       const fresh = await tx.user.findUniqueOrThrow({ where: { id: input.userId } });
-      if (new Prisma.Decimal(fresh.balance).lt(price)) {
+      if (new Prisma.Decimal(fresh.balance).lt(chargePrice)) {
         throw new Error("Insufficient balance");
       }
-      const balanceAfter = new Prisma.Decimal(fresh.balance).minus(price);
+      const balanceAfter = new Prisma.Decimal(fresh.balance).minus(chargePrice);
       await tx.user.update({
         where: { id: input.userId },
         data: { balance: balanceAfter },
@@ -140,7 +160,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
           serverMode,
           phoneNumber: purchase.phoneNumber,
           status: "ACTIVE",
-          price: offer.price,
+          price: chargePrice,
           wholesaleCost: wholesale,
           providerOrderId: purchase.providerOrderId,
           providerKey: purchase.providerKey,
@@ -154,7 +174,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
           userId: input.userId,
           orderId: created.id,
           type: "PURCHASE",
-          amount: price.negated(),
+          amount: chargePrice.negated(),
           balanceAfter,
           method: "balance",
           status: "COMPLETED",
@@ -164,7 +184,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
             server: serverUsed,
             serverMode,
             provider: purchase.providerKey,
-            markupPercent: userMarkup,
+            markupPercent: slotMarkup,
           }),
         },
       });
