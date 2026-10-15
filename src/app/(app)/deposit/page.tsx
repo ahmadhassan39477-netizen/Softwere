@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MessageCircle, ShieldCheck, Wallet } from "lucide-react";
+import { buildDepositPrefill } from "@/lib/whatsapp-copy";
 import { statusColor } from "@/lib/utils";
 
 const PRESETS = [5, 10, 25, 50, 100] as const;
@@ -52,9 +53,7 @@ export default function DepositPage() {
     const num = config.data?.whatsappNumber;
     if (!num) return null;
     const email = session?.user?.email ?? "";
-    const amt = Number(amount);
-    const pretty = Number.isFinite(amt) ? amt.toFixed(2) : amount;
-    const text = `Hi Areesha, I want to deposit $${pretty} to my Temp Empire wallet.\nEmail: ${email}`;
+    const text = buildDepositPrefill(amount, email);
     return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
   }, [config.data?.whatsappNumber, amount, session?.user?.email]);
 
@@ -84,10 +83,10 @@ export default function DepositPage() {
       <div className="panel panel-accent p-5 space-y-5">
         <div className="flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
           <span className="inline-flex items-center gap-1.5">
-            <MessageCircle size={14} className="text-[var(--accent)]" /> Pay on WhatsApp
+            <MessageCircle size={14} className="text-[var(--accent)]" /> WhatsApp credit
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-[var(--accent)]" /> Manual top-up by owner
+            <ShieldCheck size={14} className="text-[var(--accent)]" /> Confirmed before credit
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Wallet size={14} className="text-[var(--accent)]" /> No card stored here
@@ -95,14 +94,13 @@ export default function DepositPage() {
         </div>
 
         <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-          Choose how much you want to add, then open WhatsApp chat. Pay Areesha as she instructs.
-          Your balance updates only after she confirms and tops you up in Admin — nothing is added
-          automatically.
+          {config.data?.instructions ??
+            "Message us on WhatsApp to add credit. Include your account email and the amount you paid. Balance updates after we confirm payment — nothing is credited automatically."}
         </p>
 
         {config.data?.whatsappDisplay && (
           <p className="text-sm">
-            Deposit chat:{" "}
+            WhatsApp:{" "}
             <span className="mono-data text-[var(--accent)]">{config.data.whatsappDisplay}</span>
           </p>
         )}
@@ -152,8 +150,8 @@ export default function DepositPage() {
 
         <ol className="text-sm text-[var(--text-muted)] space-y-2 list-decimal pl-5">
           <li>Tap Open WhatsApp (message includes your email + amount).</li>
-          <li>Pay Areesha using the method she shares on chat.</li>
-          <li>Wait for confirmation — balance updates when she tops you up in Admin.</li>
+          <li>Send payment using the method we share in chat.</li>
+          <li>Wait for confirmation — your balance updates after we credit your wallet.</li>
         </ol>
 
         <button

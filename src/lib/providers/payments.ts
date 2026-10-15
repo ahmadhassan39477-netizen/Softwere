@@ -13,7 +13,7 @@ export type DepositIntent = {
 
 /**
  * Legacy crypto/manual deposit intents.
- * mock_instant is disabled in production — credits only via Admin WhatsApp top-up.
+ * mock_instant is disabled in production — credits only via WhatsApp deposit + owner top-up.
  */
 export async function createDepositIntent(input: {
   userId: string;
@@ -28,7 +28,7 @@ export async function createDepositIntent(input: {
     // Never auto-credit in production, even if an old client posts this method.
     if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
       throw new Error(
-        "Instant demo deposits are disabled. Pay on WhatsApp — the owner will credit your wallet.",
+        "Instant demo deposits are disabled. Message us on WhatsApp to add credit.",
       );
     }
     if (process.env.USE_MOCK_PROVIDERS !== "true") {

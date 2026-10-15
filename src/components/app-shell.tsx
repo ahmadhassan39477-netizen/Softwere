@@ -18,6 +18,7 @@ import {
   Moon,
   LogOut,
   ChevronDown,
+  UserRound,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { BrandWordmark } from "@/components/brand-mark";
@@ -28,6 +29,7 @@ const DESKTOP_NAV = [
   { href: "/temp-mail", label: "Temp Mail", icon: Mail },
   { href: "/deposit", label: "Deposit", icon: Wallet },
   { href: "/orders", label: "Orders", icon: History },
+  { href: "/account", label: "Account", icon: UserRound },
   { href: "/api-docs", label: "API Docs", icon: BookOpen },
 ];
 
@@ -36,7 +38,15 @@ const MOBILE_TABS = [
   { href: "/services", label: "Home", icon: Home },
   { href: "/orders", label: "Orders", icon: History },
   { href: "/deposit", label: "Deposit", icon: Wallet },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/account", label: "Account", icon: UserRound },
+] as const;
+
+const PROFILE_LINKS = [
+  { href: "/account", label: "Account", icon: UserRound },
+  { href: "/deposit", label: "Deposit", icon: Wallet },
+  { href: "/orders", label: "Orders", icon: History },
+  { href: "/api-docs", label: "API Docs", icon: BookOpen },
+  { href: "/settings", label: "Reseller API", icon: Settings },
 ] as const;
 
 const MOBILE_ADMIN_TAB = { href: "/admin", label: "Admin", icon: Shield } as const;
@@ -168,21 +178,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 4 }}
-                      className="absolute right-0 mt-2 w-52 panel p-2 shadow-xl"
+                      className="absolute right-0 mt-2 w-56 panel p-2 shadow-xl"
                     >
-                      <Link
-                        href="/settings"
-                        className="block rounded-lg px-3 py-3 text-sm min-h-12 hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]"
-                        onClick={() => setProfileOpen(false)}
-                      >
-                        Settings
-                      </Link>
+                      {PROFILE_LINKS.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]"
+                            onClick={() => setProfileOpen(false)}
+                          >
+                            <Icon size={14} className="text-[var(--text-muted)]" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                      <div className="my-1 h-px bg-[var(--border)]" />
                       <button
                         type="button"
-                        className="flex w-full min-h-12 items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]"
+                        className="flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--card-hover)] active:bg-[var(--card-hover)]"
                         onClick={() => signOut({ callbackUrl: "/" })}
                       >
-                        <LogOut size={14} /> Sign out
+                        <LogOut size={14} /> Logout
                       </button>
                     </motion.div>
                   )}

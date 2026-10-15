@@ -8,7 +8,15 @@ import { resolveAuthSecret } from "@/lib/auth-secret";
  */
 const CANONICAL_HOST = "www.tempempire.store";
 
-const PROTECTED_PREFIXES = ["/services", "/deposit", "/orders", "/settings", "/temp-mail", "/admin"];
+const PROTECTED_PREFIXES = [
+  "/services",
+  "/deposit",
+  "/orders",
+  "/account",
+  "/settings",
+  "/temp-mail",
+  "/admin",
+];
 
 export async function middleware(request: NextRequest) {
   const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];

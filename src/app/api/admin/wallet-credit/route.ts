@@ -14,7 +14,7 @@ const schema = z.object({
 
 /**
  * Admin-only: top up a customer's wallet after WhatsApp payment is confirmed offline.
- * No automatic / fake credits — Areesha must click this.
+ * No automatic / fake credits — owner must click this.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);

@@ -7,7 +7,7 @@ import {
 import { decimalJson } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
-/** Deposit page config — WhatsApp chat for manual payment to Areesha. */
+/** Deposit page config — WhatsApp chat for manual payment (customer-safe copy). */
 export async function GET() {
   const user = await requireUser();
   if (!user) return jsonError("Unauthorized", 401);
@@ -24,6 +24,6 @@ export async function GET() {
     sampleChatUrl: whatsappChatUrl(number, samplePrefill),
     requiredEnv: ["WHATSAPP_BUSINESS_NUMBER"],
     instructions:
-      "Message Areesha on WhatsApp with your account email and the amount you paid. She will add credit to your wallet after confirming payment — nothing is credited automatically.",
+      "Message us on WhatsApp to add credit. Include your account email and the amount you paid. Balance updates after we confirm payment — nothing is credited automatically.",
   });
 }

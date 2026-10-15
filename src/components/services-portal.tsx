@@ -491,7 +491,7 @@ export function ServicesPortal() {
                   <span className="mono-data font-semibold text-[var(--danger)]">
                     ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
                   </span>
-                  . Pay Areesha on WhatsApp, then she tops you up in Admin.
+                  . Message us on WhatsApp to add credit.
                 </p>
               </div>
             </div>
@@ -500,7 +500,7 @@ export function ServicesPortal() {
               className="btn btn-primary relative z-[1] inline-flex min-h-12 shrink-0 items-center justify-center gap-2 px-5"
             >
               <Wallet size={16} />
-              Go to Deposit
+              Message us on WhatsApp
             </Link>
           </div>
         </motion.div>
@@ -740,7 +740,7 @@ export function ServicesPortal() {
                       className="btn btn-primary relative z-[1] inline-flex min-h-12 shrink-0 items-center justify-center gap-2 px-5"
                     >
                       <Wallet size={16} />
-                      Deposit via WhatsApp
+                      Message us on WhatsApp
                     </Link>
                   </div>
                 </motion.div>

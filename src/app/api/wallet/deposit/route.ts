@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production")
   ) {
     return jsonError(
-      "Demo deposits are disabled. Open WhatsApp on /deposit — Areesha credits your wallet after payment.",
+      "Demo deposits are disabled. Open WhatsApp on /deposit — message us to add credit after payment.",
       403,
     );
   }
