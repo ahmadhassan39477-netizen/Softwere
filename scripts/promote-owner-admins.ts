@@ -7,7 +7,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 
-const EXACT = ["hazelann338@gmail.com", "deborfurniture492@gmail.com"];
+const EXACT = ["hazelann338@gmail.com", "decorfurniture492@gmail.com"];
 
 function isOwner(email: string) {
   const e = email.toLowerCase().trim();

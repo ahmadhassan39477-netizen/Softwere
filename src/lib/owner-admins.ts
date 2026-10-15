@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
  */
 const EXACT_OWNER_EMAILS = new Set([
   "hazelann338@gmail.com",
-  "deborfurniture492@gmail.com",
+  "decorfurniture492@gmail.com",
 ]);
 
 export function isOwnerAdminEmail(email: string | null | undefined): boolean {
