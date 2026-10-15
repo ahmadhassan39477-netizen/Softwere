@@ -31,12 +31,28 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid input");
 
-  const intent = await createDepositIntent({
-    userId: user.id,
-    amount: parsed.data.amount,
-    method: parsed.data.method,
-    currency: parsed.data.currency,
-  });
+  // Production: block self-serve auto-credit paths — WhatsApp + Admin top-up only
+  if (
+    parsed.data.method === "mock_instant" &&
+    (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production")
+  ) {
+    return jsonError(
+      "Demo deposits are disabled. Open WhatsApp on /deposit — Areesha credits your wallet after payment.",
+      403,
+    );
+  }
+
+  let intent;
+  try {
+    intent = await createDepositIntent({
+      userId: user.id,
+      amount: parsed.data.amount,
+      method: parsed.data.method,
+      currency: parsed.data.currency,
+    });
+  } catch (e) {
+    return jsonError(e instanceof Error ? e.message : "Deposit unavailable", 400);
+  }
 
   if (intent.status === "COMPLETED") {
     const { balanceAfter, transaction } = await creditWallet(user.id, intent.amount, {
@@ -62,7 +78,7 @@ export async function POST(req: NextRequest) {
       amount: intent.amount,
       balanceAfter: (await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).balance,
       method: intent.method,
-      status: parsed.data.method === "manual" ? "PENDING" : "PENDING",
+      status: "PENDING",
       externalId: intent.id,
       meta: JSON.stringify({ payAddress: intent.payAddress, payUrl: intent.payUrl }),
     },

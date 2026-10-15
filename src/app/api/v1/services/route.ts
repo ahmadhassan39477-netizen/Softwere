@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    let services = await prisma.service.findMany({
+    const services = await prisma.service.findMany({
       where: { enabled: true },
       include: {
         offers: {
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
       offers: { id: string; server: number; price: Prisma.Decimal | string; stock: number }[];
     };
 
-    let rows: Row[] = [
+    const rows: Row[] = [
       ...services.map((s) => ({
         id: s.id,
         slug: s.slug,
@@ -107,13 +107,10 @@ export async function GET(req: NextRequest) {
         offers: s.offers,
       })),
       ...extras,
-    ];
-
-    if (q) {
-      rows = rows.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
-      );
-    }
+    ].filter(
+      (s) =>
+        !q || s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
+    );
 
     return Response.json(
       {
