@@ -386,8 +386,11 @@ export function ServicesPortal() {
               <h2 className="font-semibold mb-1 tracking-tight text-lg lg:text-base">
                 Select country
               </h2>
-              <p className="text-xs text-[var(--text-muted)] mb-3 lg:hidden">
-                Tap a route — large targets for thumb use.
+              <p className="text-xs text-[var(--text-muted)] mb-3">
+                {(countriesQuery.data?.countries?.length ?? 0) > 0
+                  ? `${countriesQuery.data?.countries.length} countries`
+                  : "Loading world list…"}
+                {" — "}search the full list.
               </p>
               <div className="relative mb-3">
                 <Search

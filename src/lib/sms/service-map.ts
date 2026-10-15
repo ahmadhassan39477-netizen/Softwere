@@ -4,7 +4,9 @@ export const SA_SERVICE: Record<string, string> = {
   whatsapp: "wa",
   telegram: "tg",
   google: "go",
+  microsoft: "mm",
   openai: "dr",
+  amazon: "am",
   tinder: "oi",
   binance: "hw",
   facebook: "fb",
@@ -12,7 +14,13 @@ export const SA_SERVICE: Record<string, string> = {
   discord: "ds",
   twitter: "tw",
   instagram: "ig",
+  snapchat: "fu",
+  linkedin: "tn",
   uber: "ub",
+  apple: "wx",
+  yahoo: "mb",
+  viber: "vi",
+  signal: "bw",
 };
 
 export const SA_COUNTRY: Record<string, string> = {
@@ -32,7 +40,9 @@ export const FIVESIM_PRODUCT: Record<string, string> = {
   whatsapp: "whatsapp",
   telegram: "telegram",
   google: "google",
+  microsoft: "microsoft",
   openai: "openai",
+  amazon: "amazon",
   tinder: "tinder",
   binance: "binance",
   facebook: "facebook",
@@ -40,7 +50,13 @@ export const FIVESIM_PRODUCT: Record<string, string> = {
   discord: "discord",
   twitter: "twitter",
   instagram: "instagram",
+  snapchat: "snapchat",
+  linkedin: "linkedin",
   uber: "uber",
+  apple: "apple",
+  yahoo: "yahoo",
+  viber: "viber",
+  signal: "signal",
 };
 
 export const FIVESIM_COUNTRY: Record<string, string> = {

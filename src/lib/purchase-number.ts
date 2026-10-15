@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { AllProvidersFailedError } from "@/lib/sms/types";
 import { smsAggregator, serverNumberForProvider } from "@/lib/sms/aggregator";
 import { decimalJson } from "@/lib/money";
-import { ensureCatalogSeeded } from "@/lib/ensure-catalog";
+import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
+import { worldCountryByCode } from "@/lib/world-countries";
 
 export type PurchaseNumberInput = {
   userId: string;
@@ -19,15 +20,32 @@ export type PurchaseNumberInput = {
  */
 export async function purchaseNumber(input: PurchaseNumberInput) {
   await ensureCatalogSeeded().catch(() => undefined);
+  await ensureCountryOffers(input.countryCode).catch(() => undefined);
 
   const serverMode = input.server === "auto" || input.server === undefined ? "auto" : "fixed";
   const preferredServer =
     typeof input.server === "number" ? input.server : 1;
 
-  const country = await prisma.country.findUnique({
+  let country = await prisma.country.findUnique({
     where: { code: input.countryCode.toUpperCase() },
   });
-  if (!country?.enabled) throw Object.assign(new Error("Country unavailable"), { status: 404 });
+  if (!country) {
+    const w = worldCountryByCode(input.countryCode);
+    if (!w) throw Object.assign(new Error("Country unavailable"), { status: 404 });
+    country = await prisma.country.create({
+      data: {
+        code: w.code,
+        name: w.name,
+        flag: w.flag,
+        dialCode: w.dialCode,
+        availability: w.availability,
+        sortOrder: w.sortOrder,
+        enabled: true,
+      },
+    });
+    await ensureCountryOffers(w.code);
+  }
+  if (!country.enabled) throw Object.assign(new Error("Country unavailable"), { status: 404 });
 
   const service = await prisma.service.findUnique({
     where: { slug: input.serviceSlug },

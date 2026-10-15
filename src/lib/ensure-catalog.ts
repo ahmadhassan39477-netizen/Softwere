@@ -1,25 +1,40 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { FALLBACK_COUNTRIES, FALLBACK_SERVICES } from "@/lib/catalog-fallback";
+import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
+import { WORLD_COUNTRIES } from "@/lib/world-countries";
 
+const CATALOG_VERSION = "world_v2";
 let seeding: Promise<void> | null = null;
+const countryOfferLocks = new Map<string, Promise<void>>();
+
+function markupRatio() {
+  return Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") / 100;
+}
 
 /**
- * If Country table is empty (fresh Neon), upsert the static catalog + mock offers
- * so the Buy UI and purchase flow work without wholesale API keys.
+ * Expand Neon to the full world country list + broad services.
+ * Safe to call often — skips when Setting world_catalog_version matches.
  */
 export async function ensureCatalogSeeded(): Promise<void> {
   if (seeding) return seeding;
 
   seeding = (async () => {
     try {
-      const count = await prisma.country.count();
-      if (count > 0) return;
+      const ver = await prisma.setting.findUnique({
+        where: { key: "world_catalog_version" },
+      });
+      const countryCount = await prisma.country.count();
+      // Re-run if version stale OR Neon still has the short 8–10 list
+      if (ver?.value === CATALOG_VERSION && countryCount >= WORLD_COUNTRIES.length - 5) {
+        return;
+      }
 
-      console.info("[catalog] empty — seeding fallback countries/services/offers");
+      console.info(
+        `[catalog] expanding world catalog (countries=${countryCount} → ${WORLD_COUNTRIES.length})`,
+      );
 
-      for (let i = 0; i < FALLBACK_COUNTRIES.length; i++) {
-        const c = FALLBACK_COUNTRIES[i];
+      for (let i = 0; i < WORLD_COUNTRIES.length; i++) {
+        const c = WORLD_COUNTRIES[i];
         await prisma.country.upsert({
           where: { code: c.code },
           create: {
@@ -59,9 +74,18 @@ export async function ensureCatalogSeeded(): Promise<void> {
         });
       }
 
-      const markup = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") / 100;
-      const countries = await prisma.country.findMany();
+      // Seed offers for a popular core set immediately so first paint has prices;
+      // other countries get offers lazily via ensureCountryOffers.
+      const coreCodes = new Set([
+        "US", "GB", "NG", "IN", "DE", "FR", "BR", "ID", "PH", "RU",
+        "CA", "AU", "MX", "ZA", "KE", "PK", "BD", "TR", "UA", "PL",
+        "ES", "IT", "NL", "SE", "AE", "SA", "EG", "JP", "KR", "TH",
+      ]);
+      const countries = await prisma.country.findMany({
+        where: { code: { in: [...coreCodes] } },
+      });
       const services = await prisma.service.findMany();
+      const markup = markupRatio();
 
       for (const country of countries) {
         for (let si = 0; si < FALLBACK_SERVICES.length; si++) {
@@ -69,9 +93,10 @@ export async function ensureCatalogSeeded(): Promise<void> {
           const svc = services.find((x) => x.slug === def.slug);
           if (!svc) continue;
           for (const server of [1, 2, 3]) {
-            const cost = def.base * (1 + (server - 1) * 0.08) * (country.code === "US" ? 1.15 : 1);
+            const cost =
+              def.base * (1 + (server - 1) * 0.08) * (country.code === "US" ? 1.15 : 1);
             const price = cost * (1 + markup);
-            const stock = server === 3 && si % 5 === 0 ? 12 : 50 + ((si + server) % 7) * 12;
+            const stock = 40 + ((si + server + country.sortOrder) % 90);
             await prisma.serviceOffer.upsert({
               where: {
                 countryId_serviceId_server: {
@@ -92,20 +117,12 @@ export async function ensureCatalogSeeded(): Promise<void> {
               },
               update: {
                 price: new Prisma.Decimal(price.toFixed(4)),
-                stock,
                 enabled: true,
-                providerKey: "mock",
               },
             });
           }
         }
       }
-
-      await prisma.providerConfig.upsert({
-        where: { key: "mock" },
-        create: { key: "mock", name: "Mock SMS Provider", enabled: true },
-        update: { enabled: true },
-      });
 
       for (const d of [
         { key: "sms-activate", name: "SMS-Activate", priority: 1 },
@@ -127,6 +144,12 @@ export async function ensureCatalogSeeded(): Promise<void> {
         });
       }
 
+      await prisma.providerConfig.upsert({
+        where: { key: "mock" },
+        create: { key: "mock", name: "Mock SMS Provider", enabled: true },
+        update: { enabled: true },
+      });
+
       await prisma.setting.upsert({
         where: { key: "order_ttl_minutes" },
         create: { key: "order_ttl_minutes", value: "15" },
@@ -145,15 +168,78 @@ export async function ensureCatalogSeeded(): Promise<void> {
         },
         update: {},
       });
+      await prisma.setting.upsert({
+        where: { key: "world_catalog_version" },
+        create: { key: "world_catalog_version", value: CATALOG_VERSION },
+        update: { value: CATALOG_VERSION },
+      });
 
-      console.info("[catalog] fallback seed complete");
+      console.info("[catalog] world catalog expand complete");
     } catch (err) {
-      console.error("[catalog] ensureCatalogSeeded failed", err instanceof Error ? err.message : err);
-      // allow retry on next request
+      console.error(
+        "[catalog] ensureCatalogSeeded failed",
+        err instanceof Error ? err.message : err,
+      );
       seeding = null;
       throw err;
     }
   })();
 
   return seeding;
+}
+
+/** Lazy-create price/stock rows for one country so buy works for any ISO code. */
+export async function ensureCountryOffers(countryCode: string): Promise<void> {
+  const code = countryCode.toUpperCase();
+  const existing = countryOfferLocks.get(code);
+  if (existing) return existing;
+
+  const job = (async () => {
+    await ensureCatalogSeeded().catch(() => undefined);
+    const country = await prisma.country.findUnique({ where: { code } });
+    if (!country) return;
+
+    const offerCount = await prisma.serviceOffer.count({
+      where: { countryId: country.id },
+    });
+    if (offerCount >= FALLBACK_SERVICES.length) return;
+
+    const services = await prisma.service.findMany();
+    const markup = markupRatio();
+    for (let si = 0; si < FALLBACK_SERVICES.length; si++) {
+      const def = FALLBACK_SERVICES[si];
+      const svc = services.find((x) => x.slug === def.slug);
+      if (!svc) continue;
+      for (const server of [1, 2, 3]) {
+        const cost = def.base * (1 + (server - 1) * 0.08) * (code === "US" ? 1.15 : 1);
+        const price = cost * (1 + markup);
+        const stock = 35 + ((si + server + country.sortOrder) % 80);
+        await prisma.serviceOffer.upsert({
+          where: {
+            countryId_serviceId_server: {
+              countryId: country.id,
+              serviceId: svc.id,
+              server,
+            },
+          },
+          create: {
+            countryId: country.id,
+            serviceId: svc.id,
+            server,
+            costPrice: new Prisma.Decimal(cost.toFixed(4)),
+            price: new Prisma.Decimal(price.toFixed(4)),
+            stock,
+            enabled: true,
+            providerKey: "mock",
+          },
+          update: { enabled: true },
+        });
+      }
+    }
+  })().finally(() => {
+    countryOfferLocks.delete(code);
+  });
+
+  countryOfferLocks.set(code, job);
+  return job;
 }

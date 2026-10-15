@@ -41,8 +41,8 @@ export const SERVER_POOLS = [
 export type ServerPoolId = (typeof SERVER_POOLS)[number]["id"];
 
 export const MARKETPLACE_FACTS = [
-  { label: "Countries", value: "10+", hint: "US, UK, NG, IN…" },
-  { label: "Services", value: "12+", hint: "Messaging → Crypto" },
+  { label: "Countries", value: "200+", hint: "Full world list + search" },
+  { label: "Services", value: "20+", hint: "Messaging → Crypto" },
   { label: "OTP window", value: "15m", hint: "Live inbox countdown" },
   { label: "Auto-refunds", value: "Yes", hint: "If SMS never lands" },
 ] as const;

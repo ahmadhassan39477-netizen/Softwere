@@ -134,30 +134,28 @@ async function main() {
     ],
   });
 
-  await prisma.providerSetting.createMany({
-    data: [
-      {
-        key: "sms-activate",
-        name: "SMS-Activate",
+  for (const d of [
+    { key: "sms-activate", name: "SMS-Activate", priority: 1 },
+    { key: "5sim", name: "5SIM", priority: 2 },
+    { key: "grizzlysms", name: "Grizzly SMS", priority: 3 },
+  ]) {
+    await prisma.providerSetting.upsert({
+      where: { key: d.key },
+      create: {
+        key: d.key,
+        name: d.name,
         enabled: true,
-        priority: 1,
+        priority: d.priority,
         markupPercent: new Prisma.Decimal("20"),
       },
-      {
-        key: "5sim",
-        name: "5SIM",
-        enabled: true,
-        priority: 2,
-        markupPercent: new Prisma.Decimal("20"),
-      },
-      {
-        key: "grizzlysms",
-        name: "Grizzly SMS",
-        enabled: true,
-        priority: 3,
-        markupPercent: new Prisma.Decimal("20"),
-      },
-    ],
+      update: { name: d.name, priority: d.priority, enabled: true },
+    });
+  }
+
+  await prisma.setting.upsert({
+    where: { key: "whatsapp_business_number" },
+    create: { key: "whatsapp_business_number", value: "923287087121" },
+    update: {},
   });
 
   for (const country of countries) {
