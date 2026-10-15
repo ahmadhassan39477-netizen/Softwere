@@ -13,6 +13,7 @@
     "db:setup": "node scripts/prisma-prepare.mjs --push && tsx prisma/seed.ts",
     "db:generate:prod": "prisma generate --schema=prisma/schema.postgres.prisma",
     "db:push:prod": "prisma db push --schema=prisma/schema.postgres.prisma",
+    "db:promote-owners": "tsx scripts/promote-owner-admins.ts",
     "postinstall": "node scripts/prisma-prepare.mjs",
     "deploy:vercel": "bash scripts/deploy-vercel.sh"
   },

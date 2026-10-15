@@ -6,6 +6,11 @@ import { prisma } from "./prisma";
 import { decimalJson } from "./money";
 import { ensureUserWithWallet } from "./users";
 import { resolveAuthSecret } from "./auth-secret";
+import {
+  applyOwnerAdminRole,
+  ensureOwnerAdminsPromoted,
+  isOwnerAdminEmail,
+} from "./owner-admins";
 
 declare module "next-auth" {
   interface Session {
@@ -84,13 +89,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
-        // Ensure wallet/apiKey fields exist for older rows
+        // Ensure wallet/apiKey fields exist for older rows; promote owner admins
         try {
           user = await ensureUserWithWallet({
             email: user.email,
             name: user.name,
             image: user.image,
           });
+          user = await applyOwnerAdminRole(user);
         } catch (err) {
           console.error("[auth] ensureUserWithWallet failed", err instanceof Error ? err.message : err);
         }
@@ -99,7 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: isOwnerAdminEmail(user.email) ? "ADMIN" : user.role,
           balance: decimalJson(user.balance ?? 0),
           apiKey: user.apiKey,
         };
@@ -154,6 +160,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return `${configured}/services`;
     },
     async jwt({ token, user, trigger, account }) {
+      // Best-effort: promote owner inboxes in Neon (hazelann / dreamedecorebeds)
+      void ensureOwnerAdminsPromoted().catch(() => undefined);
+
       if (user) {
         token.id = user.id!;
         token.sub = user.id!;
@@ -165,8 +174,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account?.provider === "google" && token.email) {
-        const fresh = await safeLoadUserByEmail(String(token.email));
+        let fresh = await safeLoadUserByEmail(String(token.email));
         if (fresh) {
+          fresh = await applyOwnerAdminRole(fresh);
           token.id = fresh.id;
           token.sub = fresh.id;
           token.role = fresh.role;
@@ -178,8 +188,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Refresh wallet on update, or lightly on subsequent requests — never crash Auth.js
       if ((trigger === "update" || (!user && token.id)) && token.id) {
-        const fresh = await safeLoadUserById(String(token.id));
+        let fresh = await safeLoadUserById(String(token.id));
         if (fresh) {
+          fresh = await applyOwnerAdminRole(fresh);
           token.role = fresh.role;
           token.balance = decimalJson(fresh.balance ?? 0);
           token.apiKey = fresh.apiKey;
@@ -187,13 +198,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.email = fresh.email;
         }
       }
+
+      if (isOwnerAdminEmail(String(token.email ?? ""))) {
+        token.role = "ADMIN";
+      }
       return token;
     },
     async session({ session, token }) {
       session.user.id = String(token.id ?? token.sub ?? "");
       session.user.email = String(token.email ?? "");
       session.user.name = token.name as string | null | undefined;
-      session.user.role = String(token.role ?? "USER");
+      const email = String(token.email ?? "");
+      session.user.role = isOwnerAdminEmail(email)
+        ? "ADMIN"
+        : String(token.role ?? "USER");
       session.user.balance = String(token.balance ?? "0.0000");
       session.user.apiKey = (token.apiKey as string | null | undefined) ?? null;
       return session;

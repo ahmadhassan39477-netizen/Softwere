@@ -42,7 +42,7 @@ export type ServerPoolId = (typeof SERVER_POOLS)[number]["id"];
 
 export const MARKETPLACE_FACTS = [
   { label: "Countries", value: "200+", hint: "Full world list + search" },
-  { label: "Services", value: "20+", hint: "Messaging → Crypto" },
+  { label: "Services", value: "25+", hint: "Messaging → Crypto → Streaming" },
   { label: "OTP window", value: "15m", hint: "Live inbox countdown" },
   { label: "Auto-refunds", value: "Yes", hint: "If SMS never lands" },
 ] as const;
@@ -69,7 +69,7 @@ export const PRODUCT_PILLARS = [
   {
     k: "01",
     title: "Global number catalog",
-    body: "Ten countries, twelve popular apps, three server pools — search stock and buy in a few taps.",
+    body: "200+ countries, dozens of apps, three server pools — search stock and buy in a few taps.",
   },
   {
     k: "02",

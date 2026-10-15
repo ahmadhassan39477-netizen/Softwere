@@ -49,6 +49,11 @@ export async function GET(req: NextRequest) {
       total: WORLD_COUNTRIES.length,
       filtered: list.length,
     },
-    { headers: rateLimitHeaders(rl) },
+    {
+      headers: {
+        ...(rateLimitHeaders(rl) as Record<string, string>),
+        "Cache-Control": "no-store",
+      },
+    },
   );
 }

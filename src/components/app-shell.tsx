@@ -39,6 +39,8 @@ const MOBILE_TABS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+const MOBILE_ADMIN_TAB = { href: "/admin", label: "Admin", icon: Shield } as const;
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -46,6 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const balance = session?.user?.balance ?? "0.0000";
+  const isAdmin = session?.user?.role === "ADMIN";
+  const mobileTabs = isAdmin ? [...MOBILE_TABS, MOBILE_ADMIN_TAB] : [...MOBILE_TABS];
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
@@ -200,8 +204,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_92%,transparent)] backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-4 h-[4.5rem]">
-          {MOBILE_TABS.map((tab) => {
+        <div
+          className={`grid h-[4.5rem] ${isAdmin ? "grid-cols-5" : "grid-cols-4"}`}
+        >
+          {mobileTabs.map((tab) => {
             const Icon = tab.icon;
             const active =
               tab.href === "/services"

@@ -7,6 +7,7 @@ import { decimalJson } from "@/lib/money";
 import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { worldCountryByCode } from "@/lib/world-countries";
+import { fetchFiveSimLiveStock } from "@/lib/sms/live-stock";
 
 function synthServices(countryCode: string, q: string) {
   const fb = worldCountryByCode(countryCode) ?? worldCountryByCode("US")!;
@@ -112,6 +113,9 @@ export async function GET(req: NextRequest) {
         !q || s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
     );
 
+    // Live 5SIM stock when keyed — overlays Server 2 only; never drops services/countries
+    const live = await fetchFiveSimLiveStock(countryCode);
+
     return Response.json(
       {
         country: {
@@ -120,21 +124,43 @@ export async function GET(req: NextRequest) {
           name: country.name,
           flag: country.flag,
         },
-        services: rows.map((s) => ({
-          id: s.id,
-          slug: s.slug,
-          name: s.name,
-          category: s.category,
-          offers: s.offers.map((o) => ({
-            id: o.id,
-            server: o.server,
-            price: decimalJson(o.price),
-            stock: o.stock,
-            inStock: o.stock > 0,
-          })),
-        })),
+        services: rows.map((s) => {
+          const liveRow = live.get(s.slug);
+          return {
+            id: s.id,
+            slug: s.slug,
+            name: s.name,
+            category: s.category,
+            offers: s.offers.map((o) => {
+              let stock = o.stock;
+              let price = o.price;
+              if (o.server === 2 && liveRow) {
+                stock = liveRow.stock ?? (liveRow.available ? Math.max(stock, 1) : 0);
+                if (liveRow.wholesale > 0) {
+                  price = new Prisma.Decimal(
+                    (liveRow.wholesale * (1 + markup)).toFixed(4),
+                  );
+                }
+              }
+              return {
+                id: o.id,
+                server: o.server,
+                price: decimalJson(price),
+                stock,
+                inStock: stock > 0,
+                live: o.server === 2 && Boolean(liveRow),
+              };
+            }),
+          };
+        }),
+        liveStock: live.size > 0,
       },
-      { headers: rateLimitHeaders(rl) },
+      {
+        headers: {
+          ...(rateLimitHeaders(rl) as Record<string, string>),
+          "Cache-Control": "no-store",
+        },
+      },
     );
   } catch (err) {
     console.error("[services]", err instanceof Error ? err.message : err);

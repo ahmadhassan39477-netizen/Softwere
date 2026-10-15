@@ -25,6 +25,8 @@ export type ProviderPriceRow = {
   serviceSlug: string;
   wholesale: number;
   available: boolean;
+  /** Optional live qty from wholesale (e.g. 5SIM Qty). */
+  stock?: number;
 };
 
 export interface SmsAdapter {

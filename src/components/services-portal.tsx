@@ -405,14 +405,19 @@ export function ServicesPortal() {
                 />
               </div>
 
-              {/* Mobile: thumb-friendly 2-col cards */}
-              <div className="grid grid-cols-2 gap-2.5 lg:hidden">
+              {/* Mobile: thumb-friendly 2-col cards — scroll full world list */}
+              <div className="grid grid-cols-2 gap-2.5 lg:hidden max-h-[min(70vh,640px)] overflow-y-auto scrollbar-thin pr-0.5">
                 {countriesQuery.isLoading && (
                   <p className="col-span-2 text-sm text-[var(--text-muted)] py-6 text-center">
                     Loading countries…
                   </p>
                 )}
-                {(countriesQuery.data?.countries ?? []).map((c, i) => {
+                {countriesQuery.isError && (
+                  <p className="col-span-2 text-sm text-[#fda4af] py-4 text-center">
+                    Couldn’t load countries. Refresh the page.
+                  </p>
+                )}
+                {(countriesQuery.data?.countries ?? []).map((c) => {
                   const selected = countryCode === c.code;
                   return (
                     <motion.button
@@ -420,7 +425,7 @@ export function ServicesPortal() {
                       type="button"
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.03, duration: 0.28 }}
+                      transition={{ duration: 0.2 }}
                       onClick={() => pickCountry(c.code)}
                       className={cn(
                         "min-h-[7.5rem] flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-4 text-center transition-colors",

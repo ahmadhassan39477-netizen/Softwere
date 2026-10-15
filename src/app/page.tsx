@@ -327,7 +327,7 @@ export default function LandingPage() {
           <SectionHead
             eyebrow="Marketplace facts"
             title="Real catalog numbers — not vanity stats."
-            body="Ten countries, twelve popular apps, three pools, and automatic refunds if a code never arrives."
+            body="200+ countries, dozens of apps, three pools, and automatic refunds if a code never arrives."
           />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
             {MARKETPLACE_FACTS.map((t, i) => (

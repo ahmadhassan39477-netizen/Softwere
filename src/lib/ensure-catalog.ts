@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { WORLD_COUNTRIES } from "@/lib/world-countries";
 
-const CATALOG_VERSION = "world_v2";
+const CATALOG_VERSION = "world_v3";
 let seeding: Promise<void> | null = null;
 const countryOfferLocks = new Map<string, Promise<void>>();
 
