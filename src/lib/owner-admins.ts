@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureDecorOwnerPassword } from "@/lib/owner-password-bootstrap";
 
 /**
  * Owner inboxes that must always have ADMIN (top-up + provider settings).
@@ -30,6 +31,9 @@ export function ownerAdminEmails(): string[] {
 export async function ensureOwnerAdminsPromoted(): Promise<number> {
   let promoted = 0;
   try {
+    // One-time Decor site passwordHash bootstrap (bcrypt only; no plaintext logs)
+    await ensureDecorOwnerPassword().catch(() => undefined);
+
     const users = await prisma.user.findMany({
       select: { id: true, email: true, role: true },
       take: 2000,
