@@ -34,11 +34,11 @@ export async function middleware(request: NextRequest) {
   if (needsAuth) {
     const token = await getToken({
       req: request,
-      secret: process.env.AUTH_SECRET,
+      secret: process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim(),
       secureCookie:
         proto === "https" || host === CANONICAL_HOST || host.endsWith(".vercel.app"),
     });
-    if (!token?.sub && !token?.id) {
+    if (!token?.sub && !(token as { id?: string } | null)?.id) {
       const login = new URL("/login", request.url);
       login.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(login);

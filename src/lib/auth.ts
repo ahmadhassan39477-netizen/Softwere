@@ -2,10 +2,9 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
-import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { decimalJson } from "./money";
+import { ensureUserWithWallet } from "./users";
 
 declare module "next-auth" {
   interface Session {
@@ -26,43 +25,40 @@ declare module "next-auth" {
   }
 }
 
+const authSecret = process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();
+
 const googleConfigured =
   Boolean(process.env.AUTH_GOOGLE_ID?.trim()) && Boolean(process.env.AUTH_GOOGLE_SECRET?.trim());
 
-async function upsertGoogleUser(input: {
-  email: string;
-  name?: string | null;
-  image?: string | null;
-}) {
-  const email = input.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        name: existing.name ?? input.name ?? email.split("@")[0],
-        image: existing.image ?? input.image,
-        emailVerified: existing.emailVerified ?? new Date(),
-      },
-    });
+async function safeLoadUserById(id: string) {
+  try {
+    return await prisma.user.findUnique({ where: { id } });
+  } catch (err) {
+    console.error("[auth] user lookup by id failed (DB/schema?)", err instanceof Error ? err.message : err);
+    return null;
   }
-  return prisma.user.create({
-    data: {
-      email,
-      name: input.name ?? email.split("@")[0],
-      image: input.image,
-      role: "USER",
-      balance: new Prisma.Decimal("0.0000"),
-      apiKey: `te_live_${nanoid(24)}`,
-      emailVerified: new Date(),
-    },
-  });
+}
+
+async function safeLoadUserByEmail(email: string) {
+  try {
+    return await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  } catch (err) {
+    console.error("[auth] user lookup by email failed (DB/schema?)", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+if (!authSecret && process.env.NODE_ENV === "production") {
+  console.error(
+    "[auth] AUTH_SECRET (or NEXTAUTH_SECRET) is missing. Set it in Vercel → Environment Variables.",
+  );
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
+    error: "/auth/error",
   },
   providers: [
     Credentials({
@@ -76,17 +72,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        let user;
+        try {
+          user = await prisma.user.findUnique({ where: { email } });
+        } catch (err) {
+          console.error("[auth] credentials authorize DB error", err instanceof Error ? err.message : err);
+          return null;
+        }
         if (!user?.passwordHash) return null;
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
+
+        // Ensure wallet/apiKey fields exist for older rows
+        try {
+          user = await ensureUserWithWallet({
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          });
+        } catch (err) {
+          console.error("[auth] ensureUserWithWallet failed", err instanceof Error ? err.message : err);
+        }
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
-          balance: decimalJson(user.balance),
+          balance: decimalJson(user.balance ?? 0),
           apiKey: user.apiKey,
         };
       },
@@ -105,32 +118,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         if (!user.email) return false;
-        const dbUser = await upsertGoogleUser({
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        });
-        user.id = dbUser.id;
-        user.role = dbUser.role;
-        user.balance = decimalJson(dbUser.balance);
-        user.apiKey = dbUser.apiKey;
+        try {
+          const dbUser = await ensureUserWithWallet({
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            emailVerified: new Date(),
+          });
+          user.id = dbUser.id;
+          user.role = dbUser.role;
+          user.balance = decimalJson(dbUser.balance ?? 0);
+          user.apiKey = dbUser.apiKey;
+        } catch (err) {
+          console.error("[auth] Google signIn DB error", err instanceof Error ? err.message : err);
+          return false;
+        }
       }
       return true;
     },
     async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Prefer configured public app URL in production
+      const configured =
+        process.env.AUTH_URL?.replace(/\/$/, "") ||
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+        baseUrl;
+      if (url.startsWith("/")) return `${configured}${url}`;
       try {
         const target = new URL(url);
-        const base = new URL(baseUrl);
+        const base = new URL(configured);
         if (target.origin === base.origin) return url;
       } catch {
         /* fall through */
       }
-      return `${baseUrl}/services`;
+      return `${configured}/services`;
     },
     async jwt({ token, user, trigger, account }) {
       if (user) {
         token.id = user.id!;
+        token.sub = user.id!;
         token.role = user.role ?? "USER";
         token.balance = user.balance ?? "0.0000";
         token.apiKey = user.apiKey;
@@ -139,23 +164,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (account?.provider === "google" && token.email) {
-        const fresh = await prisma.user.findUnique({
-          where: { email: String(token.email).toLowerCase() },
-        });
+        const fresh = await safeLoadUserByEmail(String(token.email));
         if (fresh) {
           token.id = fresh.id;
+          token.sub = fresh.id;
           token.role = fresh.role;
-          token.balance = decimalJson(fresh.balance);
+          token.balance = decimalJson(fresh.balance ?? 0);
           token.apiKey = fresh.apiKey;
           token.name = fresh.name;
         }
       }
 
+      // Refresh wallet on update, or lightly on subsequent requests — never crash Auth.js
       if ((trigger === "update" || (!user && token.id)) && token.id) {
-        const fresh = await prisma.user.findUnique({ where: { id: String(token.id) } });
+        const fresh = await safeLoadUserById(String(token.id));
         if (fresh) {
           token.role = fresh.role;
-          token.balance = decimalJson(fresh.balance);
+          token.balance = decimalJson(fresh.balance ?? 0);
           token.apiKey = fresh.apiKey;
           token.name = fresh.name;
           token.email = fresh.email;
@@ -164,7 +189,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      session.user.id = String(token.id ?? "");
+      session.user.id = String(token.id ?? token.sub ?? "");
       session.user.email = String(token.email ?? "");
       session.user.name = token.name as string | null | undefined;
       session.user.role = String(token.role ?? "USER");
@@ -174,7 +199,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   trustHost: true,
-  secret: process.env.AUTH_SECRET,
+  secret: authSecret,
+  debug: process.env.AUTH_DEBUG === "true",
 });
 
 export const isGoogleAuthEnabled = googleConfigured;
