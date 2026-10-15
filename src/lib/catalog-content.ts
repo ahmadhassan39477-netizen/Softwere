@@ -13,29 +13,37 @@ export const CATALOG_SERVICES = [
 
 export const SERVER_POOLS = [
   {
-    id: 1,
+    id: "auto" as const,
+    label: "Auto",
+    title: "Smart failover",
+    blurb: "Tries Server 1 → 2 → 3 automatically until a number is issued.",
+  },
+  {
+    id: 1 as const,
     label: "Server 1",
-    title: "Standard",
-    blurb: "Best price. Shared wholesale capacity — solid for most apps.",
+    title: "SMS-Activate",
+    blurb: "Primary wholesale pool — best price when stock is available.",
   },
   {
-    id: 2,
+    id: 2 as const,
     label: "Server 2",
-    title: "Balanced",
-    blurb: "~8% above standard. Higher success on busy services.",
+    title: "5SIM",
+    blurb: "Secondary pool. Used next when Server 1 has no numbers.",
   },
   {
-    id: 3,
+    id: 3 as const,
     label: "Server 3",
-    title: "Priority",
-    blurb: "Premium pool. Prefer when Standard shows low stock.",
+    title: "Grizzly SMS",
+    blurb: "Tertiary pool. Last resort in Auto mode.",
   },
 ] as const;
+
+export type ServerPoolId = (typeof SERVER_POOLS)[number]["id"];
 
 export const MARKETPLACE_FACTS = [
   { label: "Countries", value: "10+", hint: "US, UK, NG, IN…" },
   { label: "Services", value: "12+", hint: "Messaging → Crypto" },
-  { label: "OTP window", value: "20m", hint: "Live inbox countdown" },
+  { label: "OTP window", value: "15m", hint: "Live inbox countdown" },
   { label: "Auto-refunds", value: "Yes", hint: "If SMS never lands" },
 ] as const;
 

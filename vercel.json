@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "buildCommand": "node scripts/prisma-prepare.mjs --push && next build",
   "installCommand": "npm install",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/sms-poll",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

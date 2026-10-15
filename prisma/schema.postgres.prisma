@@ -13,24 +13,26 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String?
-  image         String?
-  role          String    @default("USER") // USER | ADMIN | RESELLER
-  balance       Decimal   @default(0)
-  apiKey        String?   @unique
-  emailVerified DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  passwordHash   String?
+  image          String?
+  role           String    @default("USER") // USER | ADMIN | RESELLER
+  balance        Decimal   @default(0)
+  apiKey         String?   @unique
+  emailVerified  DateTime?
+  /// Optional per-user retail markup override (percent). Null = global.
+  markupOverride Decimal?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  orders        Order[]
-  transactions  Transaction[]
-  tempMails     TempMail[]
-  notifications Notification[]
+  accounts       Account[]
+  sessions       Session[]
+  orders         Order[]
+  transactions   Transaction[]
+  tempMails      TempMail[]
+  notifications  Notification[]
 }
 
 model Account {
@@ -124,9 +126,12 @@ model Order {
   countryId       String
   serviceId       String
   server          Int       @default(1)
+  /// auto | fixed — Auto runs SmsAggregator failover 1→2→3
+  serverMode      String    @default("fixed")
   phoneNumber     String?
   status          String    @default("PENDING") // PENDING | ACTIVE | RECEIVED | EXPIRED | CANCELLED | REFUNDED
-  price           Decimal  
+  price           Decimal
+  wholesaleCost   Decimal   @default(0)
   otpCode         String?
   otpMessage      String?
   providerOrderId String?
@@ -140,6 +145,7 @@ model Order {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   country         Country   @relation(fields: [countryId], references: [id])
   service         Service   @relation(fields: [serviceId], references: [id])
+  transactions    Transaction[]
 
   @@index([userId, createdAt])
   @@index([status])
@@ -148,8 +154,9 @@ model Order {
 model Transaction {
   id          String   @id @default(cuid())
   userId      String
+  orderId     String?
   type        String   // DEPOSIT | PURCHASE | REFUND | ADJUSTMENT
-  amount      Decimal 
+  amount      Decimal
   balanceAfter Decimal
   method      String?  // crypto_nowpayments | binance_pay | manual | system
   status      String   @default("PENDING") // PENDING | COMPLETED | FAILED | REJECTED
@@ -159,8 +166,10 @@ model Transaction {
   updatedAt   DateTime @updatedAt
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([orderId])
 }
 
 model TempMail {
@@ -223,4 +232,41 @@ model ProviderConfig {
   enabled   Boolean  @default(false)
   meta      String?
   updatedAt DateTime @updatedAt
+}
+
+/// Admin-managed wholesale provider settings (keys, enable, markup, balances).
+model ProviderSetting {
+  id            String    @id @default(cuid())
+  key           String    @unique // sms-activate | 5sim | grizzlysms
+  name          String
+  apiKey        String?
+  enabled       Boolean   @default(true)
+  priority      Int       @default(1) // 1 = SMS-Activate, 2 = 5SIM, 3 = Grizzly
+  markupPercent Decimal   @default(20)
+  lastBalance   Decimal?
+  lastBalanceAt DateTime?
+  meta          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/// Denormalized retail catalog row for search UI (country × service).
+model ServiceCountryCatalog {
+  id            String   @id @default(cuid())
+  countryCode   String
+  serviceSlug   String
+  countryName   String
+  serviceName   String
+  flag          String   @default("")
+  retailPrice   Decimal
+  wholesaleHint Decimal  @default(0)
+  server1Stock  Int      @default(50)
+  server2Stock  Int      @default(40)
+  server3Stock  Int      @default(30)
+  enabled       Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([countryCode, serviceSlug])
+  @@index([serviceSlug])
+  @@index([countryCode])
 }

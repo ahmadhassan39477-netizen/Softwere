@@ -107,6 +107,26 @@ export async function ensureCatalogSeeded(): Promise<void> {
         update: { enabled: true },
       });
 
+      for (const d of [
+        { key: "sms-activate", name: "SMS-Activate", priority: 1 },
+        { key: "5sim", name: "5SIM", priority: 2 },
+        { key: "grizzlysms", name: "Grizzly SMS", priority: 3 },
+      ]) {
+        await prisma.providerSetting.upsert({
+          where: { key: d.key },
+          create: {
+            key: d.key,
+            name: d.name,
+            priority: d.priority,
+            enabled: true,
+            markupPercent: new Prisma.Decimal(
+              process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
+            ),
+          },
+          update: {},
+        });
+      }
+
       await prisma.setting.upsert({
         where: { key: "order_ttl_minutes" },
         create: { key: "order_ttl_minutes", value: "15" },
@@ -115,6 +135,14 @@ export async function ensureCatalogSeeded(): Promise<void> {
       await prisma.setting.upsert({
         where: { key: "cancel_window_seconds" },
         create: { key: "cancel_window_seconds", value: "120" },
+        update: {},
+      });
+      await prisma.setting.upsert({
+        where: { key: "global_markup_percent" },
+        create: {
+          key: "global_markup_percent",
+          value: process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
+        },
         update: {},
       });
 

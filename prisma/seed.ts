@@ -134,6 +134,55 @@ async function main() {
     ],
   });
 
+  await prisma.providerSetting.createMany({
+    data: [
+      {
+        key: "sms-activate",
+        name: "SMS-Activate",
+        enabled: true,
+        priority: 1,
+        markupPercent: new Prisma.Decimal("20"),
+      },
+      {
+        key: "5sim",
+        name: "5SIM",
+        enabled: true,
+        priority: 2,
+        markupPercent: new Prisma.Decimal("20"),
+      },
+      {
+        key: "grizzlysms",
+        name: "Grizzly SMS",
+        enabled: true,
+        priority: 3,
+        markupPercent: new Prisma.Decimal("20"),
+      },
+    ],
+  });
+
+  for (const country of countries) {
+    for (let si = 0; si < services.length; si++) {
+      const svc = services[si];
+      const base = SERVICES[si].base;
+      const retail = base * (1 + markup) * (country.code === "US" ? 1.15 : 1);
+      await prisma.serviceCountryCatalog.create({
+        data: {
+          countryCode: country.code,
+          serviceSlug: svc.slug,
+          countryName: country.name,
+          serviceName: svc.name,
+          flag: country.flag,
+          retailPrice: new Prisma.Decimal(retail.toFixed(4)),
+          wholesaleHint: new Prisma.Decimal(base.toFixed(4)),
+          server1Stock: 50,
+          server2Stock: 40,
+          server3Stock: 30,
+          enabled: true,
+        },
+      });
+    }
+  }
+
   await prisma.setting.createMany({
     data: [
       { key: "global_markup_percent", value: String(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") },

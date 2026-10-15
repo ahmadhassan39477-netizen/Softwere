@@ -47,11 +47,26 @@ type ActiveOrder = {
   status: string;
   price: string;
   server: number;
+  serverMode?: string;
   expiresAt: string;
   country: { code: string; name: string; flag: string };
   service: { slug: string; name: string };
   otpCode?: string | null;
   otpMessage?: string | null;
+  providerKey?: string;
+};
+
+type HistoryOrder = {
+  id: string;
+  status: string;
+  phoneNumber: string | null;
+  otpCode: string | null;
+  price: string;
+  server: number;
+  expiresAt: string;
+  createdAt: string;
+  country: { code: string; name: string; flag: string };
+  service: { slug: string; name: string };
 };
 
 type MobileStep = "country" | "services" | "order";
@@ -99,7 +114,7 @@ export function ServicesPortal() {
   const [countryQ, setCountryQ] = useState("");
   const [serviceQ, setServiceQ] = useState("");
   const [countryCode, setCountryCode] = useState<string>("US");
-  const [server, setServer] = useState(1);
+  const [server, setServer] = useState<1 | 2 | 3 | "auto">("auto");
   const [active, setActive] = useState<ActiveOrder | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -122,9 +137,20 @@ export function ServicesPortal() {
       ),
   });
 
+  const historyQuery = useQuery({
+    queryKey: ["orders-history"],
+    enabled: authStatus === "authenticated",
+    queryFn: () => api<{ orders: HistoryOrder[] }>("/api/orders"),
+    refetchInterval: active?.status === "ACTIVE" ? 5000 : 30_000,
+  });
+
   const purchase = useMutation({
-    mutationFn: (payload: { countryCode: string; serviceSlug: string; server: number }) =>
-      api<{ order: ActiveOrder }>("/api/v1/purchase", {
+    mutationFn: (payload: {
+      countryCode: string;
+      serviceSlug: string;
+      server: 1 | 2 | 3 | "auto";
+    }) =>
+      api<{ order: ActiveOrder }>("/api/orders/buy", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
@@ -134,20 +160,26 @@ export function ServicesPortal() {
       setMobileStep("order");
       await update();
       qc.invalidateQueries({ queryKey: ["services"] });
+      qc.invalidateQueries({ queryKey: ["orders-history"] });
     },
     onError: (e: Error) => setError(e.message),
   });
 
   const cancel = useMutation({
-    mutationFn: (orderId: string) => api(`/api/v1/cancel/${orderId}`, { method: "POST" }),
+    mutationFn: (orderId: string) =>
+      api(`/api/orders/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ orderId }),
+      }),
     onSuccess: async () => {
       setActive((o) => (o ? { ...o, status: "REFUNDED" } : o));
       await update();
+      qc.invalidateQueries({ queryKey: ["orders-history"] });
     },
     onError: (e: Error) => setError(e.message),
   });
 
-  // SSE with polling fallback
+  // SSE (~3s) with polling fallback
   useEffect(() => {
     if (!active?.id || ["RECEIVED", "REFUNDED", "CANCELLED", "EXPIRED"].includes(active.status)) {
       return;
@@ -155,7 +187,7 @@ export function ServicesPortal() {
 
     let closed = false;
     let poll: ReturnType<typeof setInterval> | null = null;
-    const es = new EventSource(`/api/stream/otp/${active.id}`);
+    const es = new EventSource(`/api/orders/stream?orderId=${encodeURIComponent(active.id)}`);
     es.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
@@ -174,6 +206,7 @@ export function ServicesPortal() {
             copyText(data.code);
             setCopied("otp");
             update();
+            qc.invalidateQueries({ queryKey: ["orders-history"] });
           }
           if (["RECEIVED", "REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status)) {
             es.close();
@@ -205,11 +238,12 @@ export function ServicesPortal() {
           if (["RECEIVED", "REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status)) {
             if (poll) clearInterval(poll);
             update();
+            qc.invalidateQueries({ queryKey: ["orders-history"] });
           }
         } catch {
           /* ignore */
         }
-      }, 2500);
+      }, 3000);
     };
 
     return () => {
@@ -217,7 +251,7 @@ export function ServicesPortal() {
       es.close();
       if (poll) clearInterval(poll);
     };
-  }, [active?.id, active?.status, update]);
+  }, [active?.id, active?.status, update, qc]);
 
   const countdown = useCountdown(active?.expiresAt);
   const services = useMemo(() => servicesQuery.data?.services ?? [], [servicesQuery.data]);
@@ -257,6 +291,7 @@ export function ServicesPortal() {
   const showOrder = isDesktop || mobileStep === "order" || (mobileStep === "services" && !!active);
 
   const pool = SERVER_POOLS.find((p) => p.id === server) ?? SERVER_POOLS[0];
+  const history = historyQuery.data?.orders ?? [];
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -492,10 +527,10 @@ export function ServicesPortal() {
 
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <h2 className="font-semibold flex-1 tracking-tight">Services</h2>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   {SERVER_POOLS.map((s) => (
                     <button
-                      key={s.id}
+                      key={String(s.id)}
                       type="button"
                       onClick={() => setServer(s.id)}
                       className={`btn text-xs px-3 py-1.5 ${server === s.id ? "btn-primary" : "btn-ghost"}`}
@@ -535,9 +570,19 @@ export function ServicesPortal() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <AnimatePresence mode="popLayout">
                   {services.map((svc, idx) => {
-                    const offer = svc.offers.find((o) => o.server === server) ?? svc.offers[0];
+                    const offer =
+                      server === "auto"
+                        ? svc.offers.find((o) => o.inStock) ?? svc.offers[0]
+                        : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
                     if (!offer) return null;
-                    const inStock = offer.inStock;
+                    const inStock =
+                      server === "auto"
+                        ? svc.offers.some((o) => o.inStock)
+                        : offer.inStock;
+                    const stockLabel =
+                      server === "auto"
+                        ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
+                        : offer.stock;
                     return (
                       <motion.div
                         key={svc.id}
@@ -559,7 +604,7 @@ export function ServicesPortal() {
                             </div>
                           </div>
                           <span className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}>
-                            {inStock ? `${offer.stock} left` : "Sold out"}
+                            {inStock ? `${stockLabel} left` : "Sold out"}
                           </span>
                         </div>
                         <div className="flex items-end justify-between gap-2">
@@ -569,7 +614,7 @@ export function ServicesPortal() {
                           </div>
                           <div className="text-right text-[11px] text-[var(--text-muted)]">
                             <div className="inline-flex items-center gap-1">
-                              <Clock size={12} /> 20 min window
+                              <Clock size={12} /> 15 min window
                             </div>
                             <div className="mt-0.5">{pool.label}</div>
                           </div>
@@ -582,7 +627,7 @@ export function ServicesPortal() {
                             purchase.mutate({
                               countryCode,
                               serviceSlug: svc.slug,
-                              server: offer.server,
+                              server,
                             })
                           }
                         >
@@ -626,7 +671,7 @@ export function ServicesPortal() {
                   <p>Buy a number to open the OTP inbox here.</p>
                   <ul className="space-y-2">
                     {[
-                      { icon: Clock, t: "20-minute wait window" },
+                      { icon: Clock, t: "15-minute wait window" },
                       { icon: ShieldCheck, t: "Auto-refund if no SMS" },
                       { icon: Copy, t: "Phone & OTP auto-copy" },
                     ].map((row, i) => (
@@ -652,7 +697,11 @@ export function ServicesPortal() {
                   <div>
                     <div className="text-xs text-[var(--text-muted)]">Service</div>
                     <div className="font-medium">
-                      {active.country.flag} {active.service.name} · Srv {active.server}
+                      {active.country.flag} {active.service.name} ·{" "}
+                      {active.serverMode === "auto" ? "Auto" : `Srv ${active.server}`}
+                      {active.providerKey && active.providerKey !== "mock"
+                        ? ` · ${active.providerKey}`
+                        : ""}
                     </div>
                   </div>
                   <div>
@@ -706,7 +755,7 @@ export function ServicesPortal() {
                     )}
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Manual cancel/refund within 2 minutes if no OTP. Auto-refund on expiry.
+                    Manual cancel/refund within 2 minutes if no OTP. Auto-refund after 15 minutes.
                   </p>
                 </div>
               )}
@@ -714,6 +763,47 @@ export function ServicesPortal() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Order history */}
+      <section className="panel p-4">
+        <h2 className="font-semibold mb-3 tracking-tight">Order history</h2>
+        {history.length === 0 ? (
+          <p className="text-sm text-[var(--text-muted)]">No orders yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[var(--text-muted)] border-b border-[var(--border)]">
+                  <th className="py-2 pr-3">When</th>
+                  <th className="py-2 pr-3">Service</th>
+                  <th className="py-2 pr-3">Number</th>
+                  <th className="py-2 pr-3">OTP</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 25).map((o) => (
+                  <tr key={o.id} className="border-b border-[var(--border)]">
+                    <td className="py-2.5 pr-3 whitespace-nowrap text-[var(--text-muted)]">
+                      {new Date(o.createdAt).toLocaleString()}
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      {o.country.flag} {o.service.name}
+                    </td>
+                    <td className="py-2.5 pr-3 font-mono text-xs">{o.phoneNumber ?? "—"}</td>
+                    <td className="py-2.5 pr-3 font-mono text-xs">{o.otpCode ?? "—"}</td>
+                    <td className="py-2.5 pr-3">
+                      <span className={`badge ${statusColor(o.status)}`}>{o.status}</span>
+                    </td>
+                    <td className="py-2.5 mono-data">${o.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

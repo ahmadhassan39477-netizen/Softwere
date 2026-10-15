@@ -1,21 +1,29 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { purchaseWithFallback, providerForKey } from "@/lib/providers/sms";
+import { AllProvidersFailedError } from "@/lib/sms/types";
+import { smsAggregator, serverNumberForProvider } from "@/lib/sms/aggregator";
 import { decimalJson } from "@/lib/money";
+import { ensureCatalogSeeded } from "@/lib/ensure-catalog";
 
 export type PurchaseNumberInput = {
   userId: string;
   countryCode: string;
   serviceSlug: string;
-  server?: number;
+  /** 1 | 2 | 3 | "auto" — Auto failovers SMS-Activate → 5SIM → Grizzly */
+  server?: number | "auto";
 };
 
 /**
- * Reserve a number: provider first, then debit + order in one DB transaction.
+ * Reserve a number: provider buy first, then debit + order in one DB transaction.
  * Wallet is charged only after a successful provider purchase.
  */
 export async function purchaseNumber(input: PurchaseNumberInput) {
-  const server = input.server ?? 1;
+  await ensureCatalogSeeded().catch(() => undefined);
+
+  const serverMode = input.server === "auto" || input.server === undefined ? "auto" : "fixed";
+  const preferredServer =
+    typeof input.server === "number" ? input.server : 1;
+
   const country = await prisma.country.findUnique({
     where: { code: input.countryCode.toUpperCase() },
   });
@@ -26,20 +34,37 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   });
   if (!service?.enabled) throw Object.assign(new Error("Service unavailable"), { status: 404 });
 
-  const offer = await prisma.serviceOffer.findUnique({
+  // Resolve retail price from offer (server 1 as base for Auto) or catalog
+  let offer = await prisma.serviceOffer.findUnique({
     where: {
       countryId_serviceId_server: {
         countryId: country.id,
         serviceId: service.id,
-        server,
+        server: serverMode === "auto" ? 1 : preferredServer,
       },
     },
   });
-  if (!offer?.enabled || offer.stock <= 0) {
+  if (!offer?.enabled) {
+    offer = await prisma.serviceOffer.findFirst({
+      where: { countryId: country.id, serviceId: service.id, enabled: true },
+      orderBy: { server: "asc" },
+    });
+  }
+  if (!offer) {
     throw Object.assign(new Error("Out of stock"), { status: 409 });
   }
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: input.userId } });
+
+  // Apply global / per-user markup on top of offer.price if needed
+  const globalMarkup = Number(
+    (await prisma.setting.findUnique({ where: { key: "global_markup_percent" } }))?.value ??
+      process.env.GLOBAL_PRICE_MARKUP_PERCENT ??
+      "20",
+  );
+  const userMarkup =
+    user.markupOverride != null ? Number(user.markupOverride) : globalMarkup;
+  // offer.price already includes seed markup; keep as retail
   const price = new Prisma.Decimal(offer.price);
   if (new Prisma.Decimal(user.balance).lt(price)) {
     throw Object.assign(new Error("Insufficient balance"), { status: 402 });
@@ -51,17 +76,30 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
 
   let purchase;
   try {
-    purchase = await purchaseWithFallback({
+    purchase = await smsAggregator.buy({
       countryCode: country.code,
       serviceSlug: service.slug,
-      server,
+      server: serverMode === "auto" ? "auto" : preferredServer,
     });
   } catch (e) {
+    if (e instanceof AllProvidersFailedError) {
+      const missingKeys = e.attempts.some((a) => a.error.includes("MISSING_KEYS"));
+      const message = missingKeys
+        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Add SMS_ACTIVATE_API_KEY, FIVESIM_API_KEY, or GRIZZLY_SMS_API_KEY in Vercel → Settings → Environment Variables (or paste in Admin)."
+        : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
+      throw Object.assign(new Error(message), {
+        status: 409,
+        attempts: e.attempts,
+      });
+    }
     throw Object.assign(
       new Error(e instanceof Error ? e.message : "Provider error"),
       { status: 502 },
     );
   }
+
+  const serverUsed = serverNumberForProvider(purchase.providerKey);
+  const wholesale = new Prisma.Decimal(purchase.wholesaleCost || offer.costPrice || 0);
 
   try {
     const order = await prisma.$transaction(async (tx) => {
@@ -74,9 +112,29 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
         where: { id: input.userId },
         data: { balance: balanceAfter },
       });
+
+      const created = await tx.order.create({
+        data: {
+          userId: input.userId,
+          countryId: country.id,
+          serviceId: service.id,
+          server: serverUsed,
+          serverMode,
+          phoneNumber: purchase.phoneNumber,
+          status: "ACTIVE",
+          price: offer.price,
+          wholesaleCost: wholesale,
+          providerOrderId: purchase.providerOrderId,
+          providerKey: purchase.providerKey,
+          expiresAt,
+        },
+        include: { country: true, service: true },
+      });
+
       await tx.transaction.create({
         data: {
           userId: input.userId,
+          orderId: created.id,
           type: "PURCHASE",
           amount: price.negated(),
           balanceAfter,
@@ -85,30 +143,22 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
           meta: JSON.stringify({
             country: country.code,
             service: service.slug,
-            server,
+            server: serverUsed,
+            serverMode,
             provider: purchase.providerKey,
+            markupPercent: userMarkup,
           }),
         },
       });
-      await tx.serviceOffer.update({
-        where: { id: offer.id },
-        data: { stock: { decrement: 1 } },
-      });
-      return tx.order.create({
-        data: {
-          userId: input.userId,
-          countryId: country.id,
-          serviceId: service.id,
-          server,
-          phoneNumber: purchase.phoneNumber,
-          status: "ACTIVE",
-          price: offer.price,
-          providerOrderId: purchase.providerOrderId,
-          providerKey: purchase.providerKey,
-          expiresAt,
-        },
-        include: { country: true, service: true },
-      });
+
+      await tx.serviceOffer
+        .update({
+          where: { id: offer.id },
+          data: { stock: { decrement: 1 } },
+        })
+        .catch(() => undefined);
+
+      return created;
     });
 
     return {
@@ -117,15 +167,15 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
       status: order.status,
       price: decimalJson(order.price),
       server: order.server,
+      serverMode: order.serverMode,
       expiresAt: order.expiresAt.toISOString(),
       providerKey: order.providerKey,
       country: { code: order.country.code, name: order.country.name, flag: order.country.flag },
       service: { slug: order.service.slug, name: order.service.name },
     };
   } catch (e) {
-    // Best-effort cancel at provider if DB debit failed after number issued
-    await providerForKey(purchase.providerKey)
-      .cancel(purchase.providerOrderId)
+    await smsAggregator
+      .cancel(purchase.providerKey, purchase.providerOrderId)
       .catch(() => undefined);
     throw Object.assign(
       new Error(e instanceof Error ? e.message : "Checkout failed"),

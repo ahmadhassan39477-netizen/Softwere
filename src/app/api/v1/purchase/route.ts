@@ -7,7 +7,9 @@ import { purchaseNumber } from "@/lib/purchase-number";
 const schema = z.object({
   countryCode: z.string().min(2).max(4),
   serviceSlug: z.string().min(1),
-  server: z.number().int().min(1).max(3).default(1),
+  server: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal("auto")])
+    .default("auto"),
 });
 
 export async function POST(req: NextRequest) {

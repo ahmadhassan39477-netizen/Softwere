@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getSmsProvider } from "@/lib/providers/sms";
-import { creditWallet } from "@/lib/wallet";
+import { pollOrder } from "@/lib/sms/order-lifecycle";
 
 type Ctx = { params: Promise<{ orderId: string }> };
 
-/** SSE stream for live OTP inbox updates (falls back to client polling if blocked). */
+/** SSE stream for live OTP (legacy path — prefer /api/orders/stream?orderId=). */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -32,62 +31,27 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       send({ type: "connected", orderId, status: order.status, expiresAt: order.expiresAt });
 
       const tick = async () => {
-        if (closed) return;
-        const current = await prisma.order.findUnique({ where: { id: orderId } });
-        if (!current) {
+        if (closed) return "done";
+        const result = await pollOrder(orderId);
+        if (!result) {
           send({ type: "error", message: "missing" });
-          return;
+          return "done";
         }
-
-        if (["RECEIVED", "CANCELLED", "REFUNDED", "EXPIRED"].includes(current.status)) {
+        if (["RECEIVED", "CANCELLED", "REFUNDED", "EXPIRED"].includes(result.status)) {
           send({
             type: "otp",
-            status: current.status,
-            code: current.otpCode,
-            message: current.otpMessage,
-            expiresAt: current.expiresAt,
+            status: result.status,
+            code: result.code,
+            message: result.message,
+            expiresAt: result.expiresAt,
           });
           return "done";
         }
-
-        if (current.expiresAt.getTime() < Date.now()) {
-          await prisma.order.update({
-            where: { id: current.id },
-            data: { status: "REFUNDED", refundedAt: new Date() },
-          });
-          await creditWallet(session.user.id, current.price, {
-            type: "REFUND",
-            method: "system",
-            externalId: current.id,
-            meta: JSON.stringify({ reason: "expired_no_otp" }),
-          });
-          send({ type: "otp", status: "REFUNDED", code: null, expiresAt: current.expiresAt });
-          return "done";
-        }
-
-        if (current.providerOrderId) {
-          const otp = await getSmsProvider(current.providerKey).getOtp(current.providerOrderId);
-          if (otp.status === "RECEIVED" && otp.code) {
-            await prisma.order.update({
-              where: { id: current.id },
-              data: { status: "RECEIVED", otpCode: otp.code, otpMessage: otp.message },
-            });
-            send({
-              type: "otp",
-              status: "RECEIVED",
-              code: otp.code,
-              message: otp.message,
-              expiresAt: current.expiresAt,
-            });
-            return "done";
-          }
-        }
-
         send({
           type: "wait",
-          status: current.status,
-          expiresAt: current.expiresAt,
-          remainingMs: current.expiresAt.getTime() - Date.now(),
+          status: result.status,
+          expiresAt: result.expiresAt,
+          remainingMs: "remainingMs" in result ? result.remainingMs : undefined,
         });
         return "continue";
       };
@@ -107,7 +71,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         } catch (e) {
           send({ type: "error", message: e instanceof Error ? e.message : "error" });
         }
-      }, 2000);
+      }, 3000);
 
       await tick();
 
