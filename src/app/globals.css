@@ -221,6 +221,92 @@ a {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
 }
 
+/* Catalog search — icon rail, never overlaps placeholder */
+.catalog-search__shell:hover {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+  background: color-mix(in oklab, var(--bg-elevated) 88%, var(--accent));
+}
+
+.catalog-search__shell:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.catalog-search__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Low wallet — impossible to miss */
+@keyframes low-balance-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--danger) 55%, transparent),
+      0 0 18px color-mix(in oklab, var(--danger) 22%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px color-mix(in oklab, var(--danger) 80%, transparent),
+      0 0 28px color-mix(in oklab, var(--danger) 38%, transparent);
+  }
+}
+
+@keyframes low-balance-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.low-balance-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, var(--danger) 55%, var(--border));
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in oklab, var(--danger) 18%, var(--bg-elevated)),
+      color-mix(in oklab, var(--danger) 8%, var(--bg-elevated)) 40%,
+      color-mix(in oklab, var(--danger) 16%, var(--bg-elevated))
+    );
+  background-size: 200% 200%;
+  animation:
+    low-balance-glow 2.4s ease-in-out infinite,
+    low-balance-shimmer 4.5s linear infinite;
+}
+
+.low-balance-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    color-mix(in oklab, #fff 8%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  animation: low-balance-shimmer 3.2s linear infinite;
+  pointer-events: none;
+}
+
+.svc-skeleton {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 0%,
+    color-mix(in oklab, var(--accent) 8%, var(--bg-elevated)) 50%,
+    var(--bg-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: low-balance-shimmer 1.4s linear infinite;
+}
+
 /* Mobile app chrome */
 .safe-top {
   padding-top: env(safe-area-inset-top);

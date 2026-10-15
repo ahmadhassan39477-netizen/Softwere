@@ -49,16 +49,25 @@ export async function GET(req: NextRequest) {
 
   const countryCode = (req.nextUrl.searchParams.get("country") ?? "US").toUpperCase();
   const q = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? "";
+  // live=1 overlays 5SIM; default fast path never blocks first paint on wholesale
+  const wantLive = req.nextUrl.searchParams.get("live") === "1";
 
   try {
-    await ensureCatalogSeeded().catch(() => undefined);
-    await ensureCountryOffers(countryCode).catch(() => undefined);
+    // Seed / offer expand in background — never block country switch first paint
+    void ensureCatalogSeeded().catch(() => undefined);
+    void ensureCountryOffers(countryCode).catch(() => undefined);
 
     const country = await prisma.country.findUnique({ where: { code: countryCode } });
     if (!country) {
-      return Response.json(synthServices(countryCode, q), {
-        headers: rateLimitHeaders(rl),
-      });
+      return Response.json(
+        { ...synthServices(countryCode, q), liveStock: false },
+        {
+          headers: {
+            ...(rateLimitHeaders(rl) as Record<string, string>),
+            "Cache-Control": "no-store",
+          },
+        },
+      );
     }
 
     const services = await prisma.service.findMany({
@@ -113,8 +122,8 @@ export async function GET(req: NextRequest) {
         !q || s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
     );
 
-    // Live 5SIM stock when keyed — overlays Server 2 only; never drops services/countries
-    const live = await fetchFiveSimLiveStock(countryCode);
+    // Live 5SIM only when requested — never blocks the fast catalog paint
+    const live = wantLive ? await fetchFiveSimLiveStock(countryCode) : new Map();
 
     return Response.json(
       {

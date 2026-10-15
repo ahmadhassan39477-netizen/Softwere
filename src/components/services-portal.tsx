@@ -1,12 +1,16 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy,
-  Search,
   RefreshCw,
   XCircle,
   Check,
@@ -14,11 +18,14 @@ import {
   Clock,
   ShieldCheck,
   Signal,
+  Wallet,
+  AlertTriangle,
 } from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
 import { cn } from "@/lib/utils";
 import { ServiceLogo } from "@/components/service-logo";
+import { CatalogSearch } from "@/components/catalog-search";
 import Link from "next/link";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -121,21 +128,61 @@ export function ServicesPortal() {
   // Mobile wizard: hide country list after pick so user focuses on numbers
   const [mobileStep, setMobileStep] = useState<MobileStep>("country");
 
+  // Full world list once — search is local (never refetch 224 countries per keystroke)
   const countriesQuery = useQuery({
-    queryKey: ["countries", countryQ],
+    queryKey: ["countries"],
     enabled: authStatus === "authenticated",
-    queryFn: () =>
-      api<{ countries: Country[] }>(`/api/v1/countries?q=${encodeURIComponent(countryQ)}`),
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    queryFn: () => api<{ countries: Country[]; total?: number }>("/api/v1/countries"),
   });
 
+  // Fast catalog first (live=0). Keep previous country visible while the next loads.
   const servicesQuery = useQuery({
-    queryKey: ["services", countryCode, serviceQ],
+    queryKey: ["services", countryCode],
     enabled: authStatus === "authenticated" && Boolean(countryCode),
+    staleTime: 2 * 60_000,
+    placeholderData: keepPreviousData,
     queryFn: () =>
-      api<{ services: Service[]; country: Country }>(
-        `/api/v1/services?country=${countryCode}&q=${encodeURIComponent(serviceQ)}`,
+      api<{ services: Service[]; country: Country; liveStock?: boolean }>(
+        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=0`,
       ),
   });
+
+  // Prefetch default + neighbors; soft-refresh 5SIM after first paint
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    const prefetch = (code: string) => {
+      void qc.prefetchQuery({
+        queryKey: ["services", code],
+        staleTime: 2 * 60_000,
+        queryFn: () =>
+          api<{ services: Service[]; country: Country }>(
+            `/api/v1/services?country=${encodeURIComponent(code)}&live=0`,
+          ),
+      });
+    };
+    prefetch("US");
+    prefetch("GB");
+    prefetch("NG");
+  }, [authStatus, qc]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !countryCode) return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void api<{ services: Service[]; country: Country; liveStock?: boolean }>(
+        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=1`,
+      ).then((data) => {
+        if (cancelled || !data?.services) return;
+        qc.setQueryData(["services", countryCode], data);
+      });
+    }, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [authStatus, countryCode, qc]);
 
   const historyQuery = useQuery({
     queryKey: ["orders-history"],
@@ -254,10 +301,55 @@ export function ServicesPortal() {
   }, [active?.id, active?.status, update, qc]);
 
   const countdown = useCountdown(active?.expiresAt);
-  const services = useMemo(() => servicesQuery.data?.services ?? [], [servicesQuery.data]);
+
+  const allCountries = useMemo(
+    () => countriesQuery.data?.countries ?? [],
+    [countriesQuery.data?.countries],
+  );
+  const filteredCountries = useMemo(() => {
+    const needle = countryQ.trim().toLowerCase();
+    if (!needle) return allCountries;
+    return allCountries.filter(
+      (c) =>
+        c.name.toLowerCase().includes(needle) ||
+        c.code.toLowerCase().includes(needle) ||
+        c.dialCode.includes(needle),
+    );
+  }, [allCountries, countryQ]);
+
+  const allServices = useMemo(
+    () => servicesQuery.data?.services ?? [],
+    [servicesQuery.data?.services],
+  );
+  const services = useMemo(() => {
+    const needle = serviceQ.trim().toLowerCase();
+    if (!needle) return allServices;
+    return allServices.filter(
+      (s) => s.name.toLowerCase().includes(needle) || s.slug.toLowerCase().includes(needle),
+    );
+  }, [allServices, serviceQ]);
+
   const selectedCountry =
-    countriesQuery.data?.countries.find((c) => c.code === countryCode) ??
-    servicesQuery.data?.country;
+    allCountries.find((c) => c.code === countryCode) ?? servicesQuery.data?.country;
+
+  const balance = Number(session?.user?.balance ?? 0);
+  const walletLow = !Number.isFinite(balance) || balance < 0.01;
+  const minServicePrice = useMemo(() => {
+    let min = Infinity;
+    for (const s of allServices) {
+      for (const o of s.offers) {
+        const p = Number(o.price);
+        if (Number.isFinite(p) && p < min) min = p;
+      }
+    }
+    return Number.isFinite(min) ? min : 0.35;
+  }, [allServices]);
+  const needsDeposit = walletLow || balance < minServicePrice;
+
+  const servicesLoading =
+    servicesQuery.isLoading || (servicesQuery.isFetching && allServices.length === 0);
+  const servicesRefreshing =
+    servicesQuery.isFetching && allServices.length > 0 && Boolean(servicesQuery.isPlaceholderData);
 
   async function onCopy(key: string, value: string) {
     await copyText(value);
@@ -265,13 +357,29 @@ export function ServicesPortal() {
     setTimeout(() => setCopied(null), 1500);
   }
 
+  function prefetchCountry(code: string) {
+    void qc.prefetchQuery({
+      queryKey: ["services", code],
+      staleTime: 2 * 60_000,
+      queryFn: () =>
+        api<{ services: Service[]; country: Country }>(
+          `/api/v1/services?country=${encodeURIComponent(code)}&live=0`,
+        ),
+    });
+  }
+
   function pickCountry(code: string) {
+    prefetchCountry(code);
     setCountryCode(code);
     setServiceQ("");
     setMobileStep("services");
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  }
+
+  function canAfford(price: string) {
+    return balance + 1e-9 >= Number(price);
   }
 
   if (authStatus === "unauthenticated") {
@@ -361,6 +469,43 @@ export function ServicesPortal() {
         </div>
       )}
 
+      {needsDeposit && authStatus === "authenticated" && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 360, damping: 26 }}
+          className="low-balance-banner px-4 py-4"
+          role="status"
+        >
+          <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--danger)_22%,transparent)] text-[var(--danger)]">
+                <Wallet size={20} />
+              </span>
+              <div>
+                <p className="text-base font-semibold tracking-tight">
+                  {walletLow ? "Wallet is empty — deposit to buy" : "Balance too low to buy"}
+                </p>
+                <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+                  Current balance{" "}
+                  <span className="mono-data font-semibold text-[var(--danger)]">
+                    ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
+                  </span>
+                  . Pay Areesha on WhatsApp, then she tops you up in Admin.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/deposit"
+              className="btn btn-primary relative z-[1] inline-flex min-h-12 shrink-0 items-center justify-center gap-2 px-5"
+            >
+              <Wallet size={16} />
+              Go to Deposit
+            </Link>
+          </div>
+        </motion.div>
+      )}
+
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
@@ -387,37 +532,31 @@ export function ServicesPortal() {
                 Select country
               </h2>
               <p className="text-xs text-[var(--text-muted)] mb-3">
-                {(countriesQuery.data?.countries?.length ?? 0) > 0
-                  ? `${countriesQuery.data?.countries.length} countries`
+                {allCountries.length > 0
+                  ? `${filteredCountries.length} of ${allCountries.length} countries`
                   : "Loading world list…"}
-                {" — "}search the full list.
+                {" — "}instant local search.
               </p>
-              <div className="relative mb-3">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
-                />
-                <input
-                  className="input pl-9 min-h-12"
-                  placeholder="Search country…"
-                  value={countryQ}
-                  onChange={(e) => setCountryQ(e.target.value)}
-                />
-              </div>
+              <CatalogSearch
+                className="mb-3"
+                label="Find a country"
+                placeholder="Search country name or dial code…"
+                value={countryQ}
+                onChange={setCountryQ}
+              />
 
               {/* Mobile: thumb-friendly 2-col cards — scroll full world list */}
               <div className="grid grid-cols-2 gap-2.5 lg:hidden max-h-[min(70vh,640px)] overflow-y-auto scrollbar-thin pr-0.5">
-                {countriesQuery.isLoading && (
-                  <p className="col-span-2 text-sm text-[var(--text-muted)] py-6 text-center">
-                    Loading countries…
-                  </p>
-                )}
+                {countriesQuery.isLoading &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="svc-skeleton min-h-[7.5rem]" />
+                  ))}
                 {countriesQuery.isError && (
                   <p className="col-span-2 text-sm text-[#fda4af] py-4 text-center">
                     Couldn’t load countries. Refresh the page.
                   </p>
                 )}
-                {(countriesQuery.data?.countries ?? []).map((c) => {
+                {filteredCountries.map((c) => {
                   const selected = countryCode === c.code;
                   return (
                     <motion.button
@@ -426,6 +565,8 @@ export function ServicesPortal() {
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.2 }}
+                      onMouseEnter={() => prefetchCountry(c.code)}
+                      onFocus={() => prefetchCountry(c.code)}
                       onClick={() => pickCountry(c.code)}
                       className={cn(
                         "min-h-[7.5rem] flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-4 text-center transition-colors",
@@ -449,9 +590,10 @@ export function ServicesPortal() {
 
               {/* Desktop: compact list */}
               <div className="hidden lg:block flex-1 overflow-y-auto scrollbar-thin space-y-1 max-h-[520px]">
-                {countriesQuery.isLoading && (
-                  <p className="px-3 py-4 text-sm text-[var(--text-muted)]">Loading countries…</p>
-                )}
+                {countriesQuery.isLoading &&
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="svc-skeleton h-12 mb-1" />
+                  ))}
                 {countriesQuery.isError && (
                   <p className="px-3 py-4 text-sm text-[#fda4af]">
                     Couldn’t load countries. Refresh the page.
@@ -459,15 +601,17 @@ export function ServicesPortal() {
                 )}
                 {!countriesQuery.isLoading &&
                   !countriesQuery.isError &&
-                  (countriesQuery.data?.countries?.length ?? 0) === 0 && (
+                  filteredCountries.length === 0 && (
                     <p className="px-3 py-4 text-sm text-[var(--text-muted)]">
                       No countries match that search.
                     </p>
                   )}
-                {(countriesQuery.data?.countries ?? []).map((c) => (
+                {filteredCountries.map((c) => (
                   <button
                     key={c.code}
                     type="button"
+                    onMouseEnter={() => prefetchCountry(c.code)}
+                    onFocus={() => prefetchCountry(c.code)}
                     onClick={() => pickCountry(c.code)}
                     className={cn(
                       "w-full min-h-12 flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
@@ -559,92 +703,165 @@ export function ServicesPortal() {
                 <Signal size={14} className="text-[var(--accent)] shrink-0 mt-0.5" />
                 <p>
                   <span className="text-[var(--text)] font-medium">{pool.title} pool.</span> {pool.blurb}
+                  {servicesRefreshing ? " · updating stock…" : null}
                 </p>
               </motion.div>
 
-              <div className="relative mb-4">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
-                />
-                <input
-                  className="input pl-9"
-                  placeholder="Search WhatsApp, Google, OpenAI…"
-                  value={serviceQ}
-                  onChange={(e) => setServiceQ(e.target.value)}
-                />
-              </div>
+              {needsDeposit && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                  className="low-balance-banner relative z-[1] mb-4 px-4 py-4"
+                  role="alert"
+                >
+                  <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--danger)_22%,transparent)] text-[var(--danger)]">
+                        <AlertTriangle size={20} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold tracking-tight text-[var(--text)]">
+                          Insufficient balance
+                        </p>
+                        <p className="mt-0.5 text-sm text-[var(--text-muted)] leading-snug">
+                          Wallet{" "}
+                          <span className="mono-data text-[var(--danger)] font-semibold">
+                            ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
+                          </span>
+                          {walletLow
+                            ? " — add credits before you can buy a number."
+                            : ` — numbers start around $${minServicePrice.toFixed(2)}. Top up to continue.`}
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/deposit"
+                      className="btn btn-primary relative z-[1] inline-flex min-h-12 shrink-0 items-center justify-center gap-2 px-5"
+                    >
+                      <Wallet size={16} />
+                      Deposit via WhatsApp
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+
+              <CatalogSearch
+                className="mb-4"
+                label="Find a service"
+                placeholder="Search WhatsApp, Google, OpenAI…"
+                value={serviceQ}
+                onChange={setServiceQ}
+              />
 
               <div className="grid gap-2 sm:grid-cols-2">
+                {servicesLoading &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={`sk-${i}`} className="svc-skeleton min-h-[10.5rem]" />
+                  ))}
                 <AnimatePresence mode="popLayout">
-                  {services.map((svc, idx) => {
-                    const offer =
-                      server === "auto"
-                        ? svc.offers.find((o) => o.inStock) ?? svc.offers[0]
-                        : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
-                    if (!offer) return null;
-                    const inStock =
-                      server === "auto"
-                        ? svc.offers.some((o) => o.inStock)
-                        : offer.inStock;
-                    const stockLabel =
-                      server === "auto"
-                        ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
-                        : offer.stock;
-                    return (
-                      <motion.div
-                        key={svc.id}
-                        layout
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.35, ease: easeOut, delay: Math.min(idx, 8) * 0.03 }}
-                        whileHover={{ y: -3 }}
-                        className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <ServiceLogo slug={svc.slug} name={svc.name} />
-                            <div className="min-w-0">
-                              <div className="font-semibold tracking-tight truncate">{svc.name}</div>
-                              <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                                {svc.category ?? "General"}
+                  {!servicesLoading &&
+                    services.map((svc, idx) => {
+                      const offer =
+                        server === "auto"
+                          ? svc.offers.find((o) => o.inStock) ?? svc.offers[0]
+                          : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
+                      if (!offer) return null;
+                      const inStock =
+                        server === "auto"
+                          ? svc.offers.some((o) => o.inStock)
+                          : offer.inStock;
+                      const stockLabel =
+                        server === "auto"
+                          ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
+                          : offer.stock;
+                      const affordable = canAfford(offer.price);
+                      return (
+                        <motion.div
+                          key={svc.id}
+                          layout
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.35,
+                            ease: easeOut,
+                            delay: Math.min(idx, 8) * 0.03,
+                          }}
+                          whileHover={{ y: -3 }}
+                          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <ServiceLogo slug={svc.slug} name={svc.name} />
+                              <div className="min-w-0">
+                                <div className="font-semibold tracking-tight truncate">{svc.name}</div>
+                                <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                  {svc.category ?? "General"}
+                                </div>
                               </div>
                             </div>
+                            <span
+                              className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}
+                            >
+                              {inStock ? `${stockLabel} left` : "Sold out"}
+                            </span>
                           </div>
-                          <span className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}>
-                            {inStock ? `${stockLabel} left` : "Sold out"}
-                          </span>
-                        </div>
-                        <div className="flex items-end justify-between gap-2">
-                          <div>
-                            <div className="text-[11px] text-[var(--text-muted)]">Price</div>
-                            <div className="mono-data text-[var(--accent)] text-lg">${offer.price}</div>
-                          </div>
-                          <div className="text-right text-[11px] text-[var(--text-muted)]">
-                            <div className="inline-flex items-center gap-1">
-                              <Clock size={12} /> 15 min window
+                          <div className="flex items-end justify-between gap-2">
+                            <div>
+                              <div className="text-[11px] text-[var(--text-muted)]">Price</div>
+                              <div className="mono-data text-[var(--accent)] text-lg">
+                                ${offer.price}
+                              </div>
                             </div>
-                            <div className="mt-0.5">{pool.label}</div>
+                            <div className="text-right text-[11px] text-[var(--text-muted)]">
+                              <div className="inline-flex items-center gap-1">
+                                <Clock size={12} /> 15 min window
+                              </div>
+                              <div className="mt-0.5">{pool.label}</div>
+                            </div>
                           </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-primary w-full"
-                          disabled={!inStock || purchase.isPending || !session}
-                          onClick={() =>
-                            purchase.mutate({
-                              countryCode,
-                              serviceSlug: svc.slug,
-                              server,
-                            })
-                          }
-                        >
-                          {purchase.isPending ? "Buying…" : "Buy number"}
-                        </button>
-                      </motion.div>
-                    );
-                  })}
+                          {!inStock ? (
+                            <button type="button" className="btn btn-ghost w-full" disabled>
+                              Sold out
+                            </button>
+                          ) : !affordable ? (
+                            <div className="space-y-2">
+                              <Link
+                                href="/deposit"
+                                className="btn btn-primary w-full inline-flex items-center justify-center gap-2 min-h-12"
+                              >
+                                <Wallet size={15} />
+                                Deposit to buy · ${offer.price}
+                              </Link>
+                              <p className="text-center text-[11px] text-[var(--danger)] font-medium">
+                                Need ${offer.price} · wallet ${balance.toFixed(4)}
+                              </p>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-primary w-full"
+                              disabled={purchase.isPending || !session}
+                              onClick={() =>
+                                purchase.mutate({
+                                  countryCode,
+                                  serviceSlug: svc.slug,
+                                  server,
+                                })
+                              }
+                            >
+                              {purchase.isPending ? "Buying…" : "Buy number"}
+                            </button>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                 </AnimatePresence>
+                {!servicesLoading && services.length === 0 && (
+                  <p className="col-span-full px-1 py-6 text-sm text-[var(--text-muted)] text-center">
+                    No services match that search.
+                  </p>
+                )}
               </div>
             </motion.section>
           )}

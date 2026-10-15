@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandWordmark } from "@/components/brand-mark";
-import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { PasswordField } from "@/components/password-field";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -50,22 +50,27 @@ export default function RegisterPage() {
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Free signup worldwide. Your wallet starts at $0.00 — fund anytime with crypto.
+            Free signup worldwide. Your wallet starts at $0.00 — fund anytime via WhatsApp deposit.
           </p>
         </div>
-        <GoogleSignInButton />
-        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-          <span className="h-px flex-1 bg-[var(--border)]" />
-          or email
-          <span className="h-px flex-1 bg-[var(--border)]" />
-        </div>
         <div>
-          <label className="text-sm text-[var(--text-muted)]">Name</label>
-          <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-sm text-[var(--text-muted)]">Email</label>
+          <label className="text-sm text-[var(--text-muted)]" htmlFor="reg-name">
+            Name
+          </label>
           <input
+            id="reg-name"
+            className="input mt-1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+          />
+        </div>
+        <div>
+          <label className="text-sm text-[var(--text-muted)]" htmlFor="reg-email">
+            Email
+          </label>
+          <input
+            id="reg-email"
             className="input mt-1"
             type="email"
             value={email}
@@ -74,18 +79,13 @@ export default function RegisterPage() {
             required
           />
         </div>
-        <div>
-          <label className="text-sm text-[var(--text-muted)]">Password</label>
-          <input
-            className="input mt-1"
-            type="password"
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-          />
-        </div>
+        <PasswordField
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
         {error && <p className="text-sm text-[#fda4af]">{error}</p>}
         <button className="btn btn-primary w-full" disabled={loading}>
           {loading ? "Creating…" : "Create account"}
