@@ -27,6 +27,8 @@ import {
   PRODUCT_PILLARS,
   SERVER_POOLS,
 } from "@/lib/catalog-content";
+import { ServiceLogo } from "@/components/service-logo";
+import { TestimonialsMarquee } from "@/components/testimonials-marquee";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -34,24 +36,24 @@ const pillarIcons = [Radio, Shield, Wallet] as const;
 
 const faqs = [
   {
-    q: "Do I need a wholesale SMS account?",
-    a: "No. Temp Empire sits on provider adapters. Demo mode uses mocks; production wires SMS-Activate, 5SIM, and peers via env.",
+    q: "Do I need my own SMS provider account?",
+    a: "No. Create a Temp Empire account, fund your wallet with crypto, and buy temporary numbers from our catalog.",
   },
   {
     q: "What happens if an OTP never arrives?",
-    a: "Numbers wait up to 20 minutes. No code → automatic full refund. You can also cancel within the first 2 minutes for an instant credit return.",
+    a: "Numbers wait up to 20 minutes. No code → automatic full refund. You can also cancel early for an instant credit return.",
   },
   {
     q: "What do Server 1 / 2 / 3 mean?",
-    a: "Three wholesale pools. Server 1 is standard price; Server 2/3 cost more (~8% steps) and usually have better success on congested apps.",
+    a: "Three number pools. Server 1 is the best price; Server 2/3 cost a bit more and often succeed when busy apps are congested.",
   },
   {
-    q: "Can resellers automate purchases?",
-    a: "Yes. API keys live in Settings. REST covers countries, services, purchase, OTP, cancel, and balance — with cURL and language samples in API Docs.",
+    q: "How do I reach support before depositing?",
+    a: "Use Contact / Support in the footer — email us anytime. Hours are listed on the support page.",
   },
 ];
 
-const beats = ["verify", "activate", "scale"];
+const beats = ["private", "instant", "crypto"];
 
 function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
   return (
@@ -241,8 +243,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
-              Buy SMS OTP numbers across countries and services, spin up temp inboxes, and fund with
-              crypto — one credit wallet, built like a product.
+              Get secure, temporary phone numbers in seconds. Protect your privacy with instant OTP
+              delivery.
             </motion.p>
 
             <motion.div
@@ -325,7 +327,7 @@ export default function LandingPage() {
           <SectionHead
             eyebrow="Marketplace facts"
             title="Real catalog numbers — not vanity stats."
-            body="Aligned with the seeded routes: ten countries, twelve services, three pools, clear TTL and cancel rules."
+            body="Ten countries, twelve popular apps, three pools, and automatic refunds if a code never arrives."
           />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
             {MARKETPLACE_FACTS.map((t, i) => (
@@ -418,8 +420,8 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
           eyebrow="Service catalog"
-          title="Popular verification routes."
-          body="Reference pricing from seed markup (provider cost × ~20%). Live stock and pools update in the portal."
+          title="Popular apps, real logos."
+          body="Buy a disposable number for the apps you already use. Live stock updates in the portal after you sign in."
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {CATALOG_SERVICES.map((svc, i) => (
@@ -433,11 +435,14 @@ export default function LandingPage() {
               className="panel panel-accent p-4 flex flex-col gap-3"
             >
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-semibold tracking-tight">{svc.name}</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">{svc.category}</div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <ServiceLogo slug={svc.slug} name={svc.name} />
+                  <div className="min-w-0">
+                    <div className="font-semibold tracking-tight truncate">{svc.name}</div>
+                    <div className="text-xs text-[var(--text-muted)] mt-0.5">{svc.category}</div>
+                  </div>
                 </div>
-                <span className="badge badge-success">Live</span>
+                <span className="badge badge-success shrink-0">Live</span>
               </div>
               <div className="mono-data text-[var(--accent)] text-lg">
                 from ${svc.from}
@@ -491,10 +496,10 @@ export default function LandingPage() {
           />
           <div className="space-y-4">
             {[
-              { icon: Lock, t: "Signed webhooks", d: "HMAC validation before deposit settlement." },
-              { icon: Shield, t: "ACID wallet updates", d: "Interactive Prisma transactions for debit/credit." },
-              { icon: Zap, t: "Rate-limited API", d: "Per-route RPM caps with X-RateLimit headers." },
-              { icon: Globe2, t: "HttpOnly sessions", d: "Auth.js cookies; reseller keys for machine access." },
+              { icon: Lock, t: "Signed deposit webhooks", d: "Crypto deposits settle only after verified payment events." },
+              { icon: Shield, t: "Safe wallet charges", d: "Your balance is deducted only after a number is successfully issued." },
+              { icon: Zap, t: "Abuse-resistant API", d: "Rate limits protect accounts and reseller keys." },
+              { icon: Globe2, t: "Secure sign-in", d: "Email/password or Google — sessions stay on your device." },
             ].map((item, i) => (
               <motion.div
                 key={item.t}
@@ -520,7 +525,7 @@ export default function LandingPage() {
         <SectionHead
           eyebrow="Pricing"
           title="Pay per number. Markup you control."
-          body="Dynamic offer prices with global markup. Cancel window and TTL are configurable."
+          body="Pay per number from your wallet. Cancel early or get an auto-refund if SMS never arrives."
         />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -553,8 +558,20 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* API / reseller */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
+      {/* Testimonials */}
+      <section className="relative z-10 border-y border-[var(--border)] py-14 sm:py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 mb-8">
+          <SectionHead
+            eyebrow="Customers"
+            title="People who keep their real phone private."
+            body="Short stories from privacy-minded buyers — pause the strip on hover."
+          />
+        </div>
+        <TestimonialsMarquee />
+      </section>
+
+      {/* API / reseller — developer surface; jargon stays here + /api-docs */}
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -571,14 +588,14 @@ export default function LandingPage() {
           </motion.div>
           <div className="flex items-center gap-2 text-[var(--accent)] mb-3">
             <Code2 size={18} />
-            <span className="eyebrow !mb-0">Reseller API</span>
+            <span className="eyebrow !mb-0">For developers</span>
           </div>
           <h2 className="max-w-lg text-3xl sm:text-4xl font-semibold tracking-[-0.035em]">
             Automate purchases with a single API key.
           </h2>
           <p className="mt-3 max-w-md text-[var(--text-muted)] text-sm leading-relaxed">
-            Countries, services, purchase, OTP, cancel, balance — cURL, Python, JS, and PHP samples on
-            the docs page.
+            Reseller REST for countries, services, purchase, OTP, cancel, and balance — including SSE
+            and polling patterns documented on the API page.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/api-docs" className="btn btn-primary">
@@ -663,22 +680,27 @@ export default function LandingPage() {
           </div>
           <div>
             <div className="mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)] mb-3">
-              Developers
+              Help
             </div>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/api-docs" className="hover:text-[var(--accent)]">
-                  API docs
+                <Link href="/support" className="hover:text-[var(--accent)]">
+                  Contact / Support
                 </Link>
               </li>
               <li>
                 <Link href="/register" className="hover:text-[var(--accent)]">
-                  Register
+                  Create account
                 </Link>
               </li>
               <li>
                 <Link href="/login" className="hover:text-[var(--accent)]">
                   Sign in
+                </Link>
+              </li>
+              <li>
+                <Link href="/api-docs" className="hover:text-[var(--accent)]">
+                  API docs
                 </Link>
               </li>
             </ul>

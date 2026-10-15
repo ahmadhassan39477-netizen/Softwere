@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 /**
- * Canonical host: www.tempempire.store
- * Redirect apex → www (and force https when behind a proxy that sets x-forwarded-proto).
+ * Canonical host + auth gate for app routes.
  */
 const CANONICAL_HOST = "www.tempempire.store";
 
-export function middleware(request: NextRequest) {
-  const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
-  const proto = (request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "")).toLowerCase();
+const PROTECTED_PREFIXES = ["/services", "/deposit", "/orders", "/settings", "/temp-mail", "/admin"];
 
-  // Only enforce on the real brand domain (leave localhost / trycloudflare alone)
+export async function middleware(request: NextRequest) {
+  const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
+  const proto = (
+    request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "")
+  ).toLowerCase();
+
   if (host === "tempempire.store" || host === CANONICAL_HOST) {
     const needsHost = host !== CANONICAL_HOST;
     const needsHttps = proto === "http";
@@ -20,6 +23,25 @@ export function middleware(request: NextRequest) {
       url.protocol = "https:";
       url.host = CANONICAL_HOST;
       return NextResponse.redirect(url, 308);
+    }
+  }
+
+  const { pathname } = request.nextUrl;
+  const needsAuth = PROTECTED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+
+  if (needsAuth) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET,
+      secureCookie:
+        proto === "https" || host === CANONICAL_HOST || host.endsWith(".vercel.app"),
+    });
+    if (!token?.sub && !token?.id) {
+      const login = new URL("/login", request.url);
+      login.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(login);
     }
   }
 

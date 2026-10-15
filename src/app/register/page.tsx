@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandWordmark } from "@/components/brand-mark";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -38,7 +39,6 @@ export default function RegisterPage() {
       setError(sign.error);
       return;
     }
-    // Relative navigation keeps the public tunnel host
     window.location.assign("/services");
   }
 
@@ -49,6 +49,15 @@ export default function RegisterPage() {
         <div>
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create account</h1>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            Free signup worldwide. Your wallet starts at $0.00 — fund anytime with crypto.
+          </p>
+        </div>
+        <GoogleSignInButton />
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          <span className="h-px flex-1 bg-[var(--border)]" />
+          or email
+          <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
         <div>
           <label className="text-sm text-[var(--text-muted)]">Name</label>
@@ -61,6 +70,7 @@ export default function RegisterPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
           />
         </div>
@@ -72,12 +82,13 @@ export default function RegisterPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
             required
           />
         </div>
         {error && <p className="text-sm text-[#fda4af]">{error}</p>}
         <button className="btn btn-primary w-full" disabled={loading}>
-          {loading ? "Creating…" : "Register"}
+          {loading ? "Creating…" : "Create account"}
         </button>
         <p className="text-sm text-[var(--text-muted)] text-center">
           Have an account?{" "}

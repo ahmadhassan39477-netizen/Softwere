@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { jsonError } from "@/lib/api-auth";
@@ -25,16 +26,25 @@ export async function POST(req: NextRequest) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return jsonError("Email already registered", 409);
 
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name: parsed.data.name ?? email.split("@")[0],
-      passwordHash: await bcrypt.hash(parsed.data.password, 10),
-      apiKey: `te_live_${nanoid(24)}`,
-      balance: 0,
-    },
-    select: { id: true, email: true, name: true },
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+
+  const user = await prisma.$transaction(async (tx) => {
+    return tx.user.create({
+      data: {
+        email,
+        name: parsed.data.name ?? email.split("@")[0],
+        passwordHash,
+        apiKey: `te_live_${nanoid(24)}`,
+        role: "USER",
+        // Wallet is the User.balance field — start at 0.0000
+        balance: new Prisma.Decimal("0.0000"),
+      },
+      select: { id: true, email: true, name: true, balance: true },
+    });
   });
 
-  return Response.json({ user }, { headers: rateLimitHeaders(rl) });
+  return Response.json(
+    { user: { ...user, balance: "0.0000" } },
+    { headers: rateLimitHeaders(rl) },
+  );
 }

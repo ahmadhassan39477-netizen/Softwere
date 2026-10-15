@@ -1,14 +1,14 @@
 /** Marketing + UI reference copy aligned with seed catalog (countries/services/pricing). */
 
 export const CATALOG_SERVICES = [
-  { name: "WhatsApp", category: "Messaging", from: "0.42", note: "High volume · 20 min TTL" },
-  { name: "Telegram", category: "Messaging", from: "0.34", note: "Fast delivery pools" },
-  { name: "Google / Gmail", category: "Accounts", from: "0.50", note: "Account verification" },
-  { name: "OpenAI / ChatGPT", category: "AI", from: "0.66", note: "Premium route" },
-  { name: "Discord", category: "Messaging", from: "0.30", note: "Community signups" },
-  { name: "TikTok", category: "Social", from: "0.46", note: "Creator & ads" },
-  { name: "Instagram", category: "Social", from: "0.43", note: "Business & personal" },
-  { name: "Binance", category: "Crypto", from: "0.74", note: "Exchange KYC SMS" },
+  { name: "WhatsApp", slug: "whatsapp", category: "Messaging", from: "0.42", note: "Popular messaging OTP" },
+  { name: "Telegram", slug: "telegram", category: "Messaging", from: "0.34", note: "Fast delivery pools" },
+  { name: "Google / Gmail", slug: "google", category: "Accounts", from: "0.50", note: "Account verification" },
+  { name: "OpenAI / ChatGPT", slug: "openai", category: "AI", from: "0.66", note: "Premium route" },
+  { name: "Discord", slug: "discord", category: "Messaging", from: "0.30", note: "Community signups" },
+  { name: "TikTok", slug: "tiktok", category: "Social", from: "0.46", note: "Creator & ads" },
+  { name: "Instagram", slug: "instagram", category: "Social", from: "0.43", note: "Business & personal" },
+  { name: "Binance", slug: "binance", category: "Crypto", from: "0.74", note: "Exchange SMS codes" },
 ] as const;
 
 export const SERVER_POOLS = [
@@ -43,34 +43,34 @@ export const HOW_IT_WORKS = [
   {
     n: "01",
     t: "Fund your wallet",
-    d: "Deposit via crypto webhook or manual review. Balances settle to four decimals before you buy.",
+    d: "Add credits with crypto. Your balance updates before you buy a number.",
   },
   {
     n: "02",
     t: "Choose country & service",
-    d: "Filter routes by stock, then pick Server 1–3. Price = provider cost × your markup.",
+    d: "Pick where the number should be from and which app you need the code for.",
   },
   {
     n: "03",
     t: "Receive & copy OTP",
-    d: "Live panel streams SMS over SSE (polling fallback). Codes auto-copy; unused numbers refund.",
+    d: "Your temporary number and verification code appear in a live inbox — tap to copy.",
   },
 ] as const;
 
 export const PRODUCT_PILLARS = [
   {
     k: "01",
-    title: "Global OTP catalog",
-    body: "Ten countries, twelve services, three server pools — searchable stock with live availability counts.",
+    title: "Global number catalog",
+    body: "Ten countries, twelve popular apps, three server pools — search stock and buy in a few taps.",
   },
   {
     k: "02",
-    title: "Realtime inbox",
-    body: "Server-sent events with polling fallback, countdown timers, and one-click copy for phone + OTP.",
+    title: "Instant OTP inbox",
+    body: "Codes land in a live panel with a countdown timer and one-click copy for phone + OTP.",
   },
   {
     k: "03",
-    title: "Wallet & reseller API",
-    body: "Transactional credits, signed deposit webhooks, and REST keys for automated purchase flows.",
+    title: "Wallet & crypto deposits",
+    body: "Pay with crypto, spend credits only when a number is issued, and get refunds if SMS never arrives.",
   },
 ] as const;

@@ -18,6 +18,7 @@ import {
 import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
 import { cn } from "@/lib/utils";
+import { ServiceLogo } from "@/components/service-logo";
 import Link from "next/link";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -528,13 +529,16 @@ export function ServicesPortal() {
                         className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-semibold tracking-tight">{svc.name}</div>
-                            <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                              {svc.category ?? "General"}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <ServiceLogo slug={svc.slug} name={svc.name} />
+                            <div className="min-w-0">
+                              <div className="font-semibold tracking-tight truncate">{svc.name}</div>
+                              <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                {svc.category ?? "General"}
+                              </div>
                             </div>
                           </div>
-                          <span className={`badge ${inStock ? "badge-success" : "badge-danger"}`}>
+                          <span className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}>
                             {inStock ? `${offer.stock} left` : "Sold out"}
                           </span>
                         </div>
@@ -545,7 +549,7 @@ export function ServicesPortal() {
                           </div>
                           <div className="text-right text-[11px] text-[var(--text-muted)]">
                             <div className="inline-flex items-center gap-1">
-                              <Clock size={12} /> 20 min TTL
+                              <Clock size={12} /> 20 min window
                             </div>
                             <div className="mt-0.5">{pool.label}</div>
                           </div>

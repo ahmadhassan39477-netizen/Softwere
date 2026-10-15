@@ -4,10 +4,11 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { FormEvent, useState } from "react";
 import { BrandWordmark } from "@/components/brand-mark";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("demo@tempempire.com");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,15 +20,17 @@ export default function LoginPage() {
       email,
       password,
       redirect: false,
-      // Relative only — never absolute localhost (breaks Cloudflare / public hosts)
       callbackUrl: "/services",
     });
     setLoading(false);
     if (!res || res.error) {
-      setError(res?.error === "CredentialsSignin" ? "Invalid email or password" : res?.error || "Sign-in failed");
+      setError(
+        res?.error === "CredentialsSignin"
+          ? "Invalid email or password"
+          : res?.error || "Sign-in failed",
+      );
       return;
     }
-    // Stay on the current public host; ignore Auth.js absolute URLs that may point at localhost
     window.location.assign("/services");
   }
 
@@ -38,12 +41,16 @@ export default function LoginPage() {
         <div>
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            Worldwide email login — or continue with Google.
+          </p>
         </div>
-        <p className="text-sm text-[var(--text-muted)] mono-data leading-relaxed">
-          demo@tempempire.com / demo1234
-          <br />
-          admin@tempempire.com / admin1234
-        </p>
+        <GoogleSignInButton />
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          <span className="h-px flex-1 bg-[var(--border)]" />
+          or email
+          <span className="h-px flex-1 bg-[var(--border)]" />
+        </div>
         <div>
           <label className="text-sm text-[var(--text-muted)]">Email</label>
           <input
@@ -51,6 +58,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
           />
         </div>
@@ -61,6 +69,7 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             required
           />
         </div>
@@ -71,7 +80,7 @@ export default function LoginPage() {
         <p className="text-sm text-[var(--text-muted)] text-center">
           No account?{" "}
           <Link href="/register" className="text-[var(--accent)]">
-            Register
+            Create account
           </Link>
         </p>
       </form>
