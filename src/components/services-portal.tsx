@@ -369,6 +369,11 @@ export function ServicesPortal() {
 
               {/* Mobile: thumb-friendly 2-col cards */}
               <div className="grid grid-cols-2 gap-2.5 lg:hidden">
+                {countriesQuery.isLoading && (
+                  <p className="col-span-2 text-sm text-[var(--text-muted)] py-6 text-center">
+                    Loading countries…
+                  </p>
+                )}
                 {(countriesQuery.data?.countries ?? []).map((c, i) => {
                   const selected = countryCode === c.code;
                   return (
@@ -401,6 +406,21 @@ export function ServicesPortal() {
 
               {/* Desktop: compact list */}
               <div className="hidden lg:block flex-1 overflow-y-auto scrollbar-thin space-y-1 max-h-[520px]">
+                {countriesQuery.isLoading && (
+                  <p className="px-3 py-4 text-sm text-[var(--text-muted)]">Loading countries…</p>
+                )}
+                {countriesQuery.isError && (
+                  <p className="px-3 py-4 text-sm text-[#fda4af]">
+                    Couldn’t load countries. Refresh the page.
+                  </p>
+                )}
+                {!countriesQuery.isLoading &&
+                  !countriesQuery.isError &&
+                  (countriesQuery.data?.countries?.length ?? 0) === 0 && (
+                    <p className="px-3 py-4 text-sm text-[var(--text-muted)]">
+                      No countries match that search.
+                    </p>
+                  )}
                 {(countriesQuery.data?.countries ?? []).map((c) => (
                   <button
                     key={c.code}
