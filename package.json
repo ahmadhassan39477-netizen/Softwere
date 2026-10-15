@@ -15,7 +15,8 @@
     "db:push:prod": "prisma db push --schema=prisma/schema.postgres.prisma",
     "db:promote-owners": "tsx scripts/promote-owner-admins.ts",
     "postinstall": "node scripts/prisma-prepare.mjs",
-    "deploy:vercel": "bash scripts/deploy-vercel.sh"
+    "deploy:vercel": "bash scripts/deploy-vercel.sh",
+    "brand:icons": "node scripts/generate-brand-icons.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
