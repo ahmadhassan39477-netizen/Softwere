@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { decimalJson } from "./money";
 import { ensureUserWithWallet } from "./users";
+import { resolveAuthSecret } from "./auth-secret";
 
 declare module "next-auth" {
   interface Session {
@@ -25,7 +26,7 @@ declare module "next-auth" {
   }
 }
 
-const authSecret = process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();
+const authSecret = resolveAuthSecret();
 
 const googleConfigured =
   Boolean(process.env.AUTH_GOOGLE_ID?.trim()) && Boolean(process.env.AUTH_GOOGLE_SECRET?.trim());

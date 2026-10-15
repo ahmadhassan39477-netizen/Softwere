@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { resolveAuthSecret } from "@/lib/auth-secret";
 
 /**
  * Canonical host + auth gate for app routes.
@@ -34,7 +35,7 @@ export async function middleware(request: NextRequest) {
   if (needsAuth) {
     const token = await getToken({
       req: request,
-      secret: process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim(),
+      secret: resolveAuthSecret(),
       secureCookie:
         proto === "https" || host === CANONICAL_HOST || host.endsWith(".vercel.app"),
     });
