@@ -1,0 +1,226 @@
+// Temp Empire — PostgreSQL schema for production (Vercel / Neon / etc.)
+// Local SQLite remains in prisma/schema.prisma
+// Use: npx prisma generate --schema=prisma/schema.postgres.prisma
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  image         String?
+  role          String    @default("USER") // USER | ADMIN | RESELLER
+  balance       Decimal   @default(0)
+  apiKey        String?   @unique
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  transactions  Transaction[]
+  tempMails     TempMail[]
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Country {
+  id              String    @id @default(cuid())
+  code            String    @unique // ISO-ish e.g. US, GB, NG
+  name            String
+  flag            String
+  dialCode        String
+  enabled         Boolean   @default(true)
+  availability    Int       @default(0)
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  services        ServiceOffer[]
+  orders          Order[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  icon        String?
+  category    String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  offers      ServiceOffer[]
+  orders      Order[]
+}
+
+model ServiceOffer {
+  id           String   @id @default(cuid())
+  countryId    String
+  serviceId    String
+  server       Int      @default(1) // 1 | 2 | 3
+  price        Decimal 
+  costPrice    Decimal  @default(0)
+  stock        Int      @default(0)
+  enabled      Boolean  @default(true)
+  providerKey  String   @default("mock") // sms-activate | 5sim | mock
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  country      Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([countryId, serviceId, server])
+  @@index([serviceId])
+  @@index([countryId])
+}
+
+model Order {
+  id              String    @id @default(cuid())
+  userId          String
+  countryId       String
+  serviceId       String
+  server          Int       @default(1)
+  phoneNumber     String?
+  status          String    @default("PENDING") // PENDING | ACTIVE | RECEIVED | EXPIRED | CANCELLED | REFUNDED
+  price           Decimal  
+  otpCode         String?
+  otpMessage      String?
+  providerOrderId String?
+  providerKey     String    @default("mock")
+  expiresAt       DateTime
+  cancelledAt     DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country         Country   @relation(fields: [countryId], references: [id])
+  service         Service   @relation(fields: [serviceId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // DEPOSIT | PURCHASE | REFUND | ADJUSTMENT
+  amount      Decimal 
+  balanceAfter Decimal
+  method      String?  // crypto_nowpayments | binance_pay | manual | system
+  status      String   @default("PENDING") // PENDING | COMPLETED | FAILED | REJECTED
+  externalId  String?
+  meta        String?  // JSON blob
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model TempMail {
+  id          String   @id @default(cuid())
+  userId      String
+  address     String   @unique
+  domain      String
+  active      Boolean  @default(true)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    TempMailMessage[]
+
+  @@index([userId])
+}
+
+model TempMailMessage {
+  id          String   @id @default(cuid())
+  tempMailId  String
+  fromAddr    String
+  subject     String
+  textBody    String?
+  htmlBody    String?
+  attachments String?  // JSON array
+  read        Boolean  @default(false)
+  receivedAt  DateTime @default(now())
+
+  tempMail    TempMail @relation(fields: [tempMailId], references: [id], onDelete: Cascade)
+
+  @@index([tempMailId, receivedAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model ProviderConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // sms-activate | 5sim | grizzlysms | smsbower
+  name      String
+  apiKey    String?
+  baseUrl   String?
+  enabled   Boolean  @default(false)
+  meta      String?
+  updatedAt DateTime @updatedAt
+}

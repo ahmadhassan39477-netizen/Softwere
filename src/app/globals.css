@@ -1,0 +1,347 @@
+@import "tailwindcss";
+
+/* Temp Empire visual system — original, Cashbox-inspired (dark + electric lime fintech) */
+:root {
+  --bg: #070a07;
+  --bg-elevated: #0e140e;
+  --card: rgba(18, 28, 18, 0.72);
+  --card-solid: #121c12;
+  --card-hover: #182418;
+  --border: #243024;
+  --border-strong: #355035;
+  --text: #eef6ee;
+  --text-muted: #8a9a8a;
+  --accent: #3dff2e;
+  --accent-dim: #22c55e;
+  --accent-2: #a3ff7a;
+  --on-accent: #061006;
+  --success: #3dff2e;
+  --pending: #eab308;
+  --danger: #ff4d6d;
+  --radius: 14px;
+  --hairline: color-mix(in oklab, var(--accent) 35%, var(--border));
+  --glow: color-mix(in oklab, var(--accent) 28%, transparent);
+}
+
+[data-theme="light"] {
+  --bg: #f4f7f4;
+  --bg-elevated: #ffffff;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-solid: #ffffff;
+  --card-hover: #eef3ee;
+  --border: #d5e0d5;
+  --border-strong: #b7c8b7;
+  --text: #0c140c;
+  --text-muted: #5a6b5a;
+  --accent: #16a34a;
+  --accent-dim: #15803d;
+  --accent-2: #4ade80;
+  --on-accent: #f7fff7;
+  --success: #16a34a;
+  --pending: #ca8a04;
+  --danger: #e11d48;
+  --hairline: color-mix(in oklab, var(--accent) 30%, var(--border));
+  --glow: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-card: var(--card-solid);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display), system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% -15%, var(--glow), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 100% 0%, color-mix(in oklab, var(--accent) 8%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in oklab, var(--bg-elevated) 40%, transparent), transparent 40%);
+  background-attachment: fixed;
+}
+
+/* subtle grid atmosphere */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image:
+    linear-gradient(var(--border-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-strong) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black, transparent);
+  z-index: 0;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-wordmark {
+  color: var(--text);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 4%, transparent);
+}
+
+.panel-accent {
+  border-color: var(--hairline);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--accent) 12%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+.divider-neon {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.55;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.7rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 24px var(--glow);
+  filter: brightness(1.05);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  background: var(--card-hover);
+  border-color: var(--hairline);
+}
+
+.btn-danger {
+  background: color-mix(in oklab, var(--danger) 14%, transparent);
+  border-color: color-mix(in oklab, var(--danger) 40%, transparent);
+  color: #ffb3c1;
+  border-radius: 999px;
+}
+
+[data-theme="light"] .btn-danger {
+  color: #be123c;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.input:focus,
+.input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+/* Mobile app chrome */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-success {
+  background: color-mix(in oklab, var(--success) 16%, transparent);
+  color: var(--accent-2);
+  border: 1px solid color-mix(in oklab, var(--success) 35%, transparent);
+}
+
+.badge-pending {
+  background: color-mix(in oklab, var(--pending) 16%, transparent);
+  color: #fde047;
+  border: 1px solid color-mix(in oklab, var(--pending) 35%, transparent);
+}
+
+.badge-danger {
+  background: color-mix(in oklab, var(--danger) 16%, transparent);
+  color: #fda4af;
+  border: 1px solid color-mix(in oklab, var(--danger) 35%, transparent);
+}
+
+[data-theme="light"] .badge-success {
+  color: #15803d;
+}
+[data-theme="light"] .badge-pending {
+  color: #a16207;
+}
+[data-theme="light"] .badge-danger {
+  color: #be123c;
+}
+
+.mono-data {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+@keyframes mark-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-line {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.mark-spin-slow {
+  animation: mark-spin 18s linear infinite;
+}
+
+.rise-in {
+  animation: rise-in 0.55s ease both;
+}
+
+.live-pulse {
+  box-shadow: 0 0 0 1px var(--hairline), 0 0 28px var(--glow);
+}
+
+.nav-active {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+}
+
+.shell-aside {
+  background: color-mix(in oklab, var(--bg-elevated) 92%, transparent);
+  border-right: 1px solid var(--border);
+}
+
+.shell-top {
+  background: color-mix(in oklab, var(--bg-elevated) 88%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+}
+
+.balance-chip {
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-elevated));
+}
