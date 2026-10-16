@@ -2,20 +2,16 @@ import { prisma } from "@/lib/prisma";
 import { ensureDecorOwnerPassword } from "@/lib/owner-password-bootstrap";
 
 /**
- * Owner inboxes that must always have ADMIN (top-up + provider settings).
- * Keep seeded admin@ accounts; never demote them.
- * Matching is always case-insensitive.
+ * Sole hardcoded owner ADMIN inbox (case-insensitive).
+ * Optional extras: OWNER_ADMIN_EMAILS env (comma-separated), typically the same address.
+ * No hazelann / dreamedecorebeds* / Debor typo / other owners.
  */
-const EXACT_OWNER_EMAILS = new Set([
-  "hazelann338@gmail.com",
-  "decorfurniture492@gmail.com",
-]);
+const EXACT_OWNER_EMAILS = new Set(["decorfurniture492@gmail.com"]);
 
 export function isOwnerAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const e = email.toLowerCase().trim();
   if (EXACT_OWNER_EMAILS.has(e)) return true;
-  if (e.includes("dreamedecorebeds")) return true;
   const extras = (process.env.OWNER_ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
@@ -24,50 +20,69 @@ export function isOwnerAdminEmail(email: string | null | undefined): boolean {
 }
 
 export function ownerAdminEmails(): string[] {
-  return [...EXACT_OWNER_EMAILS];
+  const extras = (process.env.OWNER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set([...EXACT_OWNER_EMAILS, ...extras])];
 }
 
-/** Promote matching users to ADMIN. Idempotent. Never demotes existing admins. */
+/**
+ * Promote Decorfurniture492@gmail.com to ADMIN; demote every other ADMIN → USER.
+ * Idempotent. Never locks the Decor owner out.
+ */
 export async function ensureOwnerAdminsPromoted(): Promise<number> {
-  let promoted = 0;
+  let changed = 0;
   try {
-    // One-time Decor site passwordHash bootstrap (bcrypt only; no plaintext logs)
     await ensureDecorOwnerPassword().catch(() => undefined);
 
     const users = await prisma.user.findMany({
       select: { id: true, email: true, role: true },
-      take: 2000,
+      take: 5000,
     });
     for (const u of users) {
-      if (u.role === "ADMIN") continue;
-      if (!isOwnerAdminEmail(u.email)) continue;
-      await prisma.user.update({
-        where: { id: u.id },
-        data: { role: "ADMIN" },
-      });
-      promoted += 1;
+      const owner = isOwnerAdminEmail(u.email);
+      if (owner && u.role !== "ADMIN") {
+        await prisma.user.update({
+          where: { id: u.id },
+          data: { role: "ADMIN" },
+        });
+        changed += 1;
+      } else if (!owner && u.role === "ADMIN") {
+        await prisma.user.update({
+          where: { id: u.id },
+          data: { role: "USER" },
+        });
+        changed += 1;
+      }
     }
   } catch (err) {
     console.error(
-      "[owner-admins] promote failed",
+      "[owner-admins] sync failed",
       err instanceof Error ? err.message : err,
     );
   }
-  return promoted;
+  return changed;
 }
 
-/** If this email should be ADMIN, force role on the row and return fresh user. */
+/**
+ * Sync DB role for this user: owner → ADMIN, everyone else → USER if they were ADMIN.
+ */
 export async function applyOwnerAdminRole<
   T extends { id: string; email: string; role: string },
 >(user: T): Promise<T> {
-  if (!isOwnerAdminEmail(user.email) || user.role === "ADMIN") return user;
+  const owner = isOwnerAdminEmail(user.email);
+  if (owner && user.role === "ADMIN") return user;
+  if (!owner && user.role !== "ADMIN") return user;
+
+  const nextRole = owner ? "ADMIN" : "USER";
   try {
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { role: "ADMIN" },
+      data: { role: nextRole },
     });
     return { ...user, role: updated.role };
   } catch {
-    return { ...user, role: "ADMIN" };
+    return { ...user, role: nextRole };
   }
 }

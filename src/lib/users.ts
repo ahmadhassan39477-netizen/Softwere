@@ -6,7 +6,7 @@ import { applyOwnerAdminRole, isOwnerAdminEmail } from "./owner-admins";
 /**
  * Ensure a User row exists with wallet balance (User.balance).
  * Safe for credentials login, Google OAuth, and register.
- * Owner emails (hazelann338@gmail.com / dreamedecorebeds*) become ADMIN.
+ * Only Decorfurniture492@gmail.com (case-insensitive) becomes ADMIN.
  */
 export async function ensureUserWithWallet(input: {
   email: string;
@@ -26,6 +26,7 @@ export async function ensureUserWithWallet(input: {
     if (!existing.apiKey) data.apiKey = `te_live_${nanoid(24)}`;
     if (input.passwordHash && !existing.passwordHash) data.passwordHash = input.passwordHash;
     if (ownerAdmin && existing.role !== "ADMIN") data.role = "ADMIN";
+    if (!ownerAdmin && existing.role === "ADMIN") data.role = "USER";
     if (Object.keys(data).length === 0) return existing;
     const updated = await prisma.user.update({ where: { id: existing.id }, data });
     return applyOwnerAdminRole(updated);

@@ -18,8 +18,10 @@ function toAuthed(user: {
   balance: unknown;
   apiKey: string | null;
 }): AuthedUser {
-  const role = isOwnerAdminEmail(user.email) ? "ADMIN" : user.role;
-  if (isOwnerAdminEmail(user.email) && user.role !== "ADMIN") {
+  const owner = isOwnerAdminEmail(user.email);
+  // Only owner inboxes are ADMIN; demote stale ADMIN rows on access
+  const role = owner ? "ADMIN" : "USER";
+  if ((owner && user.role !== "ADMIN") || (!owner && user.role === "ADMIN")) {
     void applyOwnerAdminRole(user).catch(() => undefined);
   }
   return {

@@ -105,7 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          role: isOwnerAdminEmail(user.email) ? "ADMIN" : user.role,
+          role: isOwnerAdminEmail(user.email) ? "ADMIN" : "USER",
           balance: decimalJson(user.balance ?? 0),
           apiKey: user.apiKey,
         };
@@ -160,7 +160,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return `${configured}/services`;
     },
     async jwt({ token, user, trigger, account }) {
-      // Best-effort: promote owner inboxes in Neon (hazelann / dreamedecorebeds)
+      // Best-effort: Decor → ADMIN; demote every other ADMIN → USER
       void ensureOwnerAdminsPromoted().catch(() => undefined);
 
       if (user) {
@@ -199,9 +199,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      if (isOwnerAdminEmail(String(token.email ?? ""))) {
-        token.role = "ADMIN";
-      }
+      // Sole owner ADMIN; never leave stale ADMIN on other emails
+      token.role = isOwnerAdminEmail(String(token.email ?? "")) ? "ADMIN" : "USER";
       return token;
     },
     async session({ session, token }) {
@@ -209,9 +208,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.email = String(token.email ?? "");
       session.user.name = token.name as string | null | undefined;
       const email = String(token.email ?? "");
-      session.user.role = isOwnerAdminEmail(email)
-        ? "ADMIN"
-        : String(token.role ?? "USER");
+      session.user.role = isOwnerAdminEmail(email) ? "ADMIN" : "USER";
       session.user.balance = String(token.balance ?? "0.0000");
       session.user.apiKey = (token.apiKey as string | null | undefined) ?? null;
       return session;
