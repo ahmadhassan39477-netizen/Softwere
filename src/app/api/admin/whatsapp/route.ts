@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   const numbers = parseWhatsAppNumberList(parsed.data.number);
   if (numbers.length === 0) {
     return jsonError(
-      "Enter one or more WhatsApp numbers with country code (e.g. 923287087121, 923072577778 or 03072577778)",
+      "Enter one or more WhatsApp numbers with country code (e.g. 923072577778 or 03072577778)",
     );
   }
 

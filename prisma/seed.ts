@@ -156,7 +156,7 @@ async function main() {
     where: { key: "whatsapp_business_number" },
     create: {
       key: "whatsapp_business_number",
-      value: "923287087121, 923072577778",
+      value: "923072577778",
     },
     update: {},
   });

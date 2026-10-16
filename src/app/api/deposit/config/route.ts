@@ -33,6 +33,6 @@ export async function GET() {
       : null,
     requiredEnv: ["WHATSAPP_BUSINESS_NUMBER"],
     instructions:
-      "Message us on WhatsApp to add credit. Use either number below. Include your account email and the amount you paid. Balance updates after we confirm payment — nothing is credited automatically.",
+      "Message us on WhatsApp to add credit. Include your account email and the amount you paid. Balance updates after we confirm payment — nothing is credited automatically.",
   });
 }

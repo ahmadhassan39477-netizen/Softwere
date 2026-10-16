@@ -1,11 +1,13 @@
-/** Default deposit WhatsApp lines (digits only, country code). Add — do not replace. */
-export const DEFAULT_WHATSAPP_BUSINESS_NUMBER = "923287087121";
-export const SECONDARY_WHATSAPP_BUSINESS_NUMBER = "923072577778";
+/** Default deposit WhatsApp (digits only, country code). */
+export const DEFAULT_WHATSAPP_BUSINESS_NUMBER = "923072577778";
 
-export const DEFAULT_WHATSAPP_BUSINESS_NUMBERS = [
-  DEFAULT_WHATSAPP_BUSINESS_NUMBER,
-  SECONDARY_WHATSAPP_BUSINESS_NUMBER,
-] as const;
+/** Retired line — stripped on soft-migrate so Deposit never shows it again. */
+export const RETIRED_WHATSAPP_BUSINESS_NUMBER = "923287087121";
+
+export const DEFAULT_WHATSAPP_BUSINESS_NUMBERS = [DEFAULT_WHATSAPP_BUSINESS_NUMBER] as const;
+
+/** @deprecated Use DEFAULT_WHATSAPP_BUSINESS_NUMBER */
+export const SECONDARY_WHATSAPP_BUSINESS_NUMBER = DEFAULT_WHATSAPP_BUSINESS_NUMBER;
 
 export const WHATSAPP_SETTING_KEY = "whatsapp_business_number";
 

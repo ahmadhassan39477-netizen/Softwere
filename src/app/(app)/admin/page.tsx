@@ -63,7 +63,7 @@ export default function AdminPage() {
   const [markupDrafts, setMarkupDrafts] = useState<Record<string, string>>({});
   const [baseUrlDrafts, setBaseUrlDrafts] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
-  const [waNumber, setWaNumber] = useState("923287087121, 923072577778");
+  const [waNumber, setWaNumber] = useState("923072577778");
   const [creditEmail, setCreditEmail] = useState("");
   const [creditAmount, setCreditAmount] = useState("10");
   const [creditNote, setCreditNote] = useState("");
@@ -272,15 +272,15 @@ export default function AdminPage() {
       <div className="panel p-5 space-y-4">
         <h2 className="font-semibold">Deposit WhatsApp numbers</h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Customers see every number on Deposit. Comma-separate lines with country code
-          (defaults 923287087121 and 923072577778 / 03072577778). Env: WHATSAPP_BUSINESS_NUMBER.
+          Customers see every number on Deposit. Default: 923072577778 / 03072577778.
+          Comma-separate if you add more. Env: WHATSAPP_BUSINESS_NUMBER.
         </p>
         <div className="flex flex-wrap gap-2">
           <input
             className="input flex-1 min-w-[240px] font-mono text-sm"
             value={waNumber}
             onChange={(e) => setWaNumber(e.target.value)}
-            placeholder="923287087121, 923072577778"
+            placeholder="923072577778"
           />
           <button
             type="button"

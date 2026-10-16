@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_WHATSAPP_BUSINESS_NUMBER,
   DEFAULT_WHATSAPP_BUSINESS_NUMBERS,
+  RETIRED_WHATSAPP_BUSINESS_NUMBER,
   SECONDARY_WHATSAPP_BUSINESS_NUMBER,
   WHATSAPP_SETTING_KEY,
   buildDepositPrefill,
@@ -16,6 +17,7 @@ import {
 export {
   DEFAULT_WHATSAPP_BUSINESS_NUMBER,
   DEFAULT_WHATSAPP_BUSINESS_NUMBERS,
+  RETIRED_WHATSAPP_BUSINESS_NUMBER,
   SECONDARY_WHATSAPP_BUSINESS_NUMBER,
   WHATSAPP_SETTING_KEY,
   buildDepositPrefill,
@@ -28,8 +30,8 @@ export {
 export type { WhatsAppDisplay };
 
 /**
- * Resolve deposit WhatsApp lines: Admin Setting → env → both defaults.
- * Always includes both launch numbers when Admin still has the old single default.
+ * Resolve deposit WhatsApp lines: Admin Setting → env → default (03072577778).
+ * Soft-migrate: drop retired 03287087121 / 923287087121 from stored lists.
  */
 export async function getWhatsAppBusinessNumbers(): Promise<string[]> {
   let fromStore: string[] = [];
@@ -49,13 +51,14 @@ export async function getWhatsAppBusinessNumbers(): Promise<string[]> {
         ? fromEnv
         : [...DEFAULT_WHATSAPP_BUSINESS_NUMBERS];
 
-  // Soft-migrate: old single primary → keep primary and add secondary
-  if (
-    numbers.length === 1 &&
-    numbers[0] === DEFAULT_WHATSAPP_BUSINESS_NUMBER &&
-    !numbers.includes(SECONDARY_WHATSAPP_BUSINESS_NUMBER)
-  ) {
-    numbers = [DEFAULT_WHATSAPP_BUSINESS_NUMBER, SECONDARY_WHATSAPP_BUSINESS_NUMBER];
+  const before = numbers.join(",");
+  numbers = numbers.filter((n) => n !== RETIRED_WHATSAPP_BUSINESS_NUMBER);
+  if (numbers.length === 0) {
+    numbers = [...DEFAULT_WHATSAPP_BUSINESS_NUMBERS];
+  }
+
+  // Persist strip of retired number (or empty → default)
+  if (before !== numbers.join(",")) {
     await prisma.setting
       .upsert({
         where: { key: WHATSAPP_SETTING_KEY },
