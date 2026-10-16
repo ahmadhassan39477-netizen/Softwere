@@ -1,4 +1,9 @@
-export type ProviderKey = "sms-activate" | "5sim" | "grizzlysms" | "mock";
+export type ProviderKey =
+  | "sms-activate"
+  | "5sim"
+  | "grizzlysms"
+  | "sms-man"
+  | "mock";
 
 export type BuyInput = {
   countryCode: string;

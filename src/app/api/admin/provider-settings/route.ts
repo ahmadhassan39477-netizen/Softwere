@@ -14,6 +14,7 @@ import {
   ensureProviderSlots,
   isSlotProviderType,
   loadProviderSlots,
+  sanitizeApiKeyForType,
   slotKeyForServer,
   type SlotProviderType,
 } from "@/lib/sms/provider-slots";
@@ -81,7 +82,7 @@ const patchSchema = z.object({
   markupPercent: z.number().min(0).max(500).optional(),
   priority: z.number().int().min(1).max(10).optional(),
   providerType: z
-    .enum(["sms-activate", "5sim", "grizzlysms", "custom-sa"])
+    .enum(["sms-activate", "5sim", "grizzlysms", "sms-man", "custom-sa"])
     .optional(),
   baseUrl: z.string().nullable().optional(),
   globalMarkupPercent: z.number().min(0).max(500).optional(),
@@ -112,8 +113,9 @@ export async function PATCH(req: NextRequest) {
   // Accept legacy keys by mapping to slots
   let key = parsed.data.key;
   if (key === "sms-activate") key = slotKeyForServer(1);
-  if (key === "5sim") key = slotKeyForServer(2);
-  if (key === "grizzlysms") key = slotKeyForServer(3);
+  if (key === "5sim") key = slotKeyForServer(1);
+  if (key === "grizzlysms") key = slotKeyForServer(2);
+  if (key === "sms-man") key = slotKeyForServer(3);
 
   const existing = await prisma.providerSetting.findUnique({ where: { key } });
   if (!existing) return jsonError("Unknown server slot", 404);
@@ -126,11 +128,27 @@ export async function PATCH(req: NextRequest) {
     nextMarkup = DEFAULT_SLOT_MARKUP;
   }
 
+  const typeForSanitize: SlotProviderType =
+    nextType ??
+    (isSlotProviderType(existing.providerType) ? existing.providerType : "sms-activate");
+
+  // Reject get-sms docs URLs — never store as API keys
+  let nextApiKey: string | null | undefined = undefined;
+  if (parsed.data.apiKey !== undefined) {
+    nextApiKey = sanitizeApiKeyForType(typeForSanitize, parsed.data.apiKey);
+    if (parsed.data.apiKey?.trim() && nextApiKey == null) {
+      return jsonError(
+        "Invalid SMS-Man token — paste the profile token from sms-man.com, not a get-sms docs URL",
+        400,
+      );
+    }
+  }
+
   const updated = await prisma.providerSetting.update({
     where: { key },
     data: {
       ...(parsed.data.enabled !== undefined ? { enabled: parsed.data.enabled } : {}),
-      ...(parsed.data.apiKey !== undefined ? { apiKey: parsed.data.apiKey } : {}),
+      ...(nextApiKey !== undefined ? { apiKey: nextApiKey } : {}),
       ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
       ...(nextType ? { providerType: nextType, name: `Server ${existing.priority}` } : {}),
       ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
@@ -144,18 +162,20 @@ export async function PATCH(req: NextRequest) {
   const typeKey = isSlotProviderType(updated.providerType)
     ? updated.providerType
     : "sms-activate";
+  const legacyConfigKey =
+    typeKey === "custom-sa" ? "sms-activate" : typeKey;
   await prisma.providerConfig
     .upsert({
-      where: { key: typeKey === "custom-sa" ? "sms-activate" : typeKey },
+      where: { key: legacyConfigKey },
       create: {
-        key: typeKey === "custom-sa" ? "sms-activate" : typeKey,
+        key: legacyConfigKey,
         name: displayNameForType(typeKey as SlotProviderType),
         enabled: updated.enabled,
         apiKey: updated.apiKey,
       },
       update: {
         enabled: updated.enabled,
-        ...(parsed.data.apiKey !== undefined ? { apiKey: parsed.data.apiKey } : {}),
+        ...(nextApiKey !== undefined ? { apiKey: nextApiKey } : {}),
       },
     })
     .catch(() => undefined);

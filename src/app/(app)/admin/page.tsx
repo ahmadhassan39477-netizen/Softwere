@@ -337,9 +337,9 @@ export default function AdminPage() {
         <p className="text-xs text-[var(--text-muted)] mb-4">
           Each server is a slot: pick provider type, paste API key, set margin %. Default margin
           is {settings.data?.grizzlyDefaultMarkup ?? 20}% for all servers (retail = wholesale ×
-          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = Grizzly. Empty Server 2
-          reuses the Server 3 Grizzly key on Auto. Customer /services never shows wholesale brand
-          names. Keys stay in Admin — never shared in chat.
+          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man. For SMS-Man
+          paste the profile token only — never a get-sms docs URL. Customer /services never shows
+          wholesale brand names. Keys stay in Admin — never shared in chat.
         </p>
         <div className="space-y-4">
           {providers.map((p) => {
@@ -347,9 +347,14 @@ export default function AdminPage() {
               { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
               { value: "5sim", label: "5SIM", defaultMarkup: 20 },
               { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 20 },
+              { value: "sms-man", label: "SMS-Man", defaultMarkup: 20 },
               { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
             ];
             const type = p.providerType ?? "sms-activate";
+            const keyPlaceholder =
+              type === "sms-man"
+                ? "Paste SMS-Man profile token (not a get-sms URL)"
+                : `Paste ${p.providerLabel ?? "provider"} API key`;
             return (
               <div
                 key={p.key}
@@ -467,7 +472,7 @@ export default function AdminPage() {
                     className="input flex-1 min-w-[200px] font-mono text-sm"
                     type="password"
                     autoComplete="off"
-                    placeholder={`Paste ${p.providerLabel ?? "provider"} API key`}
+                    placeholder={keyPlaceholder}
                     value={keyDrafts[p.key] ?? ""}
                     onChange={(e) =>
                       setKeyDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))

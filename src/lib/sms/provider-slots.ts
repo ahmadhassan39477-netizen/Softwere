@@ -1,12 +1,18 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ProviderKey } from "./types";
+import { isSmsManDocsUrl } from "./adapters/sms-man";
 
 /** Admin Server 1/2/3 slot keys. */
 export const SLOT_KEYS = ["server-1", "server-2", "server-3"] as const;
 export type SlotKey = (typeof SLOT_KEYS)[number];
 
-export type SlotProviderType = "sms-activate" | "5sim" | "grizzlysms" | "custom-sa";
+export type SlotProviderType =
+  | "sms-activate"
+  | "5sim"
+  | "grizzlysms"
+  | "sms-man"
+  | "custom-sa";
 
 /** Uniform retail markup for every server: retail = wholesale × 1.20 */
 export const DEFAULT_SLOT_MARKUP = 20;
@@ -22,17 +28,18 @@ export const PROVIDER_TYPE_OPTIONS: {
   { value: "sms-activate", label: "SMS-Activate", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "5sim", label: "5SIM", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: DEFAULT_SLOT_MARKUP },
+  { value: "sms-man", label: "SMS-Man", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: DEFAULT_SLOT_MARKUP },
 ];
 
-/** Desired Admin defaults: S1=5SIM, S2=Grizzly, S3=Grizzly. */
+/** Desired Admin defaults: S1=5SIM, S2=Grizzly, S3=SMS-Man. */
 export const SLOT_TYPE_DEFAULTS: Record<1 | 2 | 3, SlotProviderType> = {
   1: "5sim",
   2: "grizzlysms",
-  3: "grizzlysms",
+  3: "sms-man",
 };
 
-const DEFAULTS_FLAG = "sms_slots_defaults_v3";
+const DEFAULTS_FLAG = "sms_slots_defaults_v4";
 
 export function slotKeyForServer(server: 1 | 2 | 3): SlotKey {
   return `server-${server}` as SlotKey;
@@ -68,7 +75,17 @@ export function envKeyForType(type: SlotProviderType): string | undefined {
     return process.env.SMS_ACTIVATE_API_KEY?.trim();
   }
   if (type === "5sim") return process.env.FIVESIM_API_KEY?.trim();
-  if (type === "grizzlysms") return process.env.GRIZZLY_SMS_API_KEY?.trim();
+  if (type === "grizzlysms") {
+    return (
+      process.env.GRIZZLY_SMS_API_KEY?.trim() ||
+      process.env.GRIZZLYSMS_API_KEY?.trim()
+    );
+  }
+  if (type === "sms-man") {
+    const t = process.env.SMS_MAN_API_KEY?.trim() || process.env.SMSMAN_API_KEY?.trim();
+    if (t && isSmsManDocsUrl(t)) return undefined;
+    return t;
+  }
   return undefined;
 }
 
@@ -85,22 +102,44 @@ export function defaultBaseUrlForType(type: SlotProviderType): string | null {
       "https://api.grizzlysms.com/stubs/handler_api.php"
     );
   }
+  if (type === "sms-man") {
+    return "https://api.sms-man.com/control/";
+  }
   if (type === "custom-sa") return null;
   return null;
+}
+
+/** True when the stored “key” is a docs/control URL, not a token. */
+export function looksLikeApiDocsUrl(value: string | null | undefined): boolean {
+  if (!value?.trim()) return false;
+  return isSmsManDocsUrl(value) || /^https?:\/\//i.test(value.trim());
+}
+
+/** Sanitize Admin-pasted keys: never persist get-sms docs URLs as tokens. */
+export function sanitizeApiKeyForType(
+  type: SlotProviderType,
+  apiKey: string | null | undefined,
+): string | null {
+  if (apiKey == null) return null;
+  const trimmed = apiKey.trim();
+  if (!trimmed) return null;
+  if (type === "sms-man" && isSmsManDocsUrl(trimmed)) return null;
+  if (looksLikeApiDocsUrl(trimmed) && type !== "custom-sa") return null;
+  return trimmed;
 }
 
 /** Legacy provider-key rows → which slot to seed from (keys only). */
 const LEGACY_KEY_SOURCES: { oldKey: string; slot: 1 | 2 | 3 }[] = [
   { oldKey: "5sim", slot: 1 },
   { oldKey: "sms-activate", slot: 1 },
-  { oldKey: "grizzlysms", slot: 3 },
-  { oldKey: "5sim", slot: 2 },
+  { oldKey: "grizzlysms", slot: 2 },
+  { oldKey: "sms-man", slot: 3 },
 ];
 
 /**
  * Ensure server-1/2/3 slots exist.
- * Defaults: S1=5SIM, S2=Grizzly, S3=Grizzly; all margins 20%.
- * Preserves existing API keys (S3 Grizzly key kept; copied to S2 when S2 empty).
+ * Defaults: S1=5SIM, S2=Grizzly, S3=SMS-Man; all margins 20%.
+ * Preserves real API keys; clears mistaken docs URLs on SMS-Man.
  */
 export async function ensureProviderSlots(): Promise<void> {
   const markupDefault = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? DEFAULT_SLOT_MARKUP);
@@ -111,7 +150,6 @@ export async function ensureProviderSlots(): Promise<void> {
     const type = SLOT_TYPE_DEFAULTS[slot];
 
     if (!existingSlot) {
-      // Prefer matching legacy key for this slot's provider type
       let apiKey: string | null = null;
       if (type === "5sim") {
         const row = await prisma.providerSetting.findUnique({ where: { key: "5sim" } });
@@ -122,6 +160,9 @@ export async function ensureProviderSlots(): Promise<void> {
       } else if (type === "sms-activate") {
         const row = await prisma.providerSetting.findUnique({ where: { key: "sms-activate" } });
         apiKey = row?.apiKey ?? null;
+      } else if (type === "sms-man") {
+        const row = await prisma.providerSetting.findUnique({ where: { key: "sms-man" } });
+        apiKey = sanitizeApiKeyForType("sms-man", row?.apiKey);
       }
 
       await prisma.providerSetting.create({
@@ -139,30 +180,55 @@ export async function ensureProviderSlots(): Promise<void> {
     }
   }
 
-  // One-time apply of v3 defaults (types + 20% for all) without wiping keys
+  // One-time apply of v4 defaults (S3=SMS-Man + 20%) without wiping real tokens
   const flag = await prisma.setting.findUnique({ where: { key: DEFAULTS_FLAG } });
   if (!flag || flag.value !== "1") {
-    for (const slot of [1, 2, 3] as const) {
-      const slotKey = slotKeyForServer(slot);
-      const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
-      if (!row) continue;
+    // Before flipping S3 type, move a real Grizzly key from S3 → S2 if S2 empty
+    const s3Before = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    const s2Before = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
+    if (
+      s3Before &&
+      s2Before &&
+      s3Before.providerType === "grizzlysms" &&
+      s3Before.apiKey?.trim() &&
+      !looksLikeApiDocsUrl(s3Before.apiKey) &&
+      !s2Before.apiKey?.trim()
+    ) {
       await prisma.providerSetting.update({
-        where: { key: slotKey },
+        where: { key: "server-2" },
         data: {
-          providerType: SLOT_TYPE_DEFAULTS[slot],
-          name: `Server ${slot}`,
-          markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+          apiKey: s3Before.apiKey,
+          providerType: "grizzlysms",
         },
       });
     }
 
-    // Preserve / restore Grizzly key onto S3 from legacy row if S3 empty
-    const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
-    const legacyG = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
-    if (s3 && !s3.apiKey?.trim() && legacyG?.apiKey?.trim()) {
+    for (const slot of [1, 2, 3] as const) {
+      const slotKey = slotKeyForServer(slot);
+      const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
+      if (!row) continue;
+      const nextType = SLOT_TYPE_DEFAULTS[slot];
+      let nextKey = row.apiKey;
+      // Clear docs URLs mistakenly stored as SMS-Man (or any) tokens
+      if (nextType === "sms-man" && looksLikeApiDocsUrl(nextKey)) {
+        nextKey = null;
+      }
+      // Do not keep a Grizzly key on the SMS-Man slot after the type flip
+      if (
+        nextType === "sms-man" &&
+        row.providerType === "grizzlysms" &&
+        nextKey?.trim()
+      ) {
+        nextKey = null;
+      }
       await prisma.providerSetting.update({
-        where: { key: "server-3" },
-        data: { apiKey: legacyG.apiKey },
+        where: { key: slotKey },
+        data: {
+          providerType: nextType,
+          name: `Server ${slot}`,
+          markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+          ...(nextKey !== row.apiKey ? { apiKey: nextKey } : {}),
+        },
       });
     }
 
@@ -176,13 +242,24 @@ export async function ensureProviderSlots(): Promise<void> {
       });
     }
 
-    // Copy S3 Grizzly key → S2 when S2 empty
+    // Prefer Grizzly legacy key on S2 when empty
     const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
-    const s3b = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
-    if (s2 && s3b && !s2.apiKey?.trim() && s3b.apiKey?.trim()) {
+    const legacyG = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
+    if (s2 && !s2.apiKey?.trim() && legacyG?.apiKey?.trim()) {
       await prisma.providerSetting.update({
         where: { key: "server-2" },
-        data: { apiKey: s3b.apiKey },
+        data: { apiKey: legacyG.apiKey, providerType: "grizzlysms" },
+      });
+    }
+
+    // Prefer SMS-Man legacy key on S3 when empty (never a docs URL)
+    const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    const legacyM = await prisma.providerSetting.findUnique({ where: { key: "sms-man" } });
+    const manKey = sanitizeApiKeyForType("sms-man", legacyM?.apiKey);
+    if (s3 && !s3.apiKey?.trim() && manKey) {
+      await prisma.providerSetting.update({
+        where: { key: "server-3" },
+        data: { apiKey: manKey },
       });
     }
 
@@ -192,32 +269,38 @@ export async function ensureProviderSlots(): Promise<void> {
       update: { value: "1" },
     });
   } else {
-    // One-time override leftover Grizzly 40% → 20%
+    // Ongoing hygiene: strip docs URLs, force 20% if stuck at 40
     for (const slot of [1, 2, 3] as const) {
       const slotKey = slotKeyForServer(slot);
       const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
-      if (row && Number(row.markupPercent) === 40) {
-        await prisma.providerSetting.update({
-          where: { key: slotKey },
-          data: { markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
-        });
+      if (!row) continue;
+      const patch: { markupPercent?: Prisma.Decimal; apiKey?: string | null } = {};
+      if (Number(row.markupPercent) === 40) {
+        patch.markupPercent = new Prisma.Decimal(DEFAULT_SLOT_MARKUP);
+      }
+      if (
+        (row.providerType === "sms-man" || looksLikeApiDocsUrl(row.apiKey)) &&
+        looksLikeApiDocsUrl(row.apiKey)
+      ) {
+        patch.apiKey = null;
+      }
+      if (Object.keys(patch).length > 0) {
+        await prisma.providerSetting.update({ where: { key: slotKey }, data: patch });
       }
     }
 
-    // Keep S2 keyed from S3 Grizzly when empty
+    // Keep S2 Grizzly keyed from legacy row when empty (S3 is SMS-Man — do not copy)
     const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
-    const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    const legacyG = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
     if (
       s2 &&
-      s3 &&
       s2.providerType === "grizzlysms" &&
-      s3.providerType === "grizzlysms" &&
       !s2.apiKey?.trim() &&
-      s3.apiKey?.trim()
+      legacyG?.apiKey?.trim()
     ) {
       await prisma.providerSetting.update({
         where: { key: "server-2" },
-        data: { apiKey: s3.apiKey },
+        data: { apiKey: legacyG.apiKey },
       });
     }
   }
@@ -251,12 +334,15 @@ export async function loadProviderSlots(): Promise<SlotRow[]> {
       row && isSlotProviderType(row.providerType)
         ? row.providerType
         : SLOT_TYPE_DEFAULTS[slot];
+    const rawKey = row?.apiKey ?? null;
+    const apiKey =
+      type === "sms-man" ? sanitizeApiKeyForType("sms-man", rawKey) : rawKey;
     out.push({
       key,
       name: row?.name ?? `Server ${slot}`,
       providerType: type,
       baseUrl: row?.baseUrl ?? null,
-      apiKey: row?.apiKey ?? null,
+      apiKey,
       enabled: row?.enabled ?? true,
       priority: slot,
       markupPercent: Number(row?.markupPercent ?? DEFAULT_SLOT_MARKUP),

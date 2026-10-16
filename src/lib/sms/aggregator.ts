@@ -11,6 +11,7 @@ import {
 import { createSmsActivateAdapter } from "./adapters/sms-activate";
 import { createFiveSimAdapter } from "./adapters/fivesim";
 import { createGrizzlySmsAdapter } from "./adapters/grizzlysms";
+import { createSmsManAdapter, isSmsManDocsUrl } from "./adapters/sms-man";
 import { createSaCompatibleAdapter } from "./adapters/sa-compatible";
 import { mockAdapter } from "./adapters/mock";
 import {
@@ -47,6 +48,11 @@ export function buildAdapterForSlot(slot: SlotRow): SmsAdapter | null {
   if (type === "grizzlysms") {
     return createGrizzlySmsAdapter(keyValue, slot.baseUrl);
   }
+  if (type === "sms-man") {
+    // Never treat get-sms docs URL as a token
+    if (isSmsManDocsUrl(keyValue)) return null;
+    return createSmsManAdapter(keyValue);
+  }
   if (type === "custom-sa") {
     const base = slot.baseUrl?.trim();
     if (!base) return null;
@@ -73,14 +79,18 @@ export function buildAdapter(
   if (key === "sms-activate") return createSmsActivateAdapter(keyValue);
   if (key === "5sim") return createFiveSimAdapter(keyValue);
   if (key === "grizzlysms") return createGrizzlySmsAdapter(keyValue);
+  if (key === "sms-man") {
+    if (isSmsManDocsUrl(keyValue)) return null;
+    return createSmsManAdapter(keyValue);
+  }
   return null;
 }
 
 /**
  * Resolve ordered slot adapters for buy.
  * - Skips empty/disabled slots (no crash on missing 5SIM).
- * - If Server 2 empty and Server 3 is Grizzly with a key, fill Server 2 with that Grizzly
- *   so Auto still gets two Grizzly attempts.
+ * - If Server 2 empty and Server 3 is still Grizzly with a key, fill Server 2 from S3.
+ *   (S3 default is now SMS-Man — do not copy SMS-Man tokens onto S2.)
  */
 export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
   const byPriority = new Map(slots.map((s) => [s.priority, s]));
@@ -89,7 +99,7 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
 
   const effective: SlotRow[] = slots.map((s) => ({ ...s }));
 
-  // Fill empty Server 2 from Grizzly Server 3 when 5SIM/empty
+  // Fill empty Server 2 from Grizzly Server 3 only when S3 is Grizzly
   if (slot2 && slot3) {
     const s2HasKey = Boolean(slot2.apiKey?.trim() || envKeyForType(slot2.providerType));
     const s3HasKey = Boolean(slot3.apiKey?.trim() || envKeyForType(slot3.providerType));
@@ -148,7 +158,7 @@ export class SmsAggregator {
         {
           provider: "sms-activate",
           error:
-            "MISSING_KEYS — paste wholesale API keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY)",
+            "MISSING_KEYS — paste wholesale API keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)",
         },
       ]);
     }
@@ -267,9 +277,10 @@ export class SmsAggregator {
 export const smsAggregator = new SmsAggregator();
 
 export function serverNumberForProvider(key: ProviderKey): number {
+  if (key === "5sim") return 1;
+  if (key === "grizzlysms") return 2;
+  if (key === "sms-man") return 3;
   if (key === "sms-activate") return 1;
-  if (key === "5sim") return 2;
-  if (key === "grizzlysms") return 3;
   return 1;
 }
 

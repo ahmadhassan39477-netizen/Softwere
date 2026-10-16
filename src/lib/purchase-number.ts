@@ -103,7 +103,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     if (e instanceof AllProvidersFailedError) {
       const missingKeys = e.attempts.some((a) => a.error.includes("MISSING_KEYS"));
       const message = missingKeys
-        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Paste keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY)."
+        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Paste keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)."
         : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
       throw Object.assign(new Error(message), {
         status: 409,
