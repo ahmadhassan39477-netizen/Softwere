@@ -19,6 +19,9 @@ type ProviderRow = {
   apiKeyMasked: string;
   balance: number | null;
   envConfigured: boolean;
+  tokenLooksLikeDocsUrl?: boolean;
+  live?: boolean | null;
+  livePriceRows?: number | null;
 };
 
 type ProviderTypeOption = { value: string; label: string; defaultMarkup: number };
@@ -79,13 +82,22 @@ export default function AdminPage() {
     queryKey: ["admin-provider-settings"],
     enabled: status === "authenticated" && session?.user?.role === "ADMIN",
     queryFn: async () => {
-      const res = await fetch("/api/admin/provider-settings");
+      const res = await fetch("/api/admin/provider-settings?probe=1");
       if (!res.ok) throw new Error("Forbidden");
       return res.json() as Promise<{
         markupPercent: string;
         providers: ProviderRow[];
         providerTypes?: ProviderTypeOption[];
         grizzlyDefaultMarkup?: number;
+        liveProbe?: Record<
+          string,
+          {
+            liveRows: number;
+            whatsappWholesale: number | null;
+            whatsappRetail: number | null;
+            live: boolean;
+          }
+        >;
       }>;
     },
   });
@@ -366,9 +378,11 @@ export default function AdminPage() {
         <p className="text-xs text-[var(--text-muted)] mb-4">
           Each server is a slot: pick provider type, paste API key, set margin %. Default margin
           is {settings.data?.grizzlyDefaultMarkup ?? 20}% for all servers (retail = wholesale ×
-          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man. For SMS-Man
-          paste the profile token only — never a get-sms docs URL. Customer /services never shows
-          wholesale brand names. Keys stay in Admin — never shared in chat.
+          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man.
+          SMS-Man: log in at sms-man.com → open Profile / Account → copy only the API token
+          string. Never paste the docs “Get sms” example URL
+          (…/get-sms?token=$token&amp;request_id=…) — Admin rejects that. Customer /services
+          never shows wholesale brand names. Keys stay in Admin — never shared in chat.
         </p>
         <div className="space-y-4">
           {providers.map((p) => {
@@ -394,7 +408,30 @@ export default function AdminPage() {
                       {p.key} · key {p.hasApiKey ? p.apiKeyMasked : "not set"}
                       {p.envConfigured ? " · env fallback" : ""} · balance{" "}
                       {p.balance != null ? `$${p.balance}` : "—"}
+                      {p.live === true
+                        ? ` · live prices OK (${p.livePriceRows ?? 0} rows)`
+                        : p.live === false
+                          ? " · live prices missing"
+                          : ""}
                     </div>
+                    {p.tokenLooksLikeDocsUrl ? (
+                      <div className="text-xs text-amber-400 mt-1">
+                        Saved value looks like a get-sms docs URL — clear it and paste the
+                        profile token from sms-man.com only, then Save key.
+                      </div>
+                    ) : null}
+                    {type === "sms-man" && settings.data?.liveProbe?.[p.key] ? (
+                      <div className="text-xs text-[var(--text-muted)] mt-1">
+                        US WhatsApp probe:{" "}
+                        {settings.data.liveProbe[p.key].live
+                          ? `wholesale $${Number(
+                              settings.data.liveProbe[p.key].whatsappWholesale,
+                            ).toFixed(4)} → retail $${Number(
+                              settings.data.liveProbe[p.key].whatsappRetail,
+                            ).toFixed(4)}`
+                          : "no live row yet (check token + Enabled)"}
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     type="button"

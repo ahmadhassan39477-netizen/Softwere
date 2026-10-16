@@ -14,10 +14,14 @@ import {
   ensureProviderSlots,
   isSlotProviderType,
   loadProviderSlots,
+  looksLikeApiDocsUrl,
+  retailFromWholesale,
   sanitizeApiKeyForType,
   slotKeyForServer,
   type SlotProviderType,
 } from "@/lib/sms/provider-slots";
+import { isSmsManDocsUrl, probeSmsManToken } from "@/lib/sms/adapters/sms-man";
+import { fetchLiveStockBySlot } from "@/lib/sms/live-stock";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -47,14 +51,53 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Live price probe (US/WhatsApp) — never includes tokens
+  const wantProbe = req.nextUrl.searchParams.get("probe") === "1";
+  let liveProbe: Record<
+    string,
+    {
+      liveRows: number;
+      whatsappWholesale: number | null;
+      whatsappRetail: number | null;
+      live: boolean;
+    }
+  > | null = null;
+  if (wantProbe) {
+    const bySlot = await fetchLiveStockBySlot("US").catch(() => new Map());
+    liveProbe = {};
+    for (const s of slots) {
+      const entry = bySlot.get(s.priority);
+      const wa = entry?.bySlug.get("whatsapp");
+      const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
+      liveProbe[s.key] = {
+        liveRows: entry?.bySlug.size ?? 0,
+        whatsappWholesale: wa && wa.wholesale > 0 ? wa.wholesale : null,
+        whatsappRetail:
+          wa && wa.wholesale > 0 ? retailFromWholesale(wa.wholesale, markupPct) : null,
+        live: Boolean(wa && wa.wholesale > 0),
+      };
+    }
+  }
+
+  // Raw DB keys for docs-URL detection (loadProviderSlots already strips bad SMS-Man values)
+  const rawRows = await prisma.providerSetting.findMany({
+    where: { key: { in: slots.map((s) => s.key) } },
+    select: { key: true, apiKey: true },
+  });
+  const rawByKey = new Map(rawRows.map((r) => [r.key, r.apiKey]));
+
   return Response.json({
     markupPercent: markup?.value ?? process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
     providerTypes: PROVIDER_TYPE_OPTIONS,
     grizzlyDefaultMarkup: DEFAULT_SLOT_MARKUP,
     defaultSlotMarkup: DEFAULT_SLOT_MARKUP,
+    liveProbe,
     providers: slots.map((s) => {
       const bal = balances.find((b) => b.key === s.key);
       const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
+      const rawDb = rawByKey.get(s.key)?.trim() ?? "";
+      const usableKey = s.apiKey?.trim() ?? "";
+      const docsUrlStored = Boolean(rawDb) && isSmsManDocsUrl(rawDb);
       return {
         id: s.key,
         key: s.key,
@@ -66,10 +109,14 @@ export async function GET(req: NextRequest) {
         enabled: s.enabled,
         priority: s.priority,
         markupPercent: String(markupPct),
-        hasApiKey: Boolean(s.apiKey?.trim()) || Boolean(bal?.hasApiKey),
-        apiKeyMasked: maskKey(s.apiKey),
+        hasApiKey: Boolean(usableKey) || Boolean(bal?.hasApiKey),
+        apiKeyMasked: maskKey(usableKey || null),
         balance: bal?.balance ?? null,
-        envConfigured: Boolean(bal?.hasApiKey && !s.apiKey?.trim()),
+        envConfigured: Boolean(bal?.hasApiKey && !usableKey),
+        // Safe flags only — never echo token
+        tokenLooksLikeDocsUrl: docsUrlStored,
+        live: liveProbe?.[s.key]?.live ?? null,
+        livePriceRows: liveProbe?.[s.key]?.liveRows ?? null,
       };
     }),
   });
@@ -132,15 +179,35 @@ export async function PATCH(req: NextRequest) {
     nextType ??
     (isSlotProviderType(existing.providerType) ? existing.providerType : "sms-activate");
 
-  // Reject get-sms docs URLs — never store as API keys
+  // Reject get-sms docs URLs — never store as API keys; never log the pasted value
   let nextApiKey: string | null | undefined = undefined;
   if (parsed.data.apiKey !== undefined) {
-    nextApiKey = sanitizeApiKeyForType(typeForSanitize, parsed.data.apiKey);
-    if (parsed.data.apiKey?.trim() && nextApiKey == null) {
+    const raw = parsed.data.apiKey;
+    if (raw?.trim() && (typeForSanitize === "sms-man" || isSmsManDocsUrl(raw))) {
+      if (isSmsManDocsUrl(raw) || looksLikeApiDocsUrl(raw)) {
+        return jsonError(
+          "That looks like an SMS-Man docs/API URL, not your profile token. Open sms-man.com → Profile → copy the API token only (no get-sms?token=… URL), then Save key.",
+          400,
+        );
+      }
+    }
+    nextApiKey = sanitizeApiKeyForType(typeForSanitize, raw);
+    if (raw?.trim() && nextApiKey == null) {
       return jsonError(
-        "Invalid SMS-Man token — paste the profile token from sms-man.com, not a get-sms docs URL",
+        "Invalid API key — for SMS-Man paste the profile token only, not a get-sms docs URL.",
         400,
       );
+    }
+    // Verify SMS-Man token against get-balance before saving
+    if (nextApiKey && typeForSanitize === "sms-man") {
+      const probe = await probeSmsManToken(nextApiKey);
+      if (!probe.ok) {
+        return jsonError(
+          probe.error ??
+            "SMS-Man rejected this token. Paste the profile API token from sms-man.com.",
+          400,
+        );
+      }
     }
   }
 

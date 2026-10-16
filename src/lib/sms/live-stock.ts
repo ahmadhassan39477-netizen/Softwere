@@ -9,6 +9,8 @@ export type SlotLiveStock = {
 };
 
 const PRICE_TIMEOUT_MS = 3500;
+/** SMS-Man needs applications + get-prices; allow more headroom on Vercel. */
+const SMS_MAN_PRICE_TIMEOUT_MS = 12_000;
 
 async function pricesForSlot(
   slot: SlotRow,
@@ -19,20 +21,25 @@ async function pricesForSlot(
     const adapter = buildAdapterForSlot(slot);
     if (!adapter?.getPrices) return out;
 
+    const timeoutMs =
+      slot.providerType === "sms-man" ? SMS_MAN_PRICE_TIMEOUT_MS : PRICE_TIMEOUT_MS;
+
     const rows = await Promise.race([
       adapter.getPrices(countryCode),
       new Promise<ProviderPriceRow[]>((resolve) =>
-        setTimeout(() => resolve([]), PRICE_TIMEOUT_MS),
+        setTimeout(() => resolve([]), timeoutMs),
       ),
     ]);
     for (const r of rows) {
       if (!r.serviceSlug) continue;
+      if (!(r.wholesale > 0)) continue;
       out.set(r.serviceSlug, r);
     }
   } catch (err) {
+    // Never log API keys / tokens — message only
     console.error(
       `[live-stock] slot ${slot.priority} ${slot.providerType}`,
-      err instanceof Error ? err.message : "error",
+      err instanceof Error ? err.message.slice(0, 120) : "error",
     );
   }
   return out;
