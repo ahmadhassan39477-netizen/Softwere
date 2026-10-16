@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy,
@@ -68,8 +68,10 @@ type HistoryOrder = {
   status: string;
   phoneNumber: string | null;
   otpCode: string | null;
+  otpMessage?: string | null;
   price: string;
   server: number;
+  serverMode?: string;
   expiresAt: string;
   createdAt: string;
   country: { code: string; name: string; flag: string };
@@ -77,6 +79,31 @@ type HistoryOrder = {
 };
 
 type MobileStep = "country" | "services" | "order";
+
+const LIVE_PANEL_STATUSES = new Set(["ACTIVE", "PENDING", "WAITING", "RECEIVED"]);
+
+function toActiveOrder(o: HistoryOrder | ActiveOrder): ActiveOrder {
+  return {
+    id: o.id,
+    phoneNumber: o.phoneNumber,
+    status: o.status,
+    price: o.price,
+    server: o.server,
+    serverMode: o.serverMode,
+    expiresAt: typeof o.expiresAt === "string" ? o.expiresAt : String(o.expiresAt),
+    country: o.country,
+    service: o.service,
+    otpCode: o.otpCode ?? null,
+    otpMessage: "otpMessage" in o ? (o.otpMessage ?? null) : null,
+  };
+}
+
+function serverLabel(order: ActiveOrder): string {
+  if (order.serverMode === "auto") return "Auto";
+  if (order.server === 1) return "Primary";
+  if (order.server === 2) return "Backup";
+  return "Extra";
+}
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -114,6 +141,136 @@ function useIsDesktop() {
   return desktop;
 }
 
+function LiveOrderPanel({
+  order,
+  panelRef,
+  copied,
+  onCopy,
+  refreshPending,
+  cancelPending,
+  onRefresh,
+  onCancel,
+}: {
+  order: ActiveOrder;
+  panelRef?: RefObject<HTMLDivElement | null>;
+  copied: string | null;
+  onCopy: (key: string, value: string) => void;
+  refreshPending: boolean;
+  cancelPending: boolean;
+  onRefresh: () => void;
+  onCancel: () => void;
+}) {
+  const countdown = useCountdown(order.expiresAt);
+  const waiting = ["ACTIVE", "PENDING", "WAITING"].includes(order.status) && !order.otpCode;
+  const hasCode = Boolean(order.otpCode) || order.status === "RECEIVED";
+
+  return (
+    <motion.section
+      ref={panelRef}
+      initial={{ opacity: 0, y: -28, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+      className={`panel panel-accent relative overflow-hidden p-4 sm:p-5 ring-2 ring-[var(--accent)] ${
+        waiting ? "live-pulse" : ""
+      }`}
+    >
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_55%)]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 0.45] }}
+        transition={{ duration: 1.1 }}
+      />
+      <div className="relative z-[1] space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="eyebrow mb-1">Live order · stays until Cancel</p>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {order.country.flag} {order.service.name}
+              <span className="text-[var(--text-muted)] font-normal text-sm">
+                {" "}
+                · {serverLabel(order)}
+              </span>
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`badge ${statusColor(order.status)}`}>{order.status}</span>
+            {waiting && (
+              <span className="font-mono text-xl tabular-nums">{countdown.label}</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-[var(--text-muted)] mb-1">Phone number</div>
+          <div className="flex gap-2">
+            <code className="flex-1 panel px-3 py-2.5 font-mono text-sm break-all">
+              {order.phoneNumber}
+            </code>
+            <button
+              type="button"
+              className="btn btn-ghost px-3"
+              onClick={() => onCopy(`phone-${order.id}`, order.phoneNumber ?? "")}
+              aria-label="Copy phone"
+            >
+              {copied === `phone-${order.id}` ? <Check size={16} /> : <Copy size={16} />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-[var(--text-muted)] mb-1">OTP code</div>
+          <div className="flex gap-2">
+            <code
+              className={`flex-1 panel px-3 py-3 font-mono text-lg tracking-[0.14em] min-h-[48px] ${
+                order.otpCode ? "text-[var(--accent)] font-semibold" : "text-[var(--text-muted)]"
+              }`}
+            >
+              {order.otpCode ?? (waiting ? "Waiting for SMS…" : "—")}
+            </code>
+            {order.otpCode && (
+              <button
+                type="button"
+                className="btn btn-ghost px-3"
+                onClick={() => onCopy(`otp-${order.id}`, order.otpCode!)}
+                aria-label="Copy OTP"
+              >
+                {copied === `otp-${order.id}` ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+            )}
+          </div>
+          {order.otpMessage && (
+            <p className="mt-2 text-xs text-[var(--text-muted)]">{order.otpMessage}</p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost flex-1 min-w-[8rem]"
+            disabled={refreshPending || hasCode}
+            onClick={onRefresh}
+          >
+            <RefreshCw size={14} className={refreshPending ? "animate-spin" : ""} />{" "}
+            {refreshPending ? "Checking…" : "Refresh"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger flex-1 min-w-[8rem]"
+            disabled={cancelPending}
+            onClick={onCancel}
+          >
+            <XCircle size={14} /> {hasCode ? "Done · dismiss" : "Cancel · refund"}
+          </button>
+        </div>
+        <p className="text-xs text-[var(--text-muted)]">
+          {hasCode
+            ? "OTP received — this card stays here until you dismiss. Account history keeps the order."
+            : "This card stays on Services if you leave and come back. Cancel within 5 minutes for a refund, or auto-refund if no SMS."}
+        </p>
+      </div>
+    </motion.section>
+  );
+}
+
 export function ServicesPortal() {
   const { data: session, status: authStatus, update } = useSession();
   const qc = useQueryClient();
@@ -122,13 +279,18 @@ export function ServicesPortal() {
   const [serviceQ, setServiceQ] = useState("");
   const [countryCode, setCountryCode] = useState<string>("US");
   const [server, setServer] = useState<1 | 2 | 3 | "auto">("auto");
-  const [active, setActive] = useState<ActiveOrder | null>(null);
+  /** All live / OTP-received orders pinned on /services until Cancel */
+  const [liveOrders, setLiveOrders] = useState<ActiveOrder[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [orderFlash, setOrderFlash] = useState(0);
   const activeOrderRef = useRef<HTMLDivElement | null>(null);
   // Mobile wizard: hide country list after pick so user focuses on numbers
   const [mobileStep, setMobileStep] = useState<MobileStep>("country");
+  const active = liveOrders[0] ?? null;
+  const waitingLive = liveOrders.some((o) =>
+    ["ACTIVE", "PENDING", "WAITING"].includes(o.status) && !o.otpCode,
+  );
 
   // Full world list once — search is local (never refetch 224 countries per keystroke)
   const countriesQuery = useQuery({
@@ -189,31 +351,62 @@ export function ServicesPortal() {
   const historyQuery = useQuery({
     queryKey: ["orders-history"],
     enabled: authStatus === "authenticated",
-    queryFn: () => api<{ orders: HistoryOrder[] }>("/api/orders"),
-    refetchInterval: active?.status === "ACTIVE" ? 5000 : 30_000,
+    queryFn: () =>
+      api<{ orders: HistoryOrder[]; livePanel?: HistoryOrder[] }>("/api/orders"),
+    // Keep syncing while any panel order is waiting for SMS
+    refetchInterval: waitingLive ? 5_000 : 20_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  // Restore in-flight order after refresh so OTP card stays on top
+  // Restore every live / OTP-received order on load, tab focus, and after leave/return
   useEffect(() => {
-    if (active) return;
-    const list = historyQuery.data?.orders ?? [];
-    const live = list.find(
-      (o) => ["ACTIVE", "PENDING", "WAITING"].includes(o.status) && !o.otpCode,
+    if (authStatus !== "authenticated") {
+      setLiveOrders([]);
+      return;
+    }
+    const panel = historyQuery.data?.livePanel;
+    const fallback = (historyQuery.data?.orders ?? []).filter((o) =>
+      LIVE_PANEL_STATUSES.has(o.status),
     );
-    if (!live) return;
-    setActive({
-      id: live.id,
-      phoneNumber: live.phoneNumber,
-      status: live.status,
-      price: live.price,
-      server: live.server,
-      expiresAt: live.expiresAt,
-      country: live.country,
-      service: live.service,
-      otpCode: live.otpCode,
+    const source = panel ?? fallback;
+    if (!historyQuery.data) return;
+
+    setLiveOrders((prev) => {
+      const byId = new Map(prev.map((o) => [o.id, o]));
+      const next = source.map((o) => {
+        const mapped = toActiveOrder(o);
+        const existing = byId.get(o.id);
+        // Prefer fresher OTP from SSE/local if history lagging
+        if (existing?.otpCode && !mapped.otpCode) {
+          return { ...mapped, otpCode: existing.otpCode, otpMessage: existing.otpMessage, status: existing.status === "RECEIVED" ? "RECEIVED" : mapped.status };
+        }
+        return mapped;
+      });
+      // Drop refunded / cancelled that server no longer lists as live
+      return next;
     });
-    setOrderFlash((n) => n + 1);
-  }, [historyQuery.data, active]);
+  }, [authStatus, historyQuery.data]);
+
+  // Visibility / bfcache: when she returns to the tab or www, re-pull panel
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    const refresh = () => {
+      void qc.invalidateQueries({ queryKey: ["orders-history"] });
+      void qc.invalidateQueries({ queryKey: ["orders"] });
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [authStatus, qc]);
 
   const purchase = useMutation({
     mutationFn: (payload: {
@@ -227,14 +420,14 @@ export function ServicesPortal() {
       }),
     onSuccess: async (data) => {
       setError("");
-      setActive({ ...data.order, otpCode: null });
+      const order = { ...data.order, otpCode: data.order.otpCode ?? null };
+      setLiveOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
       setMobileStep("order");
       setOrderFlash((n) => n + 1);
       await update();
       qc.invalidateQueries({ queryKey: ["services"] });
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
-      // Jump active order to the top so she cannot miss it
       window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, behavior: "smooth" });
         activeOrderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -249,8 +442,8 @@ export function ServicesPortal() {
         method: "POST",
         body: JSON.stringify({ orderId }),
       }),
-    onSuccess: async () => {
-      setActive((o) => (o ? { ...o, status: "REFUNDED" } : o));
+    onSuccess: async (_data, orderId) => {
+      setLiveOrders((prev) => prev.filter((o) => o.id !== orderId));
       await update();
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -262,21 +455,28 @@ export function ServicesPortal() {
     mutationFn: (orderId: string) =>
       api<{ status: string; code: string | null; message: string | null }>(
         `/api/v1/otp/${orderId}`,
-      ),
+      ).then((data) => ({ orderId, ...data })),
     onSuccess: (data) => {
-      setActive((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: data.status ?? prev.status,
-              otpCode: data.code ?? prev.otpCode,
-              otpMessage: data.message ?? prev.otpMessage,
-            }
-          : prev,
-      );
+      setLiveOrders((prev) => {
+        const next = prev.map((o) =>
+          o.id === data.orderId
+            ? {
+                ...o,
+                status: data.status ?? o.status,
+                otpCode: data.code ?? o.otpCode,
+                otpMessage: data.message ?? o.otpMessage,
+              }
+            : o,
+        );
+        // Auto-refund removed it from live set after refetch; drop terminal statuses
+        return next.filter((o) => LIVE_PANEL_STATUSES.has(o.status));
+      });
       if (data.code) {
         copyText(data.code);
         setCopied("otp");
+      }
+      if (["REFUNDED", "CANCELLED", "EXPIRED"].includes(data.status)) {
+        setLiveOrders((prev) => prev.filter((o) => o.id !== data.orderId));
       }
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -285,81 +485,97 @@ export function ServicesPortal() {
     onError: (e: Error) => setError(e.message),
   });
 
-  // SSE (~3s) with polling fallback
+  // SSE for every waiting live order (OTP stays on card when RECEIVED)
   useEffect(() => {
-    if (!active?.id || ["RECEIVED", "REFUNDED", "CANCELLED", "EXPIRED"].includes(active.status)) {
-      return;
-    }
+    const waiting = liveOrders.filter(
+      (o) => ["ACTIVE", "PENDING", "WAITING"].includes(o.status) && !o.otpCode,
+    );
+    if (waiting.length === 0) return;
 
-    let closed = false;
-    let poll: ReturnType<typeof setInterval> | null = null;
-    const es = new EventSource(`/api/orders/stream?orderId=${encodeURIComponent(active.id)}`);
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        if (data.type === "otp" || data.type === "wait") {
-          setActive((prev) =>
-            prev
+    const controllers: Array<{ close: () => void }> = [];
+
+    for (const order of waiting) {
+      let closed = false;
+      let poll: ReturnType<typeof setInterval> | null = null;
+      const es = new EventSource(`/api/orders/stream?orderId=${encodeURIComponent(order.id)}`);
+
+      const applyUpdate = (data: {
+        status?: string;
+        code?: string | null;
+        message?: string | null;
+      }) => {
+        setLiveOrders((prev) => {
+          const mapped = prev.map((o) =>
+            o.id === order.id
               ? {
-                  ...prev,
-                  status: data.status ?? prev.status,
-                  otpCode: data.code ?? prev.otpCode,
-                  otpMessage: data.message ?? prev.otpMessage,
+                  ...o,
+                  status: data.status ?? o.status,
+                  otpCode: data.code ?? o.otpCode,
+                  otpMessage: data.message ?? o.otpMessage,
                 }
-              : prev,
+              : o,
           );
-          if (data.code) {
-            copyText(data.code);
-            setCopied("otp");
-            update();
-            qc.invalidateQueries({ queryKey: ["orders-history"] });
-          }
-          if (["RECEIVED", "REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status)) {
-            es.close();
-          }
+          return mapped.filter((o) => {
+            if (["REFUNDED", "CANCELLED", "EXPIRED"].includes(o.status)) return false;
+            return LIVE_PANEL_STATUSES.has(o.status);
+          });
+        });
+        if (data.code) {
+          copyText(data.code);
+          setCopied("otp");
+          update();
+          qc.invalidateQueries({ queryKey: ["orders-history"] });
         }
-      } catch {
-        /* ignore */
-      }
-    };
-    es.onerror = () => {
-      es.close();
-      if (closed || poll) return;
-      poll = setInterval(async () => {
+      };
+
+      es.onmessage = (ev) => {
         try {
-          const data = await api<{
-            status: string;
-            code: string | null;
-            message: string | null;
-          }>(`/api/v1/otp/${active.id}`);
-          setActive((prev) =>
-            prev
-              ? { ...prev, status: data.status, otpCode: data.code, otpMessage: data.message }
-              : prev,
-          );
-          if (data.code) {
-            copyText(data.code);
-            setCopied("otp");
-          }
-          if (["RECEIVED", "REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status)) {
-            if (poll) clearInterval(poll);
-            update();
-            qc.invalidateQueries({ queryKey: ["orders-history"] });
+          const data = JSON.parse(ev.data);
+          if (data.type === "otp" || data.type === "wait") {
+            applyUpdate(data);
+            if (["REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status)) {
+              es.close();
+            }
+            // RECEIVED: keep card, stop this stream
+            if (data.status === "RECEIVED" || data.code) es.close();
           }
         } catch {
           /* ignore */
         }
-      }, 3000);
-    };
+      };
+      es.onerror = () => {
+        es.close();
+        if (closed || poll) return;
+        poll = setInterval(async () => {
+          try {
+            const data = await api<{
+              status: string;
+              code: string | null;
+              message: string | null;
+            }>(`/api/v1/otp/${order.id}`);
+            applyUpdate(data);
+            if (["RECEIVED", "REFUNDED", "EXPIRED", "CANCELLED"].includes(data.status) || data.code) {
+              if (poll) clearInterval(poll);
+            }
+          } catch {
+            /* ignore */
+          }
+        }, 3000);
+      };
+
+      controllers.push({
+        close: () => {
+          closed = true;
+          es.close();
+          if (poll) clearInterval(poll);
+        },
+      });
+    }
 
     return () => {
-      closed = true;
-      es.close();
-      if (poll) clearInterval(poll);
+      for (const c of controllers) c.close();
     };
-  }, [active?.id, active?.status, update, qc]);
-
-  const countdown = useCountdown(active?.expiresAt);
+  }, [liveOrders.map((o) => `${o.id}:${o.status}:${o.otpCode ?? ""}`).join("|"), update, qc]);
 
   const allCountries = useMemo(
     () => countriesQuery.data?.countries ?? [],
@@ -575,120 +791,21 @@ export function ServicesPortal() {
         </motion.div>
       )}
 
-      {/* Active order always jumps to the top after buy */}
+      {/* Live orders stay on /services until Cancel — survive reload / leave / return */}
       <AnimatePresence>
-        {active && (
-          <motion.section
-            key={`active-top-${active.id}-${orderFlash}`}
-            ref={activeOrderRef}
-            initial={{ opacity: 0, y: -28, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className={`panel panel-accent relative overflow-hidden p-4 sm:p-5 ring-2 ring-[var(--accent)] ${
-              active.status === "ACTIVE" ? "live-pulse" : ""
-            }`}
-          >
-            <motion.div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_55%)]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 1, 0.45] }}
-              transition={{ duration: 1.1 }}
-            />
-            <div className="relative z-[1] space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="eyebrow mb-1">Live order · top of page</p>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    {active.country.flag} {active.service.name}
-                    <span className="text-[var(--text-muted)] font-normal text-sm">
-                      {" "}
-                      ·{" "}
-                      {active.serverMode === "auto"
-                        ? "Auto"
-                        : active.server === 1
-                          ? "Primary"
-                          : active.server === 2
-                            ? "Backup"
-                            : "Extra"}
-                    </span>
-                  </h2>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`badge ${statusColor(active.status)}`}>{active.status}</span>
-                  <span className="font-mono text-xl tabular-nums">{countdown.label}</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">Phone number</div>
-                <div className="flex gap-2">
-                  <code className="flex-1 panel px-3 py-2.5 font-mono text-sm break-all">
-                    {active.phoneNumber}
-                  </code>
-                  <button
-                    type="button"
-                    className="btn btn-ghost px-3"
-                    onClick={() => onCopy("phone", active.phoneNumber ?? "")}
-                    aria-label="Copy phone"
-                  >
-                    {copied === "phone" ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">OTP code</div>
-                <div className="flex gap-2">
-                  <code
-                    className={`flex-1 panel px-3 py-3 font-mono text-lg tracking-[0.14em] min-h-[48px] ${
-                      active.otpCode ? "text-[var(--accent)] font-semibold" : "text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {active.otpCode ??
-                      (active.status === "ACTIVE" ? "Waiting for SMS…" : "—")}
-                  </code>
-                  {active.otpCode && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost px-3"
-                      onClick={() => onCopy("otp", active.otpCode!)}
-                      aria-label="Copy OTP"
-                    >
-                      {copied === "otp" ? <Check size={16} /> : <Copy size={16} />}
-                    </button>
-                  )}
-                </div>
-                {active.otpMessage && (
-                  <p className="mt-2 text-xs text-[var(--text-muted)]">{active.otpMessage}</p>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn btn-ghost flex-1 min-w-[8rem]"
-                  disabled={refreshOtp.isPending || !["ACTIVE", "PENDING", "WAITING"].includes(active.status)}
-                  onClick={() => refreshOtp.mutate(active.id)}
-                >
-                  <RefreshCw size={14} className={refreshOtp.isPending ? "animate-spin" : ""} />{" "}
-                  {refreshOtp.isPending ? "Checking…" : "Refresh"}
-                </button>
-                {["ACTIVE", "PENDING", "WAITING"].includes(active.status) && !active.otpCode && (
-                  <button
-                    type="button"
-                    className="btn btn-danger flex-1 min-w-[8rem]"
-                    disabled={cancel.isPending}
-                    onClick={() => cancel.mutate(active.id)}
-                  >
-                    <XCircle size={14} /> Cancel · refund
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Cancel anytime within 5 minutes if no OTP. Auto-refund if SMS never arrives (5 min).
-              </p>
-            </div>
-          </motion.section>
-        )}
+        {liveOrders.map((order, idx) => (
+          <LiveOrderPanel
+            key={`live-${order.id}-${idx === 0 ? orderFlash : 0}`}
+            order={order}
+            panelRef={idx === 0 ? activeOrderRef : undefined}
+            copied={copied}
+            onCopy={onCopy}
+            refreshPending={refreshOtp.isPending}
+            cancelPending={cancel.isPending}
+            onRefresh={() => refreshOtp.mutate(order.id)}
+            onCancel={() => cancel.mutate(order.id)}
+          />
+        ))}
       </AnimatePresence>
 
       <div className="grid gap-5 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
@@ -1062,11 +1179,11 @@ export function ServicesPortal() {
                 animate={{ opacity: 1 }}
                 className="space-y-3 text-sm text-[var(--text-muted)]"
               >
-                <p>Buy a number — your OTP card jumps to the top of this page.</p>
+                <p>Buy a number — the OTP card stays on top of Services until you Cancel.</p>
                 <ul className="space-y-2">
                   {[
-                    { icon: Clock, t: "5-minute wait window" },
-                    { icon: ShieldCheck, t: "Cancel or auto-refund if no SMS" },
+                    { icon: Clock, t: "5-minute wait · stays if you leave" },
+                    { icon: ShieldCheck, t: "Cancel refund or dismiss after OTP" },
                     { icon: Copy, t: "Phone & OTP copy buttons" },
                   ].map((row, i) => (
                     <motion.li

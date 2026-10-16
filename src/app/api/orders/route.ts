@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, jsonError } from "@/lib/api-auth";
 import { decimalJson } from "@/lib/money";
+import {
+  filterServicesLiveOrders,
+  getDismissedOrderIds,
+} from "@/lib/services-panel";
 
 export async function GET(req: NextRequest) {
   const user = await requireUser(req);
@@ -14,18 +18,27 @@ export async function GET(req: NextRequest) {
     take: 100,
   });
 
+  const mapped = orders.map((o) => ({
+    id: o.id,
+    status: o.status,
+    phoneNumber: o.phoneNumber,
+    otpCode: o.otpCode,
+    otpMessage: o.otpMessage,
+    price: decimalJson(o.price),
+    server: o.server,
+    serverMode: o.serverMode,
+    expiresAt: o.expiresAt,
+    createdAt: o.createdAt,
+    country: { code: o.country.code, name: o.country.name, flag: o.country.flag },
+    service: { slug: o.service.slug, name: o.service.name },
+  }));
+
+  const dismissed = await getDismissedOrderIds(user.id);
+  const livePanel = filterServicesLiveOrders(mapped, dismissed);
+
   return Response.json({
-    orders: orders.map((o) => ({
-      id: o.id,
-      status: o.status,
-      phoneNumber: o.phoneNumber,
-      otpCode: o.otpCode,
-      price: decimalJson(o.price),
-      server: o.server,
-      expiresAt: o.expiresAt,
-      createdAt: o.createdAt,
-      country: { code: o.country.code, name: o.country.name, flag: o.country.flag },
-      service: { slug: o.service.slug, name: o.service.name },
-    })),
+    orders: mapped,
+    /** Pin these on /services until Cancel (includes RECEIVED with OTP). */
+    livePanel,
   });
 }

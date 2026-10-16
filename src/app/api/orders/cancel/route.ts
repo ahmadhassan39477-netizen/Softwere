@@ -22,12 +22,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const updated = await cancelOrder(parsed.data.orderId, user.id);
+    const refunded = updated.status === "REFUNDED";
     return Response.json(
       {
         order: {
           id: updated.id,
           status: updated.status,
-          refunded: decimalJson(updated.price),
+          refunded: refunded ? decimalJson(updated.price) : null,
+          dismissed: !refunded,
         },
       },
       { headers: rateLimitHeaders(rl) },

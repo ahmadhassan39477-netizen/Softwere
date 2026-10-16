@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { creditWallet } from "@/lib/wallet";
+import { dismissOrderFromServices } from "@/lib/services-panel";
 import { smsAggregator } from "./aggregator";
 
 /** Default wait window: 5 minutes (not 15). */
@@ -135,17 +136,25 @@ async function expireAndRefund(
   };
 }
 
-/** Cancel + refund if still ACTIVE/PENDING and within the 5-minute cancel window. */
+/**
+ * Cancel from /services panel:
+ * - Waiting (no OTP): refund within 5-min window
+ * - OTP already received: dismiss from /services only (no refund) so the card goes away
+ */
 export async function cancelOrder(orderId: string, userId: string, opts?: { force?: boolean }) {
   const order = await prisma.order.findFirst({
     where: { id: orderId, userId },
   });
   if (!order) throw Object.assign(new Error("Order not found"), { status: 404 });
+
+  // OTP already in hand — dismiss panel only (keep RECEIVED in Account history)
+  if (order.status === "RECEIVED" || order.otpCode) {
+    await dismissOrderFromServices(userId, order.id);
+    return order;
+  }
+
   if (!["ACTIVE", "PENDING", "WAITING"].includes(order.status)) {
     throw Object.assign(new Error(`Cannot cancel order in status ${order.status}`), { status: 409 });
-  }
-  if (order.otpCode) {
-    throw Object.assign(new Error("OTP already received"), { status: 409 });
   }
 
   if (!opts?.force) {
@@ -172,6 +181,8 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
     externalId: order.id,
     meta: JSON.stringify({ reason: "manual_cancel", orderId: order.id }),
   });
+
+  await dismissOrderFromServices(userId, order.id).catch(() => undefined);
 
   return prisma.order.update({
     where: { id: order.id },
