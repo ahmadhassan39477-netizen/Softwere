@@ -2,25 +2,39 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
+
+function safeCallback(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/services";
+  return raw;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const callbackUrl = useMemo(() => {
+    if (typeof window === "undefined") return "/services";
+    return safeCallback(new URLSearchParams(window.location.search).get("callbackUrl"));
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const next = safeCallback(
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("callbackUrl")
+        : callbackUrl,
+    );
     const res = await signIn("credentials", {
       email,
       password,
       redirect: false,
-      callbackUrl: "/services",
+      callbackUrl: next,
     });
     setLoading(false);
     if (!res || res.error) {
@@ -31,7 +45,7 @@ export default function LoginPage() {
       );
       return;
     }
-    window.location.assign("/services");
+    window.location.assign(next);
   }
 
   return (

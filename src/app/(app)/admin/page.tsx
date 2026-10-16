@@ -63,7 +63,7 @@ export default function AdminPage() {
   const [markupDrafts, setMarkupDrafts] = useState<Record<string, string>>({});
   const [baseUrlDrafts, setBaseUrlDrafts] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
-  const [waNumber, setWaNumber] = useState("923287087121");
+  const [waNumber, setWaNumber] = useState("923287087121, 923072577778");
   const [creditEmail, setCreditEmail] = useState("");
   const [creditAmount, setCreditAmount] = useState("10");
   const [creditNote, setCreditNote] = useState("");
@@ -108,7 +108,11 @@ export default function AdminPage() {
     queryFn: async () => {
       const res = await fetch("/api/admin/whatsapp");
       if (!res.ok) throw new Error("Forbidden");
-      return res.json() as Promise<{ number: string | null; configured: boolean }>;
+      return res.json() as Promise<{
+        number: string | null;
+        numbers?: string[];
+        configured: boolean;
+      }>;
     },
   });
 
@@ -145,8 +149,12 @@ export default function AdminPage() {
   }, [settings.data?.providers]);
 
   useEffect(() => {
-    if (whatsapp.data?.number) setWaNumber(whatsapp.data.number);
-  }, [whatsapp.data?.number]);
+    if (whatsapp.data?.numbers?.length) {
+      setWaNumber(whatsapp.data.numbers.join(", "));
+    } else if (whatsapp.data?.number) {
+      setWaNumber(whatsapp.data.number);
+    }
+  }, [whatsapp.data?.number, whatsapp.data?.numbers]);
 
   const patch = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -179,7 +187,7 @@ export default function AdminPage() {
       return data;
     },
     onSuccess: () => {
-      setMsg("WhatsApp number saved.");
+      setMsg("WhatsApp numbers saved.");
       qc.invalidateQueries({ queryKey: ["admin-whatsapp"] });
       qc.invalidateQueries({ queryKey: ["deposit-config"] });
     },
@@ -262,17 +270,17 @@ export default function AdminPage() {
       {msg && <p className="text-sm text-[var(--accent)]">{msg}</p>}
 
       <div className="panel p-5 space-y-4">
-        <h2 className="font-semibold">Deposit WhatsApp number</h2>
+        <h2 className="font-semibold">Deposit WhatsApp numbers</h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Customers tap Deposit → Open WhatsApp. Digits with country code (default
-          923287087121). Env override: WHATSAPP_BUSINESS_NUMBER.
+          Customers see every number on Deposit. Comma-separate lines with country code
+          (defaults 923287087121 and 923072577778 / 03072577778). Env: WHATSAPP_BUSINESS_NUMBER.
         </p>
         <div className="flex flex-wrap gap-2">
           <input
-            className="input flex-1 min-w-[200px] font-mono"
+            className="input flex-1 min-w-[240px] font-mono text-sm"
             value={waNumber}
             onChange={(e) => setWaNumber(e.target.value)}
-            placeholder="923287087121"
+            placeholder="923287087121, 923072577778"
           />
           <button
             type="button"
@@ -280,7 +288,7 @@ export default function AdminPage() {
             disabled={saveWa.isPending}
             onClick={() => saveWa.mutate()}
           >
-            Save number
+            Save numbers
           </button>
         </div>
       </div>

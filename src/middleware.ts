@@ -41,16 +41,25 @@ export async function middleware(request: NextRequest) {
   );
 
   if (needsAuth) {
+    // Auth.js may mint __Secure-* cookies when AUTH_URL is https (e.g. tunnel/prod)
+    // even if this hop is plain http://127.0.0.1 — match the cookie that exists.
+    const hasSecureSession =
+      request.cookies.has("__Secure-authjs.session-token") ||
+      request.cookies.has("__Secure-next-auth.session-token");
     const token = await getToken({
       req: request,
       secret: resolveAuthSecret(),
       secureCookie:
-        proto === "https" || host === CANONICAL_HOST || host.endsWith(".vercel.app"),
+        hasSecureSession ||
+        proto === "https" ||
+        host === CANONICAL_HOST ||
+        host.endsWith(".vercel.app"),
     });
     if (!token?.sub && !(token as { id?: string } | null)?.id) {
-      const login = new URL("/login", request.url);
-      login.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(login);
+      // Signup-first: guests must create an account before Services / Buy / OTP
+      const signup = new URL("/register", request.url);
+      signup.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(signup);
     }
   }
 

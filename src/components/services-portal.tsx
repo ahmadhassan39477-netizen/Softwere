@@ -661,10 +661,17 @@ export function ServicesPortal() {
     return (
       <div className="panel p-8 text-center max-w-lg mx-auto">
         <h1 className="text-2xl font-bold">Buy OTP numbers</h1>
-        <p className="mt-2 text-[var(--text-muted)]">Sign in to browse countries and services.</p>
-        <Link href="/login" className="btn btn-primary mt-6 inline-flex">
-          Sign in
-        </Link>
+        <p className="mt-2 text-[var(--text-muted)]">
+          Create an account or sign in first — then you can buy numbers and receive OTP codes.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/register?callbackUrl=/services" className="btn btn-primary inline-flex">
+            Create account
+          </Link>
+          <Link href="/login?callbackUrl=/services" className="btn btn-ghost inline-flex">
+            Sign in
+          </Link>
+        </div>
       </div>
     );
   }

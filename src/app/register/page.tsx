@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
+
+function safeCallback(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/services";
+  return raw;
+}
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -12,6 +17,10 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const callbackUrl = useMemo(() => {
+    if (typeof window === "undefined") return "/services";
+    return safeCallback(new URLSearchParams(window.location.search).get("callbackUrl"));
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,18 +37,23 @@ export default function RegisterPage() {
       setError(data.error ?? "Registration failed");
       return;
     }
+    const next = safeCallback(
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("callbackUrl")
+        : callbackUrl,
+    );
     const sign = await signIn("credentials", {
       email,
       password,
       redirect: false,
-      callbackUrl: "/services",
+      callbackUrl: next,
     });
     setLoading(false);
     if (sign?.error) {
       setError(sign.error);
       return;
     }
-    window.location.assign("/services");
+    window.location.assign(next);
   }
 
   return (
@@ -50,7 +64,8 @@ export default function RegisterPage() {
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Free signup worldwide. Your wallet starts at $0.00 — fund anytime via WhatsApp deposit.
+            Create an account first — then buy OTP numbers and deposit via WhatsApp. Email and
+            password only.
           </p>
         </div>
         <div>

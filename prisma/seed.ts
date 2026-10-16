@@ -154,7 +154,10 @@ async function main() {
 
   await prisma.setting.upsert({
     where: { key: "whatsapp_business_number" },
-    create: { key: "whatsapp_business_number", value: "923287087121" },
+    create: {
+      key: "whatsapp_business_number",
+      value: "923287087121, 923072577778",
+    },
     update: {},
   });
 

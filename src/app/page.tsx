@@ -165,8 +165,8 @@ export default function LandingPage() {
           <Link href="/login" className="btn btn-ghost hidden md:inline-flex">
             Sign in
           </Link>
-          <Link href="/services" className="btn btn-primary text-sm px-3 sm:px-4">
-            Get started
+          <Link href="/register" className="btn btn-primary text-sm px-3 sm:px-4">
+            Sign up
           </Link>
         </motion.div>
       </header>
@@ -268,8 +268,8 @@ export default function LandingPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-full"
               >
-                <Link href="/services" className="btn btn-primary">
-                  Buy OTP <ArrowRight size={16} />
+                <Link href="/register" className="btn btn-primary">
+                  Sign up to buy <ArrowRight size={16} />
                 </Link>
               </motion.div>
               <Link href="/api-docs" className="btn btn-ghost">
@@ -481,7 +481,7 @@ export default function LandingPage() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <Link href="/services" className="btn btn-primary">
+          <Link href="/register" className="btn btn-primary">
             Open services catalog <ArrowRight size={16} />
           </Link>
         </motion.div>
@@ -631,7 +631,7 @@ export default function LandingPage() {
             Enter the portal.
           </h2>
           <div className="mt-8 flex justify-center gap-3 flex-wrap">
-            <Link href="/services" className="btn btn-primary">
+            <Link href="/register" className="btn btn-primary">
               Launch services <ArrowRight size={16} />
             </Link>
             <Link href="/login" className="btn btn-ghost">

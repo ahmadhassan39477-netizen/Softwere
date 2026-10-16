@@ -10,6 +10,13 @@ import { statusColor } from "@/lib/utils";
 
 const PRESETS = [5, 10, 25, 50, 100] as const;
 
+type WaLine = {
+  number: string;
+  display: string;
+  localDisplay: string | null;
+  sampleChatUrl?: string;
+};
+
 export default function DepositPage() {
   const { data: session, status, update } = useSession();
   const qc = useQueryClient();
@@ -26,6 +33,7 @@ export default function DepositPage() {
         whatsappConfigured: boolean;
         whatsappNumber: string | null;
         whatsappDisplay?: string;
+        whatsappNumbers?: WaLine[];
         instructions: string;
       }>;
     },
@@ -49,22 +57,38 @@ export default function DepositPage() {
     return `$${String(b)}`;
   }, [config.data?.balance, session?.user?.balance]);
 
-  const waLink = useMemo(() => {
-    const num = config.data?.whatsappNumber;
-    if (!num) return null;
-    const email = session?.user?.email ?? "";
-    const text = buildDepositPrefill(amount, email);
-    return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
-  }, [config.data?.whatsappNumber, amount, session?.user?.email]);
+  const waLines = useMemo((): WaLine[] => {
+    if (config.data?.whatsappNumbers?.length) return config.data.whatsappNumbers;
+    if (config.data?.whatsappNumber) {
+      return [
+        {
+          number: config.data.whatsappNumber,
+          display: config.data.whatsappDisplay ?? `+${config.data.whatsappNumber}`,
+          localDisplay: null,
+        },
+      ];
+    }
+    return [];
+  }, [config.data]);
+
+  const email = session?.user?.email ?? "";
+  const prefill = useMemo(() => buildDepositPrefill(amount, email), [amount, email]);
 
   if (status === "unauthenticated") {
     return (
       <div className="panel p-8 text-center max-w-lg mx-auto">
         <h1 className="text-2xl font-bold">Deposit</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-2">Sign in to add wallet credit.</p>
-        <Link href="/login" className="btn btn-primary mt-6 inline-flex">
-          Sign in
-        </Link>
+        <p className="text-sm text-[var(--text-muted)] mt-2">
+          Create an account or sign in to add wallet credit.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/register" className="btn btn-primary inline-flex">
+            Create account
+          </Link>
+          <Link href="/login" className="btn btn-ghost inline-flex">
+            Sign in
+          </Link>
+        </div>
       </div>
     );
   }
@@ -98,12 +122,38 @@ export default function DepositPage() {
             "Message us on WhatsApp to add credit. Include your account email and the amount you paid. Balance updates after we confirm payment — nothing is credited automatically."}
         </p>
 
-        {config.data?.whatsappDisplay && (
-          <p className="text-sm">
-            WhatsApp:{" "}
-            <span className="mono-data text-[var(--accent)]">{config.data.whatsappDisplay}</span>
-          </p>
-        )}
+        <div>
+          <p className="text-sm font-medium mb-2">WhatsApp numbers</p>
+          <ul className="space-y-2">
+            {waLines.map((line) => {
+              const href = `https://wa.me/${line.number}?text=${encodeURIComponent(prefill)}`;
+              return (
+                <li key={line.number}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-3 hover:border-[var(--accent)] transition-colors"
+                  >
+                    <MessageCircle size={16} className="text-[var(--accent)] shrink-0" />
+                    <span className="mono-data text-[var(--accent)] font-semibold">
+                      {line.localDisplay ?? line.display}
+                    </span>
+                    {line.localDisplay && (
+                      <span className="text-xs text-[var(--text-muted)] mono-data">
+                        {line.display}
+                      </span>
+                    )}
+                    <span className="text-xs text-[var(--accent)] ml-auto">Open chat →</span>
+                  </a>
+                </li>
+              );
+            })}
+            {waLines.length === 0 && (
+              <li className="text-sm text-[var(--text-muted)]">Loading WhatsApp…</li>
+            )}
+          </ul>
+        </div>
 
         <div>
           <label className="text-sm text-[var(--text-muted)]">Amount you plan to send (USD)</label>
@@ -132,10 +182,10 @@ export default function DepositPage() {
           />
         </div>
 
-        {waLink ? (
+        {waLines[0] ? (
           <a
             className="btn btn-primary w-full sm:w-auto inline-flex justify-center gap-2"
-            href={waLink}
+            href={`https://wa.me/${waLines[0].number}?text=${encodeURIComponent(prefill)}`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -149,7 +199,7 @@ export default function DepositPage() {
         )}
 
         <ol className="text-sm text-[var(--text-muted)] space-y-2 list-decimal pl-5">
-          <li>Tap Open WhatsApp (message includes your email + amount).</li>
+          <li>Tap a WhatsApp number (message includes your email + amount).</li>
           <li>Send payment using the method we share in chat.</li>
           <li>Wait for confirmation — your balance updates after we credit your wallet.</li>
         </ol>

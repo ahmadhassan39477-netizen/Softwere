@@ -47,8 +47,8 @@ export default async function BuySeoPage({ params }: Props) {
         <Link href="/">
           <BrandWordmark compact />
         </Link>
-        <Link href="/services" className="btn btn-primary text-sm">
-          Get number
+        <Link href="/register?callbackUrl=/services" className="btn btn-primary text-sm">
+          Sign up to buy
         </Link>
       </header>
 
@@ -71,10 +71,10 @@ export default async function BuySeoPage({ params }: Props) {
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Link
-            href={`/services?country=${country.code}&service=${service.slug}`}
+            href={`/register?callbackUrl=${encodeURIComponent(`/services?country=${country.code}&service=${service.slug}`)}`}
             className="btn btn-primary"
           >
-            Buy {country.adjective} {service.name} number
+            Sign up to buy {country.adjective} {service.name}
           </Link>
           <Link href="/support" className="btn btn-ghost">
             Contact support
