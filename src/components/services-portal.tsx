@@ -923,10 +923,7 @@ export function ServicesPortal() {
                     <div className="text-xs text-[var(--text-muted)]">Service</div>
                     <div className="font-medium">
                       {active.country.flag} {active.service.name} ·{" "}
-                      {active.serverMode === "auto" ? "Auto" : `Srv ${active.server}`}
-                      {active.providerKey && active.providerKey !== "mock"
-                        ? ` · ${active.providerKey}`
-                        : ""}
+                      {active.serverMode === "auto" ? "Auto" : `Server ${active.server}`}
                     </div>
                   </div>
                   <div>

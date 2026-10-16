@@ -335,18 +335,18 @@ export default function AdminPage() {
       <div className="panel p-5" data-testid="admin-server-slots">
         <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
         <p className="text-xs text-[var(--text-muted)] mb-4">
-          Each server is a slot: pick provider type, paste API key, set margin %. Grizzly
-          default margin is {settings.data?.grizzlyDefaultMarkup ?? 40}% (retail = wholesale ×
-          1.40). Server 2 and Server 3 can both be Grizzly. Empty slots are skipped on Auto
-          failover; if only Server 3 has Grizzly, Server 2 reuses that Grizzly key for a second
-          attempt. Keys stay in Admin — never shared in chat.
+          Each server is a slot: pick provider type, paste API key, set margin %. Default margin
+          is {settings.data?.grizzlyDefaultMarkup ?? 20}% for all servers (retail = wholesale ×
+          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = Grizzly. Empty Server 2
+          reuses the Server 3 Grizzly key on Auto. Customer /services never shows wholesale brand
+          names. Keys stay in Admin — never shared in chat.
         </p>
         <div className="space-y-4">
           {providers.map((p) => {
             const types = settings.data?.providerTypes ?? [
               { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
               { value: "5sim", label: "5SIM", defaultMarkup: 20 },
-              { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 40 },
+              { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 20 },
               { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
             ];
             const type = p.providerType ?? "sms-activate";
@@ -390,16 +390,13 @@ export default function AdminPage() {
                         patch.mutate({
                           key: p.key,
                           providerType,
-                          ...(providerType === "grizzlysms"
-                            ? { markupPercent: opt?.defaultMarkup ?? 40 }
-                            : {}),
+                          markupPercent: opt?.defaultMarkup ?? 20,
                         });
                       }}
                     >
                       {types.map((t) => (
                         <option key={t.value} value={t.value}>
                           {t.label}
-                          {t.value === "grizzlysms" ? ` (${t.defaultMarkup}% margin)` : ""}
                         </option>
                       ))}
                     </select>

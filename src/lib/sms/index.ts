@@ -4,6 +4,7 @@ export { smsAggregator, SmsAggregator, serverNumberForProvider } from "./aggrega
 export { pollOrder, cancelOrder, pollActiveOrders } from "./order-lifecycle";
 export { ensureServiceCountryCatalog } from "./ensure-service-catalog";
 export {
+  DEFAULT_SLOT_MARKUP,
   GRIZZLY_DEFAULT_MARKUP,
   ensureProviderSlots,
   loadProviderSlots,

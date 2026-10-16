@@ -14,7 +14,7 @@ export type BuyResult = {
   wholesaleCost: number;
   /** Admin Server slot that fulfilled the buy (1|2|3) */
   serverSlot?: 1 | 2 | 3;
-  /** Slot markup % used for retail (Grizzly default 40) */
+  /** Slot markup % used for retail (default 20 → × 1.20) */
   markupPercent?: number;
 };
 

@@ -14,7 +14,7 @@ import { createGrizzlySmsAdapter } from "./adapters/grizzlysms";
 import { createSaCompatibleAdapter } from "./adapters/sa-compatible";
 import { mockAdapter } from "./adapters/mock";
 import {
-  GRIZZLY_DEFAULT_MARKUP,
+  DEFAULT_SLOT_MARKUP,
   defaultBaseUrlForType,
   displayNameForType,
   envKeyForType,
@@ -109,7 +109,7 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
           apiKey: slot3.apiKey,
           baseUrl: slot3.baseUrl,
           markupPercent:
-            slot3.markupPercent > 0 ? slot3.markupPercent : GRIZZLY_DEFAULT_MARKUP,
+            slot3.markupPercent > 0 ? slot3.markupPercent : DEFAULT_SLOT_MARKUP,
         };
       }
     }
@@ -119,14 +119,7 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
   for (const slot of effective.sort((a, b) => a.priority - b.priority)) {
     const adapter = buildAdapterForSlot(slot);
     if (!adapter) continue;
-    const markup =
-      slot.providerType === "grizzlysms"
-        ? slot.markupPercent > 0
-          ? slot.markupPercent
-          : GRIZZLY_DEFAULT_MARKUP
-        : slot.markupPercent > 0
-          ? slot.markupPercent
-          : 20;
+    const markup = slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP;
     out.push({
       slot: slot.priority as 1 | 2 | 3,
       providerType: slot.providerType,
@@ -252,12 +245,7 @@ export class SmsAggregator {
         balance,
         enabled: slot.enabled,
         hasApiKey,
-        markupPercent:
-          slot.providerType === "grizzlysms"
-            ? slot.markupPercent > 0
-              ? slot.markupPercent
-              : GRIZZLY_DEFAULT_MARKUP
-            : slot.markupPercent,
+        markupPercent: slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP,
       });
     }
     if (mocksAllowed()) {

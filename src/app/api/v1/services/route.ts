@@ -9,7 +9,7 @@ import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { worldCountryByCode } from "@/lib/world-countries";
 import { fetchFiveSimLiveStock } from "@/lib/sms/live-stock";
 import {
-  GRIZZLY_DEFAULT_MARKUP,
+  DEFAULT_SLOT_MARKUP,
   loadProviderSlots,
   retailFromWholesale,
 } from "@/lib/sms/provider-slots";
@@ -17,20 +17,17 @@ import {
 async function slotMarkupMap(): Promise<Record<number, number>> {
   try {
     const slots = await loadProviderSlots();
-    const map: Record<number, number> = { 1: 20, 2: 20, 3: GRIZZLY_DEFAULT_MARKUP };
+    const map: Record<number, number> = {
+      1: DEFAULT_SLOT_MARKUP,
+      2: DEFAULT_SLOT_MARKUP,
+      3: DEFAULT_SLOT_MARKUP,
+    };
     for (const s of slots) {
-      map[s.priority] =
-        s.providerType === "grizzlysms"
-          ? s.markupPercent > 0
-            ? s.markupPercent
-            : GRIZZLY_DEFAULT_MARKUP
-          : s.markupPercent > 0
-            ? s.markupPercent
-            : 20;
+      map[s.priority] = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
     }
     return map;
   } catch {
-    return { 1: 20, 2: 20, 3: GRIZZLY_DEFAULT_MARKUP };
+    return { 1: DEFAULT_SLOT_MARKUP, 2: DEFAULT_SLOT_MARKUP, 3: DEFAULT_SLOT_MARKUP };
   }
 }
 

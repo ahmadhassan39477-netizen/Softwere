@@ -11,6 +11,7 @@ export const CATALOG_SERVICES = [
   { name: "Binance", slug: "binance", category: "Crypto", from: "0.74", note: "Exchange SMS codes" },
 ] as const;
 
+/** Customer-facing labels only — never name wholesale sites (SMS-Activate, 5SIM, Grizzly). */
 export const SERVER_POOLS = [
   {
     id: "auto" as const,
@@ -21,20 +22,20 @@ export const SERVER_POOLS = [
   {
     id: 1 as const,
     label: "Server 1",
-    title: "SMS-Activate",
-    blurb: "Primary wholesale pool — best price when stock is available.",
+    title: "Primary",
+    blurb: "Best first pick when stock is available.",
   },
   {
     id: 2 as const,
     label: "Server 2",
-    title: "5SIM",
-    blurb: "Secondary pool. Used next when Server 1 has no numbers.",
+    title: "Backup",
+    blurb: "Used next when Server 1 has no numbers.",
   },
   {
     id: 3 as const,
     label: "Server 3",
-    title: "Grizzly SMS",
-    blurb: "Tertiary pool. Last resort in Auto mode.",
+    title: "Extra",
+    blurb: "Last resort in Auto mode.",
   },
 ] as const;
 

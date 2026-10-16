@@ -7,7 +7,7 @@ import { smsAggregator } from "@/lib/sms/aggregator";
 import { ensureServiceCountryCatalog } from "@/lib/sms/ensure-service-catalog";
 import { maskKey } from "@/lib/sms/service-map";
 import {
-  GRIZZLY_DEFAULT_MARKUP,
+  DEFAULT_SLOT_MARKUP,
   PROVIDER_TYPE_OPTIONS,
   defaultMarkupForType,
   displayNameForType,
@@ -49,15 +49,11 @@ export async function GET(req: NextRequest) {
   return Response.json({
     markupPercent: markup?.value ?? process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
     providerTypes: PROVIDER_TYPE_OPTIONS,
-    grizzlyDefaultMarkup: GRIZZLY_DEFAULT_MARKUP,
+    grizzlyDefaultMarkup: DEFAULT_SLOT_MARKUP,
+    defaultSlotMarkup: DEFAULT_SLOT_MARKUP,
     providers: slots.map((s) => {
       const bal = balances.find((b) => b.key === s.key);
-      const markupPct =
-        s.providerType === "grizzlysms"
-          ? s.markupPercent > 0
-            ? s.markupPercent
-            : GRIZZLY_DEFAULT_MARKUP
-          : s.markupPercent;
+      const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
       return {
         id: s.key,
         key: s.key,
@@ -125,14 +121,9 @@ export async function PATCH(req: NextRequest) {
   const nextType: SlotProviderType | undefined = parsed.data.providerType;
   let nextMarkup = parsed.data.markupPercent;
 
-  // When switching to Grizzly and markup not explicitly sent, default 40
-  if (nextType === "grizzlysms" && nextMarkup === undefined) {
-    const cur = Number(existing.markupPercent);
-    if (!isSlotProviderType(existing.providerType) || existing.providerType !== "grizzlysms") {
-      nextMarkup = GRIZZLY_DEFAULT_MARKUP;
-    } else if (cur === 20) {
-      nextMarkup = GRIZZLY_DEFAULT_MARKUP;
-    }
+  // When changing type without an explicit margin, use uniform 20% default
+  if (nextType && nextMarkup === undefined) {
+    nextMarkup = DEFAULT_SLOT_MARKUP;
   }
 
   const updated = await prisma.providerSetting.update({
@@ -169,10 +160,7 @@ export async function PATCH(req: NextRequest) {
     })
     .catch(() => undefined);
 
-  const markupOut =
-    updated.providerType === "grizzlysms"
-      ? Number(updated.markupPercent) || GRIZZLY_DEFAULT_MARKUP
-      : Number(updated.markupPercent);
+  const markupOut = Number(updated.markupPercent) || DEFAULT_SLOT_MARKUP;
 
   return Response.json({
     provider: {

@@ -10,7 +10,7 @@ export type PurchaseNumberInput = {
   userId: string;
   countryCode: string;
   serviceSlug: string;
-  /** 1 | 2 | 3 | "auto" — Auto failovers SMS-Activate → 5SIM → Grizzly */
+  /** 1 | 2 | 3 | "auto" — Auto failovers Server 1 → 2 → 3 */
   server?: number | "auto";
 };
 
@@ -120,16 +120,13 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     purchase.serverSlot ?? serverNumberForProvider(purchase.providerKey);
   const wholesale = new Prisma.Decimal(purchase.wholesaleCost || offer.costPrice || 0);
 
-  // Grizzly (and other slots): retail = wholesale × (1 + slotMarkup/100) when wholesale known
-  const slotMarkup =
-    purchase.markupPercent ??
-    (purchase.providerKey === "grizzlysms" ? 40 : userMarkup);
+  // retail = wholesale × (1 + slotMarkup/100); all servers default 20%
+  const slotMarkup = purchase.markupPercent ?? userMarkup ?? 20;
   let chargePrice = price;
   if (Number(wholesale) > 0) {
     const fromWholesale = new Prisma.Decimal(
       (Number(wholesale) * (1 + slotMarkup / 100)).toFixed(4),
     );
-    // Prefer live wholesale×margin for the fulfilling slot (Grizzly → 40%)
     chargePrice = fromWholesale;
   }
   if (new Prisma.Decimal(user.balance).lt(chargePrice)) {

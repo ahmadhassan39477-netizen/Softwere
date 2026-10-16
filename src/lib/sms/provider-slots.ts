@@ -8,19 +8,31 @@ export type SlotKey = (typeof SLOT_KEYS)[number];
 
 export type SlotProviderType = "sms-activate" | "5sim" | "grizzlysms" | "custom-sa";
 
+/** Uniform retail markup for every server: retail = wholesale × 1.20 */
+export const DEFAULT_SLOT_MARKUP = 20;
+
+/** @deprecated Use DEFAULT_SLOT_MARKUP — all providers use 20%. */
+export const GRIZZLY_DEFAULT_MARKUP = DEFAULT_SLOT_MARKUP;
+
 export const PROVIDER_TYPE_OPTIONS: {
   value: SlotProviderType;
   label: string;
   defaultMarkup: number;
 }[] = [
-  { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
-  { value: "5sim", label: "5SIM", defaultMarkup: 20 },
-  { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 40 },
-  { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
+  { value: "sms-activate", label: "SMS-Activate", defaultMarkup: DEFAULT_SLOT_MARKUP },
+  { value: "5sim", label: "5SIM", defaultMarkup: DEFAULT_SLOT_MARKUP },
+  { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: DEFAULT_SLOT_MARKUP },
+  { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: DEFAULT_SLOT_MARKUP },
 ];
 
-/** Grizzly retail = wholesale × 1.40 */
-export const GRIZZLY_DEFAULT_MARKUP = 40;
+/** Desired Admin defaults: S1=5SIM, S2=Grizzly, S3=Grizzly. */
+export const SLOT_TYPE_DEFAULTS: Record<1 | 2 | 3, SlotProviderType> = {
+  1: "5sim",
+  2: "grizzlysms",
+  3: "grizzlysms",
+};
+
+const DEFAULTS_FLAG = "sms_slots_defaults_v3";
 
 export function slotKeyForServer(server: 1 | 2 | 3): SlotKey {
   return `server-${server}` as SlotKey;
@@ -33,8 +45,8 @@ export function serverFromSlotKey(key: string): 1 | 2 | 3 | null {
   return null;
 }
 
-export function defaultMarkupForType(type: SlotProviderType): number {
-  return type === "grizzlysms" ? GRIZZLY_DEFAULT_MARKUP : 20;
+export function defaultMarkupForType(_type?: SlotProviderType): number {
+  return DEFAULT_SLOT_MARKUP;
 }
 
 export function displayNameForType(type: SlotProviderType): string {
@@ -77,85 +89,140 @@ export function defaultBaseUrlForType(type: SlotProviderType): string | null {
   return null;
 }
 
-const LEGACY_DEFAULTS: {
-  oldKey: string;
-  slot: 1 | 2 | 3;
-  type: SlotProviderType;
-}[] = [
-  { oldKey: "sms-activate", slot: 1, type: "sms-activate" },
-  { oldKey: "5sim", slot: 2, type: "5sim" },
-  { oldKey: "grizzlysms", slot: 3, type: "grizzlysms" },
+/** Legacy provider-key rows → which slot to seed from (keys only). */
+const LEGACY_KEY_SOURCES: { oldKey: string; slot: 1 | 2 | 3 }[] = [
+  { oldKey: "5sim", slot: 1 },
+  { oldKey: "sms-activate", slot: 1 },
+  { oldKey: "grizzlysms", slot: 3 },
+  { oldKey: "5sim", slot: 2 },
 ];
 
 /**
- * Ensure server-1/2/3 slots exist; migrate legacy provider keys; apply Grizzly 40% default.
- * Prefer Admin apiKey over env at read time (caller responsibility).
+ * Ensure server-1/2/3 slots exist.
+ * Defaults: S1=5SIM, S2=Grizzly, S3=Grizzly; all margins 20%.
+ * Preserves existing API keys (S3 Grizzly key kept; copied to S2 when S2 empty).
  */
 export async function ensureProviderSlots(): Promise<void> {
-  const markupDefault = process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20";
+  const markupDefault = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? DEFAULT_SLOT_MARKUP);
 
-  for (const legacy of LEGACY_DEFAULTS) {
-    const slotKey = slotKeyForServer(legacy.slot);
+  for (const slot of [1, 2, 3] as const) {
+    const slotKey = slotKeyForServer(slot);
     const existingSlot = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
-    const legacyRow = await prisma.providerSetting.findUnique({ where: { key: legacy.oldKey } });
+    const type = SLOT_TYPE_DEFAULTS[slot];
 
     if (!existingSlot) {
-      // Map from legacy key name (sms-activate/5sim/grizzlysms), not the new column default
-      const type: SlotProviderType = legacy.type;
-      const markup =
-        type === "grizzlysms"
-          ? GRIZZLY_DEFAULT_MARKUP
-          : Number(legacyRow?.markupPercent ?? markupDefault);
+      // Prefer matching legacy key for this slot's provider type
+      let apiKey: string | null = null;
+      if (type === "5sim") {
+        const row = await prisma.providerSetting.findUnique({ where: { key: "5sim" } });
+        apiKey = row?.apiKey ?? null;
+      } else if (type === "grizzlysms") {
+        const row = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
+        apiKey = row?.apiKey ?? null;
+      } else if (type === "sms-activate") {
+        const row = await prisma.providerSetting.findUnique({ where: { key: "sms-activate" } });
+        apiKey = row?.apiKey ?? null;
+      }
 
       await prisma.providerSetting.create({
         data: {
           key: slotKey,
-          name: `Server ${legacy.slot}`,
+          name: `Server ${slot}`,
           providerType: type,
           baseUrl: null,
-          apiKey: legacyRow?.apiKey ?? null,
-          enabled: legacyRow?.enabled ?? true,
-          priority: legacy.slot,
-          markupPercent: new Prisma.Decimal(markup),
+          apiKey,
+          enabled: true,
+          priority: slot,
+          markupPercent: new Prisma.Decimal(markupDefault || DEFAULT_SLOT_MARKUP),
         },
       });
-    } else {
-      const updates: Prisma.ProviderSettingUpdateInput = {};
-      // Repair slots that inherited schema default sms-activate before type was set
-      const looksUnconfigured =
-        existingSlot.providerType === "sms-activate" &&
-        legacy.type !== "sms-activate" &&
-        !existingSlot.apiKey?.trim() &&
-        !existingSlot.baseUrl?.trim();
-      if (looksUnconfigured || !isSlotProviderType(existingSlot.providerType)) {
-        updates.providerType = legacy.type;
-      }
-      const effectiveType: SlotProviderType =
-        (updates.providerType as SlotProviderType | undefined) ??
-        (isSlotProviderType(existingSlot.providerType)
-          ? existingSlot.providerType
-          : legacy.type);
-      if (
-        effectiveType === "grizzlysms" &&
-        Number(existingSlot.markupPercent) === 20
-      ) {
-        updates.markupPercent = new Prisma.Decimal(GRIZZLY_DEFAULT_MARKUP);
-      }
-      if (!existingSlot.name?.startsWith("Server")) {
-        updates.name = `Server ${legacy.slot}`;
-      }
-      if (Object.keys(updates).length > 0) {
-        await prisma.providerSetting.update({ where: { key: slotKey }, data: updates });
-      }
+    }
+  }
 
-      if (!existingSlot.apiKey?.trim() && legacyRow?.apiKey?.trim()) {
+  // One-time apply of v3 defaults (types + 20% for all) without wiping keys
+  const flag = await prisma.setting.findUnique({ where: { key: DEFAULTS_FLAG } });
+  if (!flag || flag.value !== "1") {
+    for (const slot of [1, 2, 3] as const) {
+      const slotKey = slotKeyForServer(slot);
+      const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
+      if (!row) continue;
+      await prisma.providerSetting.update({
+        where: { key: slotKey },
+        data: {
+          providerType: SLOT_TYPE_DEFAULTS[slot],
+          name: `Server ${slot}`,
+          markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+        },
+      });
+    }
+
+    // Preserve / restore Grizzly key onto S3 from legacy row if S3 empty
+    const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    const legacyG = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
+    if (s3 && !s3.apiKey?.trim() && legacyG?.apiKey?.trim()) {
+      await prisma.providerSetting.update({
+        where: { key: "server-3" },
+        data: { apiKey: legacyG.apiKey },
+      });
+    }
+
+    // Prefer 5SIM legacy key on S1 when empty
+    const s1 = await prisma.providerSetting.findUnique({ where: { key: "server-1" } });
+    const legacy5 = await prisma.providerSetting.findUnique({ where: { key: "5sim" } });
+    if (s1 && !s1.apiKey?.trim() && legacy5?.apiKey?.trim()) {
+      await prisma.providerSetting.update({
+        where: { key: "server-1" },
+        data: { apiKey: legacy5.apiKey },
+      });
+    }
+
+    // Copy S3 Grizzly key → S2 when S2 empty
+    const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
+    const s3b = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    if (s2 && s3b && !s2.apiKey?.trim() && s3b.apiKey?.trim()) {
+      await prisma.providerSetting.update({
+        where: { key: "server-2" },
+        data: { apiKey: s3b.apiKey },
+      });
+    }
+
+    await prisma.setting.upsert({
+      where: { key: DEFAULTS_FLAG },
+      create: { key: DEFAULTS_FLAG, value: "1" },
+      update: { value: "1" },
+    });
+  } else {
+    // One-time override leftover Grizzly 40% → 20%
+    for (const slot of [1, 2, 3] as const) {
+      const slotKey = slotKeyForServer(slot);
+      const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
+      if (row && Number(row.markupPercent) === 40) {
         await prisma.providerSetting.update({
           where: { key: slotKey },
-          data: { apiKey: legacyRow.apiKey },
+          data: { markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
         });
       }
     }
+
+    // Keep S2 keyed from S3 Grizzly when empty
+    const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
+    const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
+    if (
+      s2 &&
+      s3 &&
+      s2.providerType === "grizzlysms" &&
+      s3.providerType === "grizzlysms" &&
+      !s2.apiKey?.trim() &&
+      s3.apiKey?.trim()
+    ) {
+      await prisma.providerSetting.update({
+        where: { key: "server-2" },
+        data: { apiKey: s3.apiKey },
+      });
+    }
   }
+
+  void LEGACY_KEY_SOURCES;
 }
 
 export type SlotRow = {
@@ -181,7 +248,9 @@ export async function loadProviderSlots(): Promise<SlotRow[]> {
     const key = slotKeyForServer(slot);
     const row = rows.find((r) => r.key === key);
     const type: SlotProviderType =
-      row && isSlotProviderType(row.providerType) ? row.providerType : LEGACY_DEFAULTS[slot - 1].type;
+      row && isSlotProviderType(row.providerType)
+        ? row.providerType
+        : SLOT_TYPE_DEFAULTS[slot];
     out.push({
       key,
       name: row?.name ?? `Server ${slot}`,
@@ -190,23 +259,18 @@ export async function loadProviderSlots(): Promise<SlotRow[]> {
       apiKey: row?.apiKey ?? null,
       enabled: row?.enabled ?? true,
       priority: slot,
-      markupPercent: Number(
-        row?.markupPercent ?? defaultMarkupForType(type),
-      ),
+      markupPercent: Number(row?.markupPercent ?? DEFAULT_SLOT_MARKUP),
     });
   }
   return out;
 }
 
-/** Markup % for a server slot (Grizzly → 40 unless Admin overrode). */
+/** Markup % for a server slot (all servers default 20%). */
 export async function markupForServer(server: 1 | 2 | 3): Promise<number> {
   const slots = await loadProviderSlots();
   const slot = slots.find((s) => s.priority === server);
-  if (!slot) return 20;
-  if (slot.providerType === "grizzlysms") {
-    return slot.markupPercent > 0 ? slot.markupPercent : GRIZZLY_DEFAULT_MARKUP;
-  }
-  return slot.markupPercent > 0 ? slot.markupPercent : 20;
+  if (!slot) return DEFAULT_SLOT_MARKUP;
+  return slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP;
 }
 
 export function retailFromWholesale(wholesale: number, markupPercent: number): number {
