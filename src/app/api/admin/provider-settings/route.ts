@@ -21,6 +21,7 @@ import {
   type SlotProviderType,
 } from "@/lib/sms/provider-slots";
 import { isSmsManDocsUrl, probeSmsManToken } from "@/lib/sms/adapters/sms-man";
+import { probeGrizzlyApiKey } from "@/lib/sms/adapters/grizzlysms";
 import { fetchLiveStockBySlot } from "@/lib/sms/live-stock";
 
 export async function GET(req: NextRequest) {
@@ -198,13 +199,23 @@ export async function PATCH(req: NextRequest) {
         400,
       );
     }
-    // Verify SMS-Man token against get-balance before saving
+    // Verify SMS-Man / Grizzly keys before saving (never log the pasted value)
     if (nextApiKey && typeForSanitize === "sms-man") {
       const probe = await probeSmsManToken(nextApiKey);
       if (!probe.ok) {
         return jsonError(
           probe.error ??
             "SMS-Man rejected this token. Paste the profile API token from sms-man.com.",
+          400,
+        );
+      }
+    }
+    if (nextApiKey && typeForSanitize === "grizzlysms") {
+      const probe = await probeGrizzlyApiKey(nextApiKey, existing.baseUrl);
+      if (!probe.ok) {
+        return jsonError(
+          probe.error ??
+            "Grizzly rejected this API key. Copy the api_key from grizzlysms.com and try again.",
           400,
         );
       }
@@ -228,14 +239,15 @@ export async function PATCH(req: NextRequest) {
       : clearKeyOnTypeFlip
         ? null
         : existing.apiKey;
-  const hasSmsManToken =
-    (nextType === "sms-man" ||
-      (!nextType && existing.providerType === "sms-man")) &&
-    Boolean(effectiveKeyAfter?.trim());
 
-  // Enable Server 3 only when SMS-Man has a real token; never force-enable empty.
+  // Enable slot when a verified provider key is newly saved (Grizzly or SMS-Man)
   let nextEnabled = parsed.data.enabled;
-  if (nextEnabled === undefined && hasSmsManToken && nextApiKey !== undefined) {
+  if (
+    nextEnabled === undefined &&
+    nextApiKey !== undefined &&
+    Boolean(effectiveKeyAfter?.trim()) &&
+    (typeForSanitize === "sms-man" || typeForSanitize === "grizzlysms")
+  ) {
     nextEnabled = true;
   }
 
