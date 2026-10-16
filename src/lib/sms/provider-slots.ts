@@ -316,6 +316,30 @@ export async function ensureProviderSlots(): Promise<void> {
     }
   }
 
+  // One-time: Server 2 had a saved Grizzly key but stayed Disabled → liveRows=0 and
+  // Backup kept fake seed while Primary showed live 5SIM (looked like prices "went up").
+  const reenableFlag = "sms_reenable_keyed_grizzly_s2_v1";
+  const reenableDone = await prisma.setting.findUnique({ where: { key: reenableFlag } });
+  if (!reenableDone || reenableDone.value !== "1") {
+    const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
+    if (
+      s2 &&
+      s2.providerType === "grizzlysms" &&
+      Boolean(s2.apiKey?.trim()) &&
+      !s2.enabled
+    ) {
+      await prisma.providerSetting.update({
+        where: { key: "server-2" },
+        data: { enabled: true, markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
+      });
+    }
+    await prisma.setting.upsert({
+      where: { key: reenableFlag },
+      create: { key: reenableFlag, value: "1" },
+      update: { value: "1" },
+    });
+  }
+
   void LEGACY_KEY_SOURCES;
 }
 
