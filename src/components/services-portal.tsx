@@ -764,7 +764,11 @@ export function ServicesPortal() {
                     services.map((svc, idx) => {
                       const offer =
                         server === "auto"
-                          ? svc.offers.find((o) => o.inStock) ?? svc.offers[0]
+                          ? // Auto shows the cheapest in-stock pool (not always Server 1)
+                            [...svc.offers]
+                              .filter((o) => o.inStock)
+                              .sort((a, b) => Number(a.price) - Number(b.price))[0] ??
+                            svc.offers[0]
                           : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
                       if (!offer) return null;
                       const inStock =

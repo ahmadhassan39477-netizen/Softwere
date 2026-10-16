@@ -9,6 +9,8 @@ export type SlotLiveStock = {
 };
 
 const PRICE_TIMEOUT_MS = 3500;
+/** Grizzly/SA getPrices can be slow on cold paths. */
+const GRIZZLY_PRICE_TIMEOUT_MS = 8_000;
 /** SMS-Man needs applications + get-prices; allow more headroom on Vercel. */
 const SMS_MAN_PRICE_TIMEOUT_MS = 12_000;
 
@@ -22,7 +24,11 @@ async function pricesForSlot(
     if (!adapter?.getPrices) return out;
 
     const timeoutMs =
-      slot.providerType === "sms-man" ? SMS_MAN_PRICE_TIMEOUT_MS : PRICE_TIMEOUT_MS;
+      slot.providerType === "sms-man"
+        ? SMS_MAN_PRICE_TIMEOUT_MS
+        : slot.providerType === "grizzlysms" || slot.providerType === "sms-activate"
+          ? GRIZZLY_PRICE_TIMEOUT_MS
+          : PRICE_TIMEOUT_MS;
 
     const rows = await Promise.race([
       adapter.getPrices(countryCode),

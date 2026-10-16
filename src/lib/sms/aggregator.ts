@@ -152,7 +152,7 @@ export class SmsAggregator {
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {
-    const adapters = await this.adaptersForBuy(input.server);
+    let adapters = await this.adaptersForBuy(input.server);
     if (adapters.length === 0) {
       throw new AllProvidersFailedError([
         {
@@ -161,6 +161,28 @@ export class SmsAggregator {
             "MISSING_KEYS — paste wholesale API keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)",
         },
       ]);
+    }
+
+    // Auto: try cheapest live retail first (not always Server 1 → 2 → 3)
+    // Dynamic import avoids circular dep with live-stock → buildAdapterForSlot
+    if (input.server === "auto" || input.server === undefined) {
+      try {
+        const { fetchLiveStockBySlot } = await import("./live-stock");
+        const live = await fetchLiveStockBySlot(input.countryCode);
+        const slug = input.serviceSlug.toLowerCase();
+        adapters = [...adapters].sort((a, b) => {
+          const wa = live.get(a.slot)?.bySlug.get(slug)?.wholesale;
+          const wb = live.get(b.slot)?.bySlug.get(slug)?.wholesale;
+          if (wa == null && wb == null) return a.slot - b.slot;
+          if (wa == null || !(wa > 0)) return 1;
+          if (wb == null || !(wb > 0)) return -1;
+          const ra = wa * (1 + a.markupPercent / 100);
+          const rb = wb * (1 + b.markupPercent / 100);
+          return ra - rb;
+        });
+      } catch {
+        /* keep slot order */
+      }
     }
 
     const attempts: { provider: ProviderKey; error: string }[] = [];
