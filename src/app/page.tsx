@@ -41,7 +41,7 @@ const faqs = [
   },
   {
     q: "What happens if an OTP never arrives?",
-    a: "Numbers wait up to 20 minutes. No code → automatic full refund. You can also cancel early for an instant credit return.",
+    a: "Numbers wait up to 5 minutes. No code → automatic full refund. You can also cancel within that window for an instant credit return.",
   },
   {
     q: "What do Server 1 / 2 / 3 mean?",

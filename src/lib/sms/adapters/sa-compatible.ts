@@ -9,6 +9,11 @@ import {
   SmsStatus,
 } from "../types";
 import { SA_COUNTRY, SA_SERVICE } from "../service-map";
+import {
+  parseActiveActivationSms,
+  parseSaGetStatusText,
+  parseSaGetStatusV2Json,
+} from "../sa-status";
 
 export type SaCompatibleOptions = {
   apiKey: string;
@@ -88,6 +93,9 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       const [, id, phone] = text.split(":");
       if (!id || !phone) throw new Error("incomplete_response");
 
+      // Mark activation ready for SMS (Grizzly/SA) — ignore failures
+      await call({ action: "setStatus", status: "1", id }).catch(() => undefined);
+
       // Best-effort wholesale for retail charge (never throws)
       let wholesaleCost = 0;
       try {
@@ -109,12 +117,46 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
     },
 
     async checkSMS(providerOrderId: string): Promise<SmsStatus> {
-      const text = await call({ action: "getStatus", id: providerOrderId });
-      if (text.startsWith("STATUS_OK:")) {
-        const code = text.slice("STATUS_OK:".length).trim();
-        return { status: "RECEIVED", code, message: `Your verification code is ${code}` };
+      // 1) Classic getStatus text protocol
+      try {
+        const text = await call({ action: "getStatus", id: providerOrderId });
+        const parsed = parseSaGetStatusText(text);
+        if (parsed.status === "RECEIVED" || parsed.status === "CANCELLED") return parsed;
+      } catch {
+        /* fall through */
       }
-      if (text.includes("STATUS_CANCEL")) return { status: "CANCELLED", code: null, message: null };
+
+      // 2) Grizzly getStatusV2 JSON (sms.code / sms.text)
+      try {
+        const v2text = await call({ action: "getStatusV2", id: providerOrderId });
+        if (v2text && !v2text.startsWith("BAD") && !v2text.startsWith("NO_")) {
+          try {
+            const v2 = parseSaGetStatusV2Json(JSON.parse(v2text));
+            if (v2?.status === "RECEIVED") return v2;
+            if (v2?.status === "CANCELLED") return v2;
+          } catch {
+            /* ignore bad JSON */
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+
+      // 3) Active activations list — sometimes SMS lands here first
+      try {
+        const listText = await call({ action: "getActiveActivations" });
+        if (listText && (listText.startsWith("{") || listText.startsWith("["))) {
+          try {
+            const hit = parseActiveActivationSms(JSON.parse(listText), providerOrderId);
+            if (hit?.status === "RECEIVED") return hit;
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
       return { status: "WAIT", code: null, message: null };
     },
 

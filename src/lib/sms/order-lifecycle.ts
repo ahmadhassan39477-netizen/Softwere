@@ -3,9 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { creditWallet } from "@/lib/wallet";
 import { smsAggregator } from "./aggregator";
 
+/** Default wait window: 5 minutes (not 15). */
+export const DEFAULT_ORDER_TTL_MINUTES = 5;
+/** Manual cancel allowed for the full wait window. */
+export const DEFAULT_CANCEL_WINDOW_SECONDS = DEFAULT_ORDER_TTL_MINUTES * 60;
+
 /**
- * Poll one active order: check provider SMS, apply 15-min expiry refund.
- * Safe to call from SSE, cron, or client poll.
+ * Poll one active order: check provider SMS, apply 5-min expiry refund.
+ * Safe to call from SSE, cron, or client Refresh.
  */
 export async function pollOrder(orderId: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
@@ -22,7 +27,7 @@ export async function pollOrder(orderId: string) {
     };
   }
 
-  // 15-min auto-refund
+  // 5-min auto-refund when window elapsed
   if (order.expiresAt.getTime() < Date.now()) {
     return expireAndRefund(order);
   }
@@ -49,10 +54,13 @@ export async function pollOrder(orderId: string) {
         };
       }
       if (sms.status === "CANCELLED" || sms.status === "EXPIRED") {
-        return expireAndRefund(order, sms.status === "CANCELLED" ? "provider_cancelled" : "provider_expired");
+        return expireAndRefund(
+          order,
+          sms.status === "CANCELLED" ? "provider_cancelled" : "provider_expired",
+        );
       }
     } catch {
-      // keep waiting
+      // keep waiting — never log API keys
     }
   }
 
@@ -127,13 +135,13 @@ async function expireAndRefund(
   };
 }
 
-/** Cancel + refund if still in ACTIVE/PENDING and within cancel window (or always if force). */
+/** Cancel + refund if still ACTIVE/PENDING and within the 5-minute cancel window. */
 export async function cancelOrder(orderId: string, userId: string, opts?: { force?: boolean }) {
   const order = await prisma.order.findFirst({
     where: { id: orderId, userId },
   });
   if (!order) throw Object.assign(new Error("Order not found"), { status: 404 });
-  if (!["ACTIVE", "PENDING"].includes(order.status)) {
+  if (!["ACTIVE", "PENDING", "WAITING"].includes(order.status)) {
     throw Object.assign(new Error(`Cannot cancel order in status ${order.status}`), { status: 409 });
   }
   if (order.otpCode) {
@@ -144,7 +152,7 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
     const cancelWindow = await prisma.setting.findUnique({
       where: { key: "cancel_window_seconds" },
     });
-    const windowSec = Number(cancelWindow?.value ?? 120);
+    const windowSec = Number(cancelWindow?.value ?? DEFAULT_CANCEL_WINDOW_SECONDS);
     const ageSec = (Date.now() - order.createdAt.getTime()) / 1000;
     if (ageSec > windowSec) {
       throw Object.assign(
@@ -174,7 +182,7 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
 /** Cron helper: poll all ACTIVE orders past due or needing SMS check. */
 export async function pollActiveOrders(limit = 40) {
   const active = await prisma.order.findMany({
-    where: { status: { in: ["ACTIVE", "PENDING"] } },
+    where: { status: { in: ["ACTIVE", "PENDING", "WAITING"] } },
     orderBy: { createdAt: "asc" },
     take: limit,
   });

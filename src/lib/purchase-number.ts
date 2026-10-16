@@ -89,8 +89,8 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   }
 
   const ttlSetting = await prisma.setting.findUnique({ where: { key: "order_ttl_minutes" } });
-  const ttlMin = Number(ttlSetting?.value ?? 15);
-  const expiresAt = new Date(Date.now() + ttlMin * 60_000);
+  const ttlMin = Number(ttlSetting?.value ?? 5);
+  const expiresAt = new Date(Date.now() + Math.max(1, ttlMin) * 60_000);
 
   let purchase;
   try {

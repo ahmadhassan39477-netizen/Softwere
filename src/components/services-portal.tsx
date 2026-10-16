@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy,
@@ -125,6 +125,8 @@ export function ServicesPortal() {
   const [active, setActive] = useState<ActiveOrder | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [orderFlash, setOrderFlash] = useState(0);
+  const activeOrderRef = useRef<HTMLDivElement | null>(null);
   // Mobile wizard: hide country list after pick so user focuses on numbers
   const [mobileStep, setMobileStep] = useState<MobileStep>("country");
 
@@ -191,6 +193,28 @@ export function ServicesPortal() {
     refetchInterval: active?.status === "ACTIVE" ? 5000 : 30_000,
   });
 
+  // Restore in-flight order after refresh so OTP card stays on top
+  useEffect(() => {
+    if (active) return;
+    const list = historyQuery.data?.orders ?? [];
+    const live = list.find(
+      (o) => ["ACTIVE", "PENDING", "WAITING"].includes(o.status) && !o.otpCode,
+    );
+    if (!live) return;
+    setActive({
+      id: live.id,
+      phoneNumber: live.phoneNumber,
+      status: live.status,
+      price: live.price,
+      server: live.server,
+      expiresAt: live.expiresAt,
+      country: live.country,
+      service: live.service,
+      otpCode: live.otpCode,
+    });
+    setOrderFlash((n) => n + 1);
+  }, [historyQuery.data, active]);
+
   const purchase = useMutation({
     mutationFn: (payload: {
       countryCode: string;
@@ -205,9 +229,16 @@ export function ServicesPortal() {
       setError("");
       setActive({ ...data.order, otpCode: null });
       setMobileStep("order");
+      setOrderFlash((n) => n + 1);
       await update();
       qc.invalidateQueries({ queryKey: ["services"] });
       qc.invalidateQueries({ queryKey: ["orders-history"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      // Jump active order to the top so she cannot miss it
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        activeOrderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -222,6 +253,34 @@ export function ServicesPortal() {
       setActive((o) => (o ? { ...o, status: "REFUNDED" } : o));
       await update();
       qc.invalidateQueries({ queryKey: ["orders-history"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const refreshOtp = useMutation({
+    mutationFn: (orderId: string) =>
+      api<{ status: string; code: string | null; message: string | null }>(
+        `/api/v1/otp/${orderId}`,
+      ),
+    onSuccess: (data) => {
+      setActive((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: data.status ?? prev.status,
+              otpCode: data.code ?? prev.otpCode,
+              otpMessage: data.message ?? prev.otpMessage,
+            }
+          : prev,
+      );
+      if (data.code) {
+        copyText(data.code);
+        setCopied("otp");
+      }
+      qc.invalidateQueries({ queryKey: ["orders-history"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      update();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -515,6 +574,122 @@ export function ServicesPortal() {
           {error}
         </motion.div>
       )}
+
+      {/* Active order always jumps to the top after buy */}
+      <AnimatePresence>
+        {active && (
+          <motion.section
+            key={`active-top-${active.id}-${orderFlash}`}
+            ref={activeOrderRef}
+            initial={{ opacity: 0, y: -28, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className={`panel panel-accent relative overflow-hidden p-4 sm:p-5 ring-2 ring-[var(--accent)] ${
+              active.status === "ACTIVE" ? "live-pulse" : ""
+            }`}
+          >
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_55%)]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0.45] }}
+              transition={{ duration: 1.1 }}
+            />
+            <div className="relative z-[1] space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="eyebrow mb-1">Live order · top of page</p>
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    {active.country.flag} {active.service.name}
+                    <span className="text-[var(--text-muted)] font-normal text-sm">
+                      {" "}
+                      ·{" "}
+                      {active.serverMode === "auto"
+                        ? "Auto"
+                        : active.server === 1
+                          ? "Primary"
+                          : active.server === 2
+                            ? "Backup"
+                            : "Extra"}
+                    </span>
+                  </h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`badge ${statusColor(active.status)}`}>{active.status}</span>
+                  <span className="font-mono text-xl tabular-nums">{countdown.label}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-[var(--text-muted)] mb-1">Phone number</div>
+                <div className="flex gap-2">
+                  <code className="flex-1 panel px-3 py-2.5 font-mono text-sm break-all">
+                    {active.phoneNumber}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn btn-ghost px-3"
+                    onClick={() => onCopy("phone", active.phoneNumber ?? "")}
+                    aria-label="Copy phone"
+                  >
+                    {copied === "phone" ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-[var(--text-muted)] mb-1">OTP code</div>
+                <div className="flex gap-2">
+                  <code
+                    className={`flex-1 panel px-3 py-3 font-mono text-lg tracking-[0.14em] min-h-[48px] ${
+                      active.otpCode ? "text-[var(--accent)] font-semibold" : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {active.otpCode ??
+                      (active.status === "ACTIVE" ? "Waiting for SMS…" : "—")}
+                  </code>
+                  {active.otpCode && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost px-3"
+                      onClick={() => onCopy("otp", active.otpCode!)}
+                      aria-label="Copy OTP"
+                    >
+                      {copied === "otp" ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  )}
+                </div>
+                {active.otpMessage && (
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">{active.otpMessage}</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-ghost flex-1 min-w-[8rem]"
+                  disabled={refreshOtp.isPending || !["ACTIVE", "PENDING", "WAITING"].includes(active.status)}
+                  onClick={() => refreshOtp.mutate(active.id)}
+                >
+                  <RefreshCw size={14} className={refreshOtp.isPending ? "animate-spin" : ""} />{" "}
+                  {refreshOtp.isPending ? "Checking…" : "Refresh"}
+                </button>
+                {["ACTIVE", "PENDING", "WAITING"].includes(active.status) && !active.otpCode && (
+                  <button
+                    type="button"
+                    className="btn btn-danger flex-1 min-w-[8rem]"
+                    disabled={cancel.isPending}
+                    onClick={() => cancel.mutate(active.id)}
+                  >
+                    <XCircle size={14} /> Cancel · refund
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">
+                Cancel anytime within 5 minutes if no OTP. Auto-refund if SMS never arrives (5 min).
+              </p>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       <div className="grid gap-5 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
         {/* Countries — full focus on mobile until picked */}
@@ -819,7 +994,7 @@ export function ServicesPortal() {
                             </div>
                             <div className="text-right text-[11px] text-[var(--text-muted)]">
                               <div className="inline-flex items-center gap-1">
-                                <Clock size={12} /> 15 min window
+                                <Clock size={12} /> 5 min window
                               </div>
                               <div className="mt-0.5">{pool.label}</div>
                             </div>
@@ -871,120 +1046,42 @@ export function ServicesPortal() {
           )}
         </AnimatePresence>
 
-        {/* Live order */}
+        {/* Side tips when no live order (active order lives at page top) */}
         <AnimatePresence mode="wait">
-          {showOrder && (
+          {showOrder && !active && (
             <motion.section
-              key="order"
+              key="order-tips"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
-              className={`panel panel-accent p-4 ${active?.status === "ACTIVE" ? "live-pulse" : ""}`}
+              className="panel panel-accent p-4"
             >
-              {!isDesktop && mobileStep === "order" && (
-                <button
-                  type="button"
-                  className="mb-3 inline-flex items-center gap-1.5 text-sm text-[var(--accent)]"
-                  onClick={() => setMobileStep("services")}
-                >
-                  <ChevronLeft size={16} /> Back to services
-                </button>
-              )}
               <h2 className="font-semibold mb-3 tracking-tight">Live order</h2>
-              {!active ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="space-y-3 text-sm text-[var(--text-muted)]"
-                >
-                  <p>Buy a number to open the OTP inbox here.</p>
-                  <ul className="space-y-2">
-                    {[
-                      { icon: Clock, t: "15-minute wait window" },
-                      { icon: ShieldCheck, t: "Auto-refund if no SMS" },
-                      { icon: Copy, t: "Phone & OTP auto-copy" },
-                    ].map((row, i) => (
-                      <motion.li
-                        key={row.t}
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.15 + i * 0.08 }}
-                        className="flex items-center gap-2"
-                      >
-                        <row.icon size={14} className="text-[var(--accent)]" />
-                        {row.t}
-                      </motion.li>
-                    ))}
-                  </ul>
-                </motion.div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className={`badge ${statusColor(active.status)}`}>{active.status}</span>
-                    <span className="font-mono text-lg">{countdown.label}</span>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[var(--text-muted)]">Service</div>
-                    <div className="font-medium">
-                      {active.country.flag} {active.service.name} ·{" "}
-                      {active.serverMode === "auto" ? "Auto" : `Server ${active.server}`}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[var(--text-muted)] mb-1">Phone number</div>
-                    <div className="flex gap-2">
-                      <code className="flex-1 panel px-3 py-2 font-mono text-sm break-all">
-                        {active.phoneNumber}
-                      </code>
-                      <button
-                        type="button"
-                        className="btn btn-ghost px-3"
-                        onClick={() => onCopy("phone", active.phoneNumber ?? "")}
-                      >
-                        {copied === "phone" ? <Check size={16} /> : <Copy size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[var(--text-muted)] mb-1">OTP code</div>
-                    <div className="flex gap-2">
-                      <code className="flex-1 panel px-3 py-2 font-mono text-sm min-h-[42px]">
-                        {active.otpCode ?? (active.status === "ACTIVE" ? "Waiting for SMS…" : "—")}
-                      </code>
-                      {active.otpCode && (
-                        <button
-                          type="button"
-                          className="btn btn-ghost px-3"
-                          onClick={() => onCopy("otp", active.otpCode!)}
-                        >
-                          {copied === "otp" ? <Check size={16} /> : <Copy size={16} />}
-                        </button>
-                      )}
-                    </div>
-                    {active.otpMessage && (
-                      <p className="mt-2 text-xs text-[var(--text-muted)]">{active.otpMessage}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="btn btn-ghost flex-1" onClick={() => qc.invalidateQueries()}>
-                      <RefreshCw size={14} /> Refresh
-                    </button>
-                    {active.status === "ACTIVE" && (
-                      <button
-                        type="button"
-                        className="btn btn-danger flex-1"
-                        disabled={cancel.isPending}
-                        onClick={() => cancel.mutate(active.id)}
-                      >
-                        <XCircle size={14} /> Cancel
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Manual cancel/refund within 2 minutes if no OTP. Auto-refund after 15 minutes.
-                  </p>
-                </div>
-              )}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-3 text-sm text-[var(--text-muted)]"
+              >
+                <p>Buy a number — your OTP card jumps to the top of this page.</p>
+                <ul className="space-y-2">
+                  {[
+                    { icon: Clock, t: "5-minute wait window" },
+                    { icon: ShieldCheck, t: "Cancel or auto-refund if no SMS" },
+                    { icon: Copy, t: "Phone & OTP copy buttons" },
+                  ].map((row, i) => (
+                    <motion.li
+                      key={row.t}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 + i * 0.08 }}
+                      className="flex items-center gap-2"
+                    >
+                      <row.icon size={14} className="text-[var(--accent)]" />
+                      {row.t}
+                    </motion.li>
+                  ))}
+                </ul>
+              </motion.div>
             </motion.section>
           )}
         </AnimatePresence>

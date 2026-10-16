@@ -5,7 +5,7 @@ import { pollOrder } from "@/lib/sms/order-lifecycle";
 
 /**
  * SSE live OTP stream. Query: ?orderId=
- * Polls provider ~every 3s; auto-refunds after 15 min.
+ * Polls provider ~every 3s; auto-refunds after 5 min (order TTL).
  */
 export async function GET(req: NextRequest) {
   const session = await auth();

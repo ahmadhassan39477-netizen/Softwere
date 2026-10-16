@@ -52,8 +52,15 @@ export default function AccountPage() {
 
   const list = orders.data?.orders ?? [];
   const balance = session?.user?.balance ?? "0.0000";
-  const withOtp = list.filter((o) => o.otpCode).length;
-  const pending = list.filter((o) => o.status === "PENDING" || o.status === "WAITING").length;
+  // Requested = all purchases; waiting = still awaiting SMS; received = OTP landed
+  const waitingStatuses = new Set(["ACTIVE", "PENDING", "WAITING"]);
+  const received = list.filter(
+    (o) => o.status === "RECEIVED" || Boolean(o.otpCode),
+  ).length;
+  const waiting = list.filter(
+    (o) => waitingStatuses.has(o.status) && !o.otpCode,
+  ).length;
+  const requested = list.length;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -79,9 +86,9 @@ export default function AccountPage() {
           <p className="mono-data text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             Purchases
           </p>
-          <p className="mt-1 text-xl font-semibold">{list.length}</p>
+          <p className="mt-1 text-xl font-semibold">{requested}</p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {withOtp} with OTP · {pending} waiting
+            {requested} OTP requested · {waiting} waiting · {received} received
           </p>
         </div>
         <div className="panel px-4 py-4 space-y-2">
