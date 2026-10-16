@@ -144,11 +144,43 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Switching onto SMS-Man clears a previous provider's key (e.g. Grizzly) so it
+  // is never sent to api.sms-man.com/control. Do not force-enable without a token.
+  let clearKeyOnTypeFlip = false;
+  if (
+    nextType === "sms-man" &&
+    existing.providerType !== "sms-man" &&
+    nextApiKey === undefined
+  ) {
+    clearKeyOnTypeFlip = true;
+  }
+
+  const effectiveKeyAfter =
+    nextApiKey !== undefined
+      ? nextApiKey
+      : clearKeyOnTypeFlip
+        ? null
+        : existing.apiKey;
+  const hasSmsManToken =
+    (nextType === "sms-man" ||
+      (!nextType && existing.providerType === "sms-man")) &&
+    Boolean(effectiveKeyAfter?.trim());
+
+  // Enable Server 3 only when SMS-Man has a real token; never force-enable empty.
+  let nextEnabled = parsed.data.enabled;
+  if (nextEnabled === undefined && hasSmsManToken && nextApiKey !== undefined) {
+    nextEnabled = true;
+  }
+
   const updated = await prisma.providerSetting.update({
     where: { key },
     data: {
-      ...(parsed.data.enabled !== undefined ? { enabled: parsed.data.enabled } : {}),
-      ...(nextApiKey !== undefined ? { apiKey: nextApiKey } : {}),
+      ...(nextEnabled !== undefined ? { enabled: nextEnabled } : {}),
+      ...(nextApiKey !== undefined
+        ? { apiKey: nextApiKey }
+        : clearKeyOnTypeFlip
+          ? { apiKey: null }
+          : {}),
       ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
       ...(nextType ? { providerType: nextType, name: `Server ${existing.priority}` } : {}),
       ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),

@@ -221,14 +221,25 @@ export async function ensureProviderSlots(): Promise<void> {
       ) {
         nextKey = null;
       }
+      // Do not force-enable Server 3 without an SMS-Man token
+      const patch: {
+        providerType: SlotProviderType;
+        name: string;
+        markupPercent: Prisma.Decimal;
+        apiKey?: string | null;
+        enabled?: boolean;
+      } = {
+        providerType: nextType,
+        name: `Server ${slot}`,
+        markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+      };
+      if (nextKey !== row.apiKey) patch.apiKey = nextKey;
+      if (nextType === "sms-man" && !nextKey?.trim()) {
+        // leave enabled as-is (user may have Disabled); never flip on without token
+      }
       await prisma.providerSetting.update({
         where: { key: slotKey },
-        data: {
-          providerType: nextType,
-          name: `Server ${slot}`,
-          markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
-          ...(nextKey !== row.apiKey ? { apiKey: nextKey } : {}),
-        },
+        data: patch,
       });
     }
 

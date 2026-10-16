@@ -11,7 +11,7 @@ export const CATALOG_SERVICES = [
   { name: "Binance", slug: "binance", category: "Crypto", from: "0.74", note: "Exchange SMS codes" },
 ] as const;
 
-/** Customer-facing labels only — never name wholesale sites (SMS-Activate, 5SIM, Grizzly). */
+/** Customer-facing labels only — never name wholesale sites (SMS-Activate, 5SIM, Grizzly, SMS-Man). */
 export const SERVER_POOLS = [
   {
     id: "auto" as const,

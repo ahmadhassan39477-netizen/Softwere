@@ -23,6 +23,35 @@ type ProviderRow = {
 
 type ProviderTypeOption = { value: string; label: string; defaultMarkup: number };
 
+/** Always shown in Admin — never rely on a stale API payload alone. */
+const ADMIN_PROVIDER_TYPES: ProviderTypeOption[] = [
+  { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
+  { value: "5sim", label: "5SIM", defaultMarkup: 20 },
+  { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 20 },
+  { value: "sms-man", label: "SMS-Man", defaultMarkup: 20 },
+  { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
+];
+
+function mergeProviderTypes(fromApi?: ProviderTypeOption[]): ProviderTypeOption[] {
+  const byValue = new Map<string, ProviderTypeOption>();
+  for (const t of ADMIN_PROVIDER_TYPES) byValue.set(t.value, t);
+  for (const t of fromApi ?? []) {
+    if (!byValue.has(t.value)) byValue.set(t.value, t);
+  }
+  // Keep SMS-Man immediately after Grizzly in the dropdown
+  const order = ["sms-activate", "5sim", "grizzlysms", "sms-man", "custom-sa"];
+  const ordered: ProviderTypeOption[] = [];
+  for (const v of order) {
+    const hit = byValue.get(v);
+    if (hit) {
+      ordered.push(hit);
+      byValue.delete(v);
+    }
+  }
+  for (const t of byValue.values()) ordered.push(t);
+  return ordered;
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const qc = useQueryClient();
@@ -343,13 +372,7 @@ export default function AdminPage() {
         </p>
         <div className="space-y-4">
           {providers.map((p) => {
-            const types = settings.data?.providerTypes ?? [
-              { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
-              { value: "5sim", label: "5SIM", defaultMarkup: 20 },
-              { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 20 },
-              { value: "sms-man", label: "SMS-Man", defaultMarkup: 20 },
-              { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
-            ];
+            const types = mergeProviderTypes(settings.data?.providerTypes);
             const type = p.providerType ?? "sms-activate";
             const keyPlaceholder =
               type === "sms-man"
@@ -358,6 +381,7 @@ export default function AdminPage() {
             return (
               <div
                 key={p.key}
+                data-server-slot={p.slot ?? p.priority}
                 className="rounded-xl border border-[var(--border)] px-4 py-3 space-y-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
