@@ -4,6 +4,7 @@ import {
   ProviderBalanceError,
   ProviderKey,
   ProviderNoStockError,
+  ProviderPriceRow,
   SmsAdapter,
   SmsStatus,
 } from "../types";
@@ -73,6 +74,51 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
         return null;
       } catch {
         return null;
+      }
+    },
+
+    /** Live SA-compatible prices: { countryId: { serviceCode: { cost, count } } }. */
+    async getPrices(countryCode?: string): Promise<ProviderPriceRow[]> {
+      const iso = (countryCode ?? "US").toUpperCase();
+      const country = SA_COUNTRY[iso];
+      if (!country) return [];
+      try {
+        const text = await call({ action: "getPrices", country });
+        if (!text || text.startsWith("BAD") || text.startsWith("ERROR")) return [];
+        let json: unknown;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          return [];
+        }
+        if (!json || typeof json !== "object") return [];
+        const tree = json as Record<
+          string,
+          Record<string, { cost?: string | number; count?: string | number }>
+        >;
+        const countryTree = tree[String(country)] ?? tree[country] ?? null;
+        if (!countryTree || typeof countryTree !== "object") return [];
+
+        const slugByCode = new Map(
+          Object.entries(SA_SERVICE).map(([slug, code]) => [code.toLowerCase(), slug]),
+        );
+        const rows: ProviderPriceRow[] = [];
+        for (const [code, info] of Object.entries(countryTree)) {
+          const slug = slugByCode.get(String(code).toLowerCase());
+          if (!slug || !info || typeof info !== "object") continue;
+          const cost = Number(info.cost ?? 0);
+          const count = Number(info.count ?? 0);
+          rows.push({
+            countryCode: iso,
+            serviceSlug: slug,
+            wholesale: Number.isFinite(cost) ? cost : 0,
+            available: count > 0,
+            stock: Number.isFinite(count) ? count : 0,
+          });
+        }
+        return rows;
+      } catch {
+        return [];
       }
     },
   };

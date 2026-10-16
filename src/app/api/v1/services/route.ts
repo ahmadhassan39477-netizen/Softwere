@@ -7,7 +7,8 @@ import { decimalJson } from "@/lib/money";
 import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { worldCountryByCode } from "@/lib/world-countries";
-import { fetchFiveSimLiveStock } from "@/lib/sms/live-stock";
+import { fetchLiveStockBySlot, type SlotLiveStock } from "@/lib/sms/live-stock";
+import { createFiveSimAdapter } from "@/lib/sms/adapters/fivesim";
 import {
   DEFAULT_SLOT_MARKUP,
   loadProviderSlots,
@@ -52,18 +53,89 @@ function synthServices(
       name: s.name,
       category: s.category,
       offers: [1, 2, 3].map((server) => {
-        const cost = s.base * (1 + (server - 1) * 0.08) * (fb.code === "US" ? 1.15 : 1);
+        // Distinct placeholders only — never identical across servers
+        const cost = s.base * (1 + (server - 1) * 0.35) * (fb.code === "US" ? 1.15 : 1);
         const m = (markups[server] ?? 20) / 100;
         return {
           id: `fb-${s.slug}-${server}`,
           server,
           price: (cost * (1 + m)).toFixed(4),
-          stock: 40,
-          inStock: true,
+          stock: 0,
+          inStock: false,
+          live: false,
+          markupPercent: markups[server] ?? 20,
         };
       }),
     })),
+    liveStock: false,
+    slotMarkups: markups,
   };
+}
+
+/** Overlay one offer with that server slot's live wholesale × markup. */
+function applySlotLive(
+  offer: { id: string; server: number; price: Prisma.Decimal | string; stock: number },
+  slug: string,
+  liveBySlot: Map<number, SlotLiveStock>,
+  markups: Record<number, number>,
+) {
+  const slotLive = liveBySlot.get(offer.server);
+  const liveRow = slotLive?.bySlug.get(slug);
+  const markup = markups[offer.server] ?? DEFAULT_SLOT_MARKUP;
+
+  if (liveRow && liveRow.wholesale > 0) {
+    const retail = retailFromWholesale(liveRow.wholesale, markup);
+    const stock = liveRow.stock ?? (liveRow.available ? Math.max(offer.stock, 1) : 0);
+    return {
+      id: offer.id,
+      server: offer.server,
+      price: decimalJson(new Prisma.Decimal(retail.toFixed(4))),
+      stock,
+      inStock: stock > 0 && liveRow.available !== false,
+      live: true,
+      markupPercent: markup,
+      wholesale: Number(liveRow.wholesale.toFixed?.(4) ?? liveRow.wholesale),
+    };
+  }
+
+  // No live row for this slot — do not pretend seed prices are this provider's tariff
+  return {
+    id: offer.id,
+    server: offer.server,
+    price: decimalJson(offer.price),
+    stock: offer.stock,
+    inStock: offer.stock > 0,
+    live: false,
+    markupPercent: markup,
+  };
+}
+
+/**
+ * 5SIM guest product list needs no Admin key (public). Used only when Server slot
+ * is typed 5SIM but the Admin key is empty — still never logs secrets.
+ */
+async function fillFiveSimGuestIfNeeded(
+  countryCode: string,
+  liveBySlot: Map<number, SlotLiveStock>,
+): Promise<void> {
+  for (const [slotNum, entry] of liveBySlot) {
+    if (entry.providerType !== "5sim") continue;
+    if (entry.bySlug.size > 0) continue;
+    try {
+      const adapter = createFiveSimAdapter("guest");
+      if (!adapter.getPrices) continue;
+      const rows = await Promise.race([
+        adapter.getPrices(countryCode),
+        new Promise<Awaited<ReturnType<NonNullable<typeof adapter.getPrices>>>>((resolve) =>
+          setTimeout(() => resolve([]), 2500),
+        ),
+      ]);
+      const bySlug = new Map(rows.map((r) => [r.serviceSlug, r]));
+      liveBySlot.set(slotNum, { ...entry, bySlug });
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -75,13 +147,12 @@ export async function GET(req: NextRequest) {
 
   const countryCode = (req.nextUrl.searchParams.get("country") ?? "US").toUpperCase();
   const q = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? "";
-  // live=1 overlays 5SIM; default fast path never blocks first paint on wholesale
+  // live=1 overlays each Admin slot's wholesale × markup; default fast path skips wholesale
   const wantLive = req.nextUrl.searchParams.get("live") === "1";
 
   const markups = await slotMarkupMap();
 
   try {
-    // Seed / offer expand in background — never block country switch first paint
     void ensureCatalogSeeded().catch(() => undefined);
     void ensureCountryOffers(countryCode).catch(() => undefined);
 
@@ -117,13 +188,13 @@ export async function GET(req: NextRequest) {
       category: def.category,
       offers: [1, 2, 3].map((server) => {
         const cost =
-          def.base * (1 + (server - 1) * 0.08) * (country.code === "US" ? 1.15 : 1);
+          def.base * (1 + (server - 1) * 0.35) * (country.code === "US" ? 1.15 : 1);
         const m = (markups[server] ?? 20) / 100;
         return {
           id: `fb-${def.slug}-${server}`,
           server,
           price: new Prisma.Decimal((cost * (1 + m)).toFixed(4)),
-          stock: 40,
+          stock: 0,
         };
       }),
     }));
@@ -150,12 +221,13 @@ export async function GET(req: NextRequest) {
         !q || s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
     );
 
-    // Live 5SIM only when requested — never blocks the fast catalog paint
-    const live = wantLive ? await fetchFiveSimLiveStock(countryCode) : new Map();
-    // Which slots currently use 5SIM (for live overlay)
-    const fiveSimSlots = new Set(
-      (await loadProviderSlots().catch(() => [])).filter((s) => s.providerType === "5sim").map((s) => s.priority),
-    );
+    let liveBySlot = new Map<number, SlotLiveStock>();
+    if (wantLive) {
+      liveBySlot = await fetchLiveStockBySlot(countryCode);
+      await fillFiveSimGuestIfNeeded(countryCode, liveBySlot);
+    }
+
+    const liveCount = [...liveBySlot.values()].reduce((n, s) => n + s.bySlug.size, 0);
 
     return Response.json(
       {
@@ -165,42 +237,33 @@ export async function GET(req: NextRequest) {
           name: country.name,
           flag: country.flag,
         },
-        services: rows.map((s) => {
-          const liveRow = live.get(s.slug);
-          return {
-            id: s.id,
-            slug: s.slug,
-            name: s.name,
-            category: s.category,
-            offers: s.offers.map((o) => {
-              let stock = o.stock;
-              let price = o.price;
-              const slotM = (markups[o.server] ?? 20) / 100;
-              if (liveRow && (fiveSimSlots.has(o.server) || o.server === 2)) {
-                stock = liveRow.stock ?? (liveRow.available ? Math.max(stock, 1) : 0);
-                if (liveRow.wholesale > 0) {
-                  price = new Prisma.Decimal(
-                    retailFromWholesale(liveRow.wholesale, markups[o.server] ?? 20).toFixed(4),
-                  );
-                }
-              } else if (typeof price === "string" || price instanceof Prisma.Decimal) {
-                // leave seeded offer price; Grizzly/slot markup applied on buy from wholesale
-                void slotM;
-              }
-              return {
-                id: o.id,
-                server: o.server,
-                price: decimalJson(price),
-                stock,
-                inStock: stock > 0,
-                live: Boolean(liveRow) && (fiveSimSlots.has(o.server) || o.server === 2),
-                markupPercent: markups[o.server] ?? 20,
-              };
-            }),
-          };
-        }),
-        liveStock: live.size > 0,
+        services: rows.map((s) => ({
+          id: s.id,
+          slug: s.slug,
+          name: s.name,
+          category: s.category,
+          offers: s.offers.map((o) =>
+            wantLive
+              ? applySlotLive(o, s.slug, liveBySlot, markups)
+              : {
+                  id: o.id,
+                  server: o.server,
+                  price: decimalJson(o.price),
+                  stock: o.stock,
+                  inStock: o.stock > 0,
+                  live: false,
+                  markupPercent: markups[o.server] ?? 20,
+                },
+          ),
+        })),
+        liveStock: liveCount > 0,
         slotMarkups: markups,
+        slotProviders: Object.fromEntries(
+          [...liveBySlot.entries()].map(([k, v]) => [
+            k,
+            { providerType: v.providerType, liveRows: v.bySlug.size },
+          ]),
+        ),
       },
       {
         headers: {

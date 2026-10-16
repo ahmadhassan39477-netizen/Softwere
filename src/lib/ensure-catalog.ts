@@ -93,8 +93,10 @@ export async function ensureCatalogSeeded(): Promise<void> {
           const svc = services.find((x) => x.slug === def.slug);
           if (!svc) continue;
           for (const server of [1, 2, 3]) {
+            // Seed placeholders only — live=1 replaces with per-slot wholesale × markup.
+            // Keep servers visibly distinct so tabs never share one static tariff.
             const cost =
-              def.base * (1 + (server - 1) * 0.08) * (country.code === "US" ? 1.15 : 1);
+              def.base * (1 + (server - 1) * 0.35) * (country.code === "US" ? 1.15 : 1);
             const price = cost * (1 + markup);
             const stock = 40 + ((si + server + country.sortOrder) % 90);
             await prisma.serviceOffer.upsert({
@@ -194,7 +196,7 @@ export async function ensureCountryOffers(countryCode: string): Promise<void> {
       const svc = services.find((x) => x.slug === def.slug);
       if (!svc) continue;
       for (const server of [1, 2, 3]) {
-        const cost = def.base * (1 + (server - 1) * 0.08) * (code === "US" ? 1.15 : 1);
+        const cost = def.base * (1 + (server - 1) * 0.35) * (code === "US" ? 1.15 : 1);
         const price = cost * (1 + markup);
         const stock = 35 + ((si + server + country.sortOrder) % 80);
         await prisma.serviceOffer.upsert({
