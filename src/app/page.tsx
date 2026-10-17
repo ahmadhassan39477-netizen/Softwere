@@ -821,7 +821,7 @@ export default function LandingPage() {
           title="Facebook OTP and OTP website for WhatsApp."
           body="Receive SMS on a private temp number. We do not publish a Facebook OTP code free list."
         />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Link
             href={REGISTER_FACEBOOK}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
@@ -859,6 +859,19 @@ export default function LandingPage() {
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
               Temp Mail Plus <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href={vpnHref}
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <h3 className="text-xl font-semibold tracking-tight">VPN & Proxy</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Datacenter and residential proxies plus VPN config on the same account. We do not
+              show a fake connected tunnel.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              VPN & Proxy <ArrowRight size={14} />
             </span>
           </Link>
         </div>
