@@ -110,9 +110,12 @@ function members<T>(data: HydraCollection<T> | T[] | null | undefined): T[] {
   return data["hydra:member"] ?? [];
 }
 
-async function mailtm<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function mailtm<T>(path: string, init: RequestInit = {}, attempt = 0): Promise<T> {
   const headers = new Headers(init.headers);
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (!headers.has("User-Agent")) {
+    headers.set("User-Agent", "TempEmpire/1.0 (+https://www.tempempire.store)");
+  }
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -126,11 +129,22 @@ async function mailtm<T>(path: string, init: RequestInit = {}): Promise<T> {
       signal: init.signal ?? AbortSignal.timeout(FETCH_MS),
     });
   } catch {
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      return mailtm<T>(path, init, attempt + 1);
+    }
     throw new TempMailProviderError(providerErrorMessage(0, true), 503);
   }
 
   if (!res.ok) {
-    throw new TempMailProviderError(providerErrorMessage(res.status), res.status >= 400 && res.status < 500 ? res.status : 502);
+    if (attempt < 2 && (res.status === 429 || res.status >= 500)) {
+      await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      return mailtm<T>(path, init, attempt + 1);
+    }
+    throw new TempMailProviderError(
+      providerErrorMessage(res.status),
+      res.status >= 400 && res.status < 500 ? res.status : 502,
+    );
   }
 
   if (res.status === 204) return undefined as T;
