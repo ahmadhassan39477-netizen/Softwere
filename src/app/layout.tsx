@@ -30,15 +30,15 @@ export const metadata: Metadata = {
   keywords: [...HOME_KEYWORDS, "Temp Empire"],
   alternates: { canonical: BASE },
   icons: {
+    // Google Search favicon must be a multiple of 48px. Do not advertise 16x16.
     icon: [
-      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
-      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
-      { url: "/icon-96.png", sizes: "96x96", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: `${BASE}/icon-48.png`, sizes: "48x48", type: "image/png" },
+      { url: `${BASE}/icon-96.png`, sizes: "96x96", type: "image/png" },
+      { url: `${BASE}/icon-192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${BASE}/icon-512.png`, sizes: "512x512", type: "image/png" },
+      { url: `${BASE}/favicon.ico`, sizes: "48x48", type: "image/x-icon" },
     ],
-    shortcut: ["/favicon.ico"],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: `${BASE}/apple-touch-icon.png`, sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",
@@ -71,6 +71,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href={`${BASE}/icon-48.png`} sizes="48x48" type="image/png" />
+        <link rel="icon" href={`${BASE}/icon-192.png`} sizes="192x192" type="image/png" />
+        <link rel="apple-touch-icon" href={`${BASE}/apple-touch-icon.png`} sizes="180x180" />
+      </head>
       <body className={`${display.variable} ${mono.variable} antialiased`}>
         <SiteJsonLd />
         <Providers>{children}</Providers>

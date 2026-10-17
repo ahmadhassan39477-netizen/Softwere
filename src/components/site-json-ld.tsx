@@ -8,7 +8,13 @@ export function SiteJsonLd() {
     "@type": "Organization",
     name: "Temp Empire",
     url: BASE,
-    logo: `${BASE}/icon-192.png`,
+    logo: {
+      "@type": "ImageObject",
+      url: `${BASE}/icon-192.png`,
+      contentUrl: `${BASE}/icon-192.png`,
+      width: 192,
+      height: 192,
+    },
     image: `${BASE}/og-image.png`,
     description:
       "SMS OTP website for a US temp num, UK temp num, and temp num Canada. Facebook OTP verification, WhatsApp OTP, and Temp Mail Plus-style email.",

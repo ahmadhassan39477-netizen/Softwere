@@ -85,8 +85,9 @@ await writePng(512, "public/icon-512.png");
 await writePng(180, "public/apple-touch-icon.png");
 fs.copyFileSync("public/icon-192.png", "public/logo.png");
 await sharp(Buffer.from(ogSvg)).png().toFile("public/og-image.png");
-await writeIco([16, 32, 48], "public/favicon.ico");
-fs.copyFileSync("public/favicon.ico", "src/app/favicon.ico");
+// 48px first — Google rejects a 16×16-leading ICO and falls back to a letter avatar.
+await writeIco([48, 32, 16], "public/favicon.ico");
+// Do not write src/app/favicon.ico: Next.js emits sizes="16x16" for that file.
 fs.copyFileSync("public/icon-192.png", "src/app/icon.png");
 fs.copyFileSync("public/apple-touch-icon.png", "src/app/apple-icon.png");
 console.info("[brand-icons] regenerated");
