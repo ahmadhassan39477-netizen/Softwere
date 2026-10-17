@@ -166,15 +166,15 @@ export default function LandingPage() {
           <button className="btn btn-ghost p-2 shrink-0" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/about" className="btn btn-ghost hidden md:inline-flex">
+          <Link href="/about" className="btn btn-ghost !hidden md:!inline-flex">
             About
           </Link>
-          <Link href="/login" className="btn btn-ghost hidden md:inline-flex">
+          <Link href="/login" className="btn btn-ghost !hidden md:!inline-flex">
             Sign in
           </Link>
           <Link
             href={REGISTER_DEPOSIT}
-            className="btn btn-primary shrink-0 whitespace-nowrap text-sm px-3 min-h-10 sm:px-4"
+            className="btn btn-primary shrink-0 whitespace-nowrap text-sm !px-3 !min-h-10 sm:!px-4"
           >
             Sign up
           </Link>
