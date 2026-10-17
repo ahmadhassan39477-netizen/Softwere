@@ -10,8 +10,8 @@ const cases: Array<[string, string | null, string]> = [
   ["bare services", "/services", "/services"],
   ["deep services", "/services?country=US", "/services?country=US"],
   ["facebook chip", "/services?service=facebook", "/services?service=facebook"],
-  ["keep deposit", "/deposit", "/deposit"],
-  ["keep mail", "/temp-mail", "/temp-mail"],
+  ["deposit becomes services", "/deposit", "/services"],
+  ["mail becomes services", "/temp-mail", "/services"],
 ];
 
 let failed = 0;
@@ -35,8 +35,8 @@ if (guestRegisterCallback("/services", "?country=US") !== "/services?country=US"
   console.error("FAIL guest deep services");
   failed += 1;
 }
-if (guestRegisterCallback("/deposit") !== "/deposit") {
-  console.error("FAIL guest deposit kept");
+if (guestRegisterCallback("/deposit") !== "/services") {
+  console.error("FAIL guest deposit → services");
   failed += 1;
 }
 

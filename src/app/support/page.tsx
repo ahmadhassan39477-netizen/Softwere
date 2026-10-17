@@ -42,7 +42,7 @@ export default function SupportPage() {
             <a href={mailto} className="btn btn-primary">
               Email support
             </a>
-            <Link href="/register?callbackUrl=/deposit" className="btn btn-ghost">
+            <Link href="/register?callbackUrl=/services" className="btn btn-ghost">
               Sign up to deposit
             </Link>
           </div>
