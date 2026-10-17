@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden lg:flex lg:flex-col lg:w-[17.5rem] lg:shrink-0 shell-aside relative">
         <div className="flex items-center px-5 h-[4.25rem] border-b border-[var(--border)]">
           <Link href="/">
-            <BrandWordmark compact />
+            <BrandWordmark compact priority />
           </Link>
         </div>
         <nav className="p-3 space-y-1 flex-1">
@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             href="/services"
             className="min-h-12 inline-flex items-center rounded-xl px-1 -ml-1 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            <BrandWordmark compact />
+            <BrandWordmark compact priority />
           </Link>
 
           <div className="flex items-center gap-2">

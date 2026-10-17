@@ -41,7 +41,7 @@ export default function TempMailPlusPage() {
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
         <Link href="/">
-          <BrandWordmark compact />
+          <BrandWordmark compact priority />
         </Link>
         <Link href="/register?callbackUrl=%2Ftemp-mail" className="btn btn-primary text-sm">
           Sign up for Temp Mail

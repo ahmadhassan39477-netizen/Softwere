@@ -143,35 +143,14 @@ export default function LandingPage() {
       />
 
       <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease }}
-          className="flex items-center gap-2.5"
-        >
-          <motion.div
-            initial={{ rotate: -90, scale: 0.4, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 1 }}
-            transition={{ duration: 0.7, ease }}
-          >
-            <BrandMark size={34} />
-          </motion.div>
-          <motion.span
-            className="font-semibold tracking-[-0.035em] text-[1.1rem] leading-none"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.25, duration: 0.45 }}
-          >
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Temp Empire home">
+          <BrandMark size={34} priority />
+          <span className="font-semibold tracking-[-0.035em] text-[1.1rem] leading-none">
             <span className="text-[var(--text)]">temp </span>
             <span className="text-[var(--accent)]">empire</span>
-          </motion.span>
-        </motion.div>
-        <motion.div
-          className="flex items-center gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.35 }}
-        >
+          </span>
+        </Link>
+        <div className="flex items-center gap-2">
           <button className="btn btn-ghost p-2" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -184,7 +163,7 @@ export default function LandingPage() {
           <Link href="/register?callbackUrl=/deposit" className="btn btn-primary text-sm px-3 sm:px-4">
             Sign up
           </Link>
-        </motion.div>
+        </div>
       </header>
 
       {/* HERO — copy first on mobile; emblem below so sequence stays clear */}
@@ -195,20 +174,13 @@ export default function LandingPage() {
         <div className="grid items-center gap-8 sm:gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-10">
           <div className="relative z-10 min-w-0 order-1">
             <div className="mb-6 sm:mb-10 flex items-center gap-3 sm:gap-4">
-              <motion.div
-                initial={{ scale: 0.2, opacity: 0, rotate: -120 }}
-                animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                transition={{ duration: d(0.85, 0.55), ease }}
-                className="relative shrink-0"
-              >
-                <motion.div
-                  className="absolute inset-[-10px] rounded-2xl bg-[var(--accent)] blur-xl"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.45, 0.15] }}
-                  transition={{ duration: 1.2, times: [0, 0.4, 1] }}
+              <div className="relative shrink-0">
+                <div
+                  className="absolute inset-[-10px] rounded-2xl bg-[var(--accent)] blur-xl opacity-20"
+                  aria-hidden
                 />
-                <BrandMark size={isMobile ? 48 : 64} />
-              </motion.div>
+                <BrandMark size={isMobile ? 48 : 64} priority />
+              </div>
               <div className="overflow-hidden">
                 <motion.p
                   className="eyebrow"

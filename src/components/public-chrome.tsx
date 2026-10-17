@@ -7,7 +7,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
         <Link href="/" aria-label="Temp Empire home">
-          <BrandWordmark />
+          <BrandWordmark priority />
         </Link>
         <div className="flex items-center gap-2">
           <Link href="/login" className="btn btn-ghost hidden sm:inline-flex">
