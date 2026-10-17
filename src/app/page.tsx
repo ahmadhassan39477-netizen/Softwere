@@ -37,15 +37,19 @@ const pillarIcons = [Radio, Shield, Wallet] as const;
 const faqs = [
   {
     q: "Do I need my own SMS provider account?",
-    a: "No. Create a Temp Empire account, fund your wallet with crypto, and buy temporary numbers from our catalog.",
+    a: "No. Create a Temp Empire account, add credit via WhatsApp deposit, and buy temporary numbers from our catalog — UK, USA, and more.",
+  },
+  {
+    q: "Can I buy UK and USA numbers?",
+    a: "Yes. United Kingdom (+44) and United States (+1) are our most requested routes for WhatsApp, Telegram, Google, and other OTP apps. Open the UK or USA guides, then sign up to buy from live stock.",
   },
   {
     q: "What happens if an OTP never arrives?",
     a: "Numbers wait up to 5 minutes. No code → automatic full refund. You can also cancel within that window for an instant credit return.",
   },
   {
-    q: "What do Server 1 / 2 / 3 mean?",
-    a: "Three number pools. Server 1 is the best price; Server 2/3 cost a bit more and often succeed when busy apps are congested.",
+    q: "What do Primary / Backup / Extra mean?",
+    a: "Three number pools. Primary is usually the best price; Backup and Extra cost a bit more and often succeed when busy apps are congested.",
   },
   {
     q: "How do I reach support before depositing?",
@@ -53,7 +57,7 @@ const faqs = [
   },
 ];
 
-const beats = ["private", "instant", "crypto"];
+const beats = ["UK +44", "USA +1", "private OTP"];
 
 function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
   return (
@@ -243,8 +247,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
-              Get secure, temporary phone numbers in seconds. Protect your privacy with instant OTP
-              delivery.
+              Buy UK and USA temporary numbers in seconds. Receive SMS OTP online and keep your real
+              phone private.
             </motion.p>
 
             <motion.div
@@ -496,10 +500,10 @@ export default function LandingPage() {
           />
           <div className="space-y-4">
             {[
-              { icon: Lock, t: "Signed deposit webhooks", d: "Crypto deposits settle only after verified payment events." },
+              { icon: Lock, t: "WhatsApp deposit", d: "Wallet credit after we confirm your WhatsApp payment — nothing auto-charges." },
               { icon: Shield, t: "Safe wallet charges", d: "Your balance is deducted only after a number is successfully issued." },
               { icon: Zap, t: "Abuse-resistant API", d: "Rate limits protect accounts and reseller keys." },
-              { icon: Globe2, t: "Secure sign-in", d: "Email/password or Google — sessions stay on your device." },
+              { icon: Globe2, t: "Secure sign-in", d: "Email and password only — sessions stay on your device." },
             ].map((item, i) => (
               <motion.div
                 key={item.t}
@@ -608,6 +612,45 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
+      {/* UK / USA SEO hubs */}
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
+        <SectionHead
+          eyebrow="Top markets"
+          title="UK and USA temporary numbers."
+          body="High-intent routes for WhatsApp, Telegram, Google and more — private +44 and +1 SMS OTP without a SIM card."
+        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/buy/uk"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">🇬🇧 United Kingdom</p>
+            <h3 className="text-xl font-semibold tracking-tight">Buy UK virtual numbers (+44)</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Temporary UK phone numbers for WhatsApp verification, Telegram, Google OTP, and receive
+              SMS online — guides and live buy after signup.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              UK number guides <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/buy/usa"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">🇺🇸 United States</p>
+            <h3 className="text-xl font-semibold tracking-tight">Buy USA temporary numbers (+1)</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              American virtual numbers to receive SMS online for WhatsApp, Instagram, Google, Discord
+              and more — pay from your wallet after WhatsApp deposit.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              USA number guides <ArrowRight size={14} />
+            </span>
+          </Link>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead eyebrow="FAQ" title="Straight answers." />
@@ -653,7 +696,8 @@ export default function LandingPage() {
               </span>
             </div>
             <p className="text-sm text-[var(--text-muted)] max-w-sm leading-relaxed">
-              Self-service temporary verification — SMS OTP, temp mail, wallet credits.
+              Buy UK and USA temporary phone numbers for SMS OTP — private virtual numbers, temp mail,
+              WhatsApp wallet deposit.
             </p>
           </div>
           <div>
@@ -664,6 +708,16 @@ export default function LandingPage() {
               <li>
                 <Link href="/services" className="hover:text-[var(--accent)]">
                   Services
+                </Link>
+              </li>
+              <li>
+                <Link href="/buy/uk" className="hover:text-[var(--accent)]">
+                  UK numbers (+44)
+                </Link>
+              </li>
+              <li>
+                <Link href="/buy/usa" className="hover:text-[var(--accent)]">
+                  USA numbers (+1)
                 </Link>
               </li>
               <li>

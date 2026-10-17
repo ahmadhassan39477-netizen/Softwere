@@ -20,10 +20,23 @@ const BASE = "https://www.tempempire.store";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE),
-  title: "Temp Empire — Temporary OTP & Email Marketplace",
+  title: {
+    default: "Temp Empire — Buy UK & USA Temporary Numbers for SMS OTP",
+    template: "%s · Temp Empire",
+  },
   description:
-    "Self-service marketplace for temporary phone numbers, SMS OTP verification, and temp email — powered by account credits.",
+    "Buy UK (+44) and USA (+1) temporary phone numbers to receive SMS OTP online. Private virtual numbers for WhatsApp, Telegram, Google and more — WhatsApp wallet deposit, no SIM card.",
   applicationName: "Temp Empire",
+  keywords: [
+    "buy UK virtual number",
+    "temporary USA phone number",
+    "UK number for WhatsApp verification",
+    "receive SMS online USA",
+    "temporary phone number SMS OTP",
+    "disposable virtual number",
+    "Temp Empire",
+  ],
+  alternates: { canonical: BASE },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
@@ -39,28 +52,29 @@ export const metadata: Metadata = {
     type: "website",
     url: BASE,
     siteName: "Temp Empire",
-    title: "Temp Empire — Temporary OTP & Email Marketplace",
+    title: "Temp Empire — UK & USA Temporary Numbers for SMS OTP",
     description:
-      "Buy temporary numbers for SMS OTP and temp email. Credits wallet — WhatsApp deposit.",
+      "Private +44 and +1 virtual numbers for WhatsApp, Telegram, Google OTP. Receive SMS online — deposit via WhatsApp.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Temp Empire",
+        alt: "Temp Empire — temporary UK and USA numbers",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Temp Empire — Temporary OTP & Email Marketplace",
+    title: "Temp Empire — UK & USA Temporary Numbers for SMS OTP",
     description:
-      "Buy temporary numbers for SMS OTP and temp email. Credits wallet — WhatsApp deposit.",
+      "Buy UK and USA virtual numbers to receive SMS OTP online. Private inbox — WhatsApp deposit.",
     images: ["/og-image.png"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: { index: true, follow: true },
   },
 };
 

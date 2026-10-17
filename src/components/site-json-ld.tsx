@@ -10,7 +10,15 @@ export function SiteJsonLd() {
     url: BASE,
     logo: `${BASE}/icon-192.png`,
     image: `${BASE}/og-image.png`,
+    description:
+      "Buy UK and USA temporary phone numbers to receive SMS OTP online. Private virtual numbers for WhatsApp, Telegram, Google and more.",
     sameAs: [] as string[],
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      url: `${BASE}/support`,
+      availableLanguage: ["English"],
+    },
   };
 
   const website = {
@@ -18,6 +26,8 @@ export function SiteJsonLd() {
     "@type": "WebSite",
     name: "Temp Empire",
     url: BASE,
+    description:
+      "Temporary UK (+44) and USA (+1) phone numbers for SMS verification and OTP.",
     publisher: {
       "@type": "Organization",
       name: "Temp Empire",
@@ -30,6 +40,30 @@ export function SiteJsonLd() {
     },
   };
 
+  const offerCatalog = {
+    "@context": "https://schema.org",
+    "@type": "OfferCatalog",
+    name: "Temporary SMS OTP numbers",
+    itemListElement: [
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "UK temporary phone numbers (+44)",
+          url: `${BASE}/buy/uk`,
+        },
+      },
+      {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Service",
+          name: "USA temporary phone numbers (+1)",
+          url: `${BASE}/buy/usa`,
+        },
+      },
+    ],
+  };
+
   return (
     <>
       <script
@@ -39,6 +73,10 @@ export function SiteJsonLd() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(offerCatalog) }}
       />
     </>
   );
