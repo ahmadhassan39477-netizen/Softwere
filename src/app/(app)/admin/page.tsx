@@ -68,9 +68,11 @@ export default function AdminPage() {
   const [creditAmount, setCreditAmount] = useState("10");
   const [creditNote, setCreditNote] = useState("");
   const [vpnKey, setVpnKey] = useState("");
-  const [vpnProvider, setVpnProvider] = useState("");
+  const [vpnSecret, setVpnSecret] = useState("");
+  const [vpnEnabled, setVpnEnabled] = useState(true);
+  const [vpnMarkup, setVpnMarkup] = useState("20");
   const [vpnDisplay, setVpnDisplay] = useState("VPN & Proxy");
-  const [vpnBase, setVpnBase] = useState("");
+  const [vpnBase, setVpnBase] = useState("https://api.proxy-cheap.com");
 
   const stats = useQuery({
     queryKey: ["admin-stats"],
@@ -124,14 +126,23 @@ export default function AdminPage() {
     queryKey: ["admin-vpn"],
     enabled: status === "authenticated" && session?.user?.role === "ADMIN",
     queryFn: async () => {
-      const res = await fetch("/api/admin/vpn");
+      const res = await fetch("/api/admin/vpn?probe=1");
       if (!res.ok) throw new Error("Forbidden");
       return res.json() as Promise<{
-        hasApiKey: boolean;
-        apiKeyMasked: string;
         provider: string;
         displayName: string;
         baseUrl: string;
+        enabled: boolean;
+        markupPercent: number;
+        hasApiKey: boolean;
+        apiKeyMasked: string;
+        hasApiSecret: boolean;
+        apiSecretMasked: string;
+        ready: boolean;
+        live: boolean | null;
+        livePlanCount: number | null;
+        balance: number | null;
+        probeError: string | null;
       }>;
     },
   });
@@ -170,9 +181,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!vpn.data) return;
-    setVpnProvider(vpn.data.provider);
     setVpnDisplay(vpn.data.displayName);
-    setVpnBase(vpn.data.baseUrl);
+    setVpnBase(vpn.data.baseUrl || "https://api.proxy-cheap.com");
+    setVpnEnabled(vpn.data.enabled);
+    setVpnMarkup(String(vpn.data.markupPercent ?? 20));
   }, [vpn.data]);
 
   useEffect(() => {
@@ -233,8 +245,9 @@ export default function AdminPage() {
       return data;
     },
     onSuccess: () => {
-      setMsg("VPN & Proxy settings saved.");
+      setMsg("Proxy Cheap settings saved.");
       setVpnKey("");
+      setVpnSecret("");
       qc.invalidateQueries({ queryKey: ["admin-vpn"] });
     },
     onError: (e: Error) => setMsg(e.message),
@@ -340,20 +353,53 @@ export default function AdminPage() {
       </div>
 
       <div className="panel p-5 space-y-4" data-testid="admin-vpn-proxy">
-        <h2 className="font-semibold">VPN & Proxy provider</h2>
-        <p className="text-xs text-[var(--text-muted)]">
-          Paste a proxy/VPN API key here when you have one. The customer page stays honest: it
-          will not fake a connected tunnel. Keys stay in Admin — never in chat.
-        </p>
-        <p className="text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Proxy Cheap</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Provider: <span className="font-medium text-[var(--text)]">Proxy Cheap</span>.
+              Paste the API key and API user / secret from your Proxy Cheap dashboard. Same
+              enable + margin pattern as SMS slots. Keys stay here — never in chat.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`btn text-xs ${vpnEnabled ? "btn-primary" : "btn-ghost"}`}
+            disabled={saveVpn.isPending}
+            onClick={() => {
+              const next = !vpnEnabled;
+              setVpnEnabled(next);
+              saveVpn.mutate({ enabled: next, displayName: vpnDisplay, baseUrl: vpnBase });
+            }}
+          >
+            {vpnEnabled ? "Enabled" : "Disabled"}
+          </button>
+        </div>
+        <p className="text-xs text-[var(--text-muted)]" data-testid="admin-proxycheap-masked">
           {vpn.data?.hasApiKey
             ? `Key on file: ${vpn.data.apiKeyMasked}`
-            : "No key yet — customer page shows Coming soon."}
+            : "No API key yet."}
+          {" · "}
+          {vpn.data?.hasApiSecret
+            ? `User on file: ${vpn.data.apiSecretMasked}`
+            : "No API user / secret yet."}
+          {vpn.data?.live === true
+            ? ` · live catalog OK (${vpn.data.livePlanCount ?? 0} plans)`
+            : vpn.data?.live === false
+              ? " · catalog not reachable yet"
+              : ""}
+          {vpn.data?.balance != null ? ` · balance $${vpn.data.balance}` : ""}
         </p>
+        {vpn.data?.probeError && !/rfc2616|<!doctype|\{"type"/i.test(vpn.data.probeError) ? (
+          <p className="text-xs text-amber-400">{vpn.data.probeError}</p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-xs text-[var(--text-muted)]">Display name</label>
+            <label className="text-xs text-[var(--text-muted)]" htmlFor="vpn-display">
+              Customer display name
+            </label>
             <input
+              id="vpn-display"
               className="input mt-1"
               value={vpnDisplay}
               onChange={(e) => setVpnDisplay(e.target.value)}
@@ -361,33 +407,82 @@ export default function AdminPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--text-muted)]">Provider note (Admin only)</label>
-            <input
-              className="input mt-1"
-              value={vpnProvider}
-              onChange={(e) => setVpnProvider(e.target.value)}
-              placeholder="e.g. your reseller name"
-            />
+            <label className="text-xs text-[var(--text-muted)]" htmlFor="vpn-markup">
+              Margin % (retail = wholesale × 1 + %)
+            </label>
+            <div className="mt-1 flex gap-2">
+              <input
+                id="vpn-markup"
+                className="input w-24"
+                type="number"
+                min={0}
+                max={500}
+                value={vpnMarkup}
+                onChange={(e) => setVpnMarkup(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost text-sm"
+                disabled={saveVpn.isPending}
+                onClick={() =>
+                  saveVpn.mutate({
+                    markupPercent: Number(vpnMarkup),
+                    displayName: vpnDisplay,
+                    baseUrl: vpnBase,
+                    enabled: vpnEnabled,
+                  })
+                }
+              >
+                Save margin
+              </button>
+            </div>
           </div>
         </div>
         <div>
-          <label className="text-xs text-[var(--text-muted)]">API base URL (optional)</label>
+          <label className="text-xs text-[var(--text-muted)]" htmlFor="vpn-base">
+            API base URL (optional)
+          </label>
           <input
+            id="vpn-base"
             className="input mt-1 font-mono text-sm"
             value={vpnBase}
             onChange={(e) => setVpnBase(e.target.value)}
-            placeholder="https://"
+            placeholder="https://api.proxy-cheap.com"
           />
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs text-[var(--text-muted)]" htmlFor="vpn-api-key">
+              API key
+            </label>
+            <input
+              id="vpn-api-key"
+              className="input mt-1 font-mono text-sm"
+              type="password"
+              autoComplete="off"
+              value={vpnKey}
+              onChange={(e) => setVpnKey(e.target.value)}
+              placeholder="Paste API key"
+              data-testid="admin-proxycheap-key"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[var(--text-muted)]" htmlFor="vpn-api-user">
+              API user / secret
+            </label>
+            <input
+              id="vpn-api-user"
+              className="input mt-1 font-mono text-sm"
+              type="password"
+              autoComplete="off"
+              value={vpnSecret}
+              onChange={(e) => setVpnSecret(e.target.value)}
+              placeholder="Paste API user or secret"
+              data-testid="admin-proxycheap-user"
+            />
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <input
-            className="input flex-1 min-w-[200px] font-mono text-sm"
-            type="password"
-            autoComplete="off"
-            value={vpnKey}
-            onChange={(e) => setVpnKey(e.target.value)}
-            placeholder="Paste API key"
-          />
           <button
             type="button"
             className="btn btn-primary text-sm"
@@ -395,20 +490,24 @@ export default function AdminPage() {
             onClick={() =>
               saveVpn.mutate({
                 apiKey: vpnKey.trim() || undefined,
-                provider: vpnProvider,
+                apiSecret: vpnSecret.trim() || undefined,
+                provider: "Proxy Cheap",
                 displayName: vpnDisplay,
                 baseUrl: vpnBase,
+                enabled: vpnEnabled,
+                markupPercent: Number(vpnMarkup),
+                probe: true,
               })
             }
           >
-            Save VPN settings
+            Save
           </button>
-          {vpn.data?.hasApiKey && (
+          {(vpn.data?.hasApiKey || vpn.data?.hasApiSecret) && (
             <button
               type="button"
               className="btn btn-ghost text-sm"
               disabled={saveVpn.isPending}
-              onClick={() => saveVpn.mutate({ clearKey: true })}
+              onClick={() => saveVpn.mutate({ clearKey: true, clearSecret: true })}
             >
               Clear key
             </button>
