@@ -36,28 +36,36 @@ const pillarIcons = [Radio, Shield, Wallet] as const;
 
 const faqs = [
   {
-    q: "Do I need my own SMS provider account?",
-    a: "No. Create a Temp Empire account, add credit via WhatsApp deposit, and buy temporary numbers from our catalog — UK, USA, and more.",
+    q: "Is this an SMS OTP website for a US temp num and UK temp num?",
+    a: "Yes. Temp Empire is an OTP website where you buy a US temp num, UK temp num, or temp num Canada after signup, then read SMS in a private inbox.",
   },
   {
-    q: "Can I buy UK and USA numbers?",
-    a: "Yes. United Kingdom (+44) and United States (+1) are our most requested routes for WhatsApp, Telegram, Google, and other OTP apps. Open the UK or USA guides, then sign up to buy from live stock.",
+    q: "Do you have a temp num free or a free virtual number OTP website?",
+    a: "Public “temp num free” walls share codes with everyone. We sell a private temp number from your wallet. Temp Mail Plus-style email aliases are free after you sign in.",
   },
   {
-    q: "What happens if an OTP never arrives?",
-    a: "Numbers wait up to 5 minutes. No code → automatic full refund. You can also cancel within that window for an instant credit return.",
+    q: "Can I get Facebook OTP verification here?",
+    a: "Yes. Buy a Facebook OTP number (US, UK, or Canada), request the SMS from Facebook, and read your own Facebook OTP. We do not post a Facebook OTP code free list, and we do not help anyone skip Facebook’s checks.",
   },
   {
-    q: "What do Primary / Backup / Extra mean?",
-    a: "Three number pools. Primary is usually the best price; Backup and Extra cost a bit more and often succeed when busy apps are congested.",
+    q: "Facebook OTP code not received — what happens?",
+    a: "Watch the live panel. If the Facebook OTP never arrives, eligible orders refund to your wallet so you can try another verification phone number.",
   },
   {
-    q: "How do I reach support before depositing?",
-    a: "Use Contact / Support in the footer — email us anytime. Hours are listed on the support page.",
+    q: "Is this an OTP website for WhatsApp?",
+    a: "Yes. After you sign up, pick a UK, USA, or Canada temp number for WhatsApp OTP and copy the code from your inbox.",
+  },
+  {
+    q: "What is Temp Mail Plus on Temp Empire?",
+    a: "Disposable email in the same account: generate a free alias and read mail in a live inbox — Temp Mail Plus-style, next to your temp OTP website numbers.",
+  },
+  {
+    q: "How do I pay?",
+    a: "Message WhatsApp 03072577778 from the Deposit page. After we confirm payment, buy a temp number from Services.",
   },
 ];
 
-const beats = ["UK +44", "USA +1", "private OTP"];
+const beats = ["US temp num", "UK temp num", "OTP website"];
 
 function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
   return (
@@ -209,8 +217,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <h1 className="relative text-[2.65rem] leading-[0.98] sm:text-6xl lg:text-7xl xl:text-8xl font-semibold tracking-[-0.05em]">
-              <span className="sr-only">temp empire</span>
+            <div className="relative text-[2.65rem] leading-[0.98] sm:text-6xl lg:text-7xl xl:text-8xl font-semibold tracking-[-0.05em]">
               <span className="flex flex-wrap items-baseline gap-x-[0.28em] gap-y-1" aria-hidden>
                 <span className="inline-flex whitespace-nowrap">
                   {"temp".split("").map((ch, i) => (
@@ -239,16 +246,20 @@ export default function LandingPage() {
                   ))}
                 </span>
               </span>
+            </div>
+
+            <h1 className="mt-5 sm:mt-6 text-xl sm:text-2xl lg:text-3xl font-semibold tracking-[-0.03em] leading-tight max-w-xl">
+              US &amp; UK temp number — SMS OTP website
             </h1>
 
             <motion.p
-              className="mt-5 sm:mt-7 max-w-lg text-[0.95rem] sm:text-lg text-[var(--text-muted)] leading-relaxed"
+              className="mt-4 sm:mt-5 max-w-lg text-[0.95rem] sm:text-lg text-[var(--text-muted)] leading-relaxed"
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
-              Buy UK and USA temporary numbers in seconds. Receive SMS OTP online and keep your real
-              phone private.
+              Buy a US temp num, UK temp num, or temp num Canada in seconds. Facebook OTP,
+              WhatsApp OTP, and Temp Mail Plus — private SMS, not a shared free inbox.
             </motion.p>
 
             <motion.div
@@ -424,8 +435,8 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-24">
         <SectionHead
           eyebrow="Service catalog"
-          title="Popular apps, real logos."
-          body="Buy a disposable number for the apps you already use. Live stock updates in the portal after you sign in."
+          title="Facebook OTP, WhatsApp, and more apps."
+          body="Buy a temp number for the apps you already use. Live stock updates in the portal after you sign in."
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {CATALOG_SERVICES.map((svc, i) => (
@@ -612,40 +623,103 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* UK / USA SEO hubs */}
+      {/* UK / USA / Canada SEO hubs */}
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
         <SectionHead
           eyebrow="Top markets"
-          title="UK and USA temporary numbers."
-          body="High-intent routes for WhatsApp, Telegram, Google and more — private +44 and +1 SMS OTP without a SIM card."
+          title="US temp num, UK temp num, and Canada."
+          body="Temp number routes for this OTP website — private +1 and +44 SMS, not a public temp num free wall."
         />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Link
+            href="/buy/usa"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">🇺🇸 United States</p>
+            <h3 className="text-xl font-semibold tracking-tight">US temp num (+1)</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Temp num USA for Facebook OTP, WhatsApp OTP, and receive SMS online — buy after
+              signup and a WhatsApp deposit.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              USA number guides <ArrowRight size={14} />
+            </span>
+          </Link>
           <Link
             href="/buy/uk"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇬🇧 United Kingdom</p>
-            <h3 className="text-xl font-semibold tracking-tight">Buy UK virtual numbers (+44)</h3>
+            <h3 className="text-xl font-semibold tracking-tight">UK temp num (+44)</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              Temporary UK phone numbers for WhatsApp verification, Telegram, Google OTP, and receive
-              SMS online — guides and live buy after signup.
+              UK temp number for WhatsApp OTP, Facebook OTP verification, and SMS online — guides
+              then live buy after signup.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
               UK number guides <ArrowRight size={14} />
             </span>
           </Link>
           <Link
-            href="/buy/usa"
+            href="/buy/canada"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
-            <p className="eyebrow !mb-2">🇺🇸 United States</p>
-            <h3 className="text-xl font-semibold tracking-tight">Buy USA temporary numbers (+1)</h3>
+            <p className="eyebrow !mb-2">🇨🇦 Canada</p>
+            <h3 className="text-xl font-semibold tracking-tight">Temp num Canada</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              American virtual numbers to receive SMS online for WhatsApp, Instagram, Google, Discord
-              and more — pay from your wallet after WhatsApp deposit.
+              Canada temporary number for WhatsApp OTP, Facebook OTP, and other apps — same
+              private inbox as US and UK.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              USA number guides <ArrowRight size={14} />
+              Canada number guides <ArrowRight size={14} />
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
+        <SectionHead
+          eyebrow="Popular checks"
+          title="Facebook OTP and OTP website for WhatsApp."
+          body="Receive SMS on a private temp number. We do not publish a Facebook OTP code free list."
+        />
+        <div className="grid gap-4 md:grid-cols-3">
+          <Link
+            href="/buy/usa/facebook"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <h3 className="text-xl font-semibold tracking-tight">Facebook OTP verification</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Facebook OTP number and verification phone number on a US temp num. If the Facebook
+              OTP code is not received, eligible orders refund.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Facebook OTP (USA) <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/buy/uk/whatsapp"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <h3 className="text-xl font-semibold tracking-tight">OTP website for WhatsApp</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Rent a UK temp num, request the WhatsApp SMS yourself, and copy the code from your
+              inbox — a temp OTP website, not a shared wall.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              WhatsApp UK guide <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/mail"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <h3 className="text-xl font-semibold tracking-tight">Temp Mail Plus</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Temp Mail Plus-style free disposable email on the same account as your temp number.
+              Sign in to generate an alias.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Temp Mail Plus <ArrowRight size={14} />
             </span>
           </Link>
         </div>
@@ -696,8 +770,8 @@ export default function LandingPage() {
               </span>
             </div>
             <p className="text-sm text-[var(--text-muted)] max-w-sm leading-relaxed">
-              Buy UK and USA temporary phone numbers for SMS OTP — private virtual numbers, temp mail,
-              WhatsApp wallet deposit.
+              SMS OTP website for a US temp num, UK temp num, and temp num Canada — Facebook OTP,
+              WhatsApp OTP, Temp Mail Plus, WhatsApp deposit 03072577778.
             </p>
           </div>
           <div>
@@ -711,18 +785,28 @@ export default function LandingPage() {
                 </Link>
               </li>
               <li>
-                <Link href="/buy/uk" className="hover:text-[var(--accent)]">
-                  UK numbers (+44)
-                </Link>
-              </li>
-              <li>
                 <Link href="/buy/usa" className="hover:text-[var(--accent)]">
-                  USA numbers (+1)
+                  US temp num (+1)
                 </Link>
               </li>
               <li>
-                <Link href="/temp-mail" className="hover:text-[var(--accent)]">
-                  Temp mail
+                <Link href="/buy/uk" className="hover:text-[var(--accent)]">
+                  UK temp num (+44)
+                </Link>
+              </li>
+              <li>
+                <Link href="/buy/canada" className="hover:text-[var(--accent)]">
+                  Temp num Canada
+                </Link>
+              </li>
+              <li>
+                <Link href="/buy/usa/facebook" className="hover:text-[var(--accent)]">
+                  Facebook OTP
+                </Link>
+              </li>
+              <li>
+                <Link href="/mail" className="hover:text-[var(--accent)]">
+                  Temp Mail Plus
                 </Link>
               </li>
               <li>

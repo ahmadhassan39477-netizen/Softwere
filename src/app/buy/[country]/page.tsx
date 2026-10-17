@@ -12,9 +12,11 @@ import {
   seoHubDescription,
   seoHubFaqs,
   seoHubH1,
+  seoHubServicesH2,
   seoHubTitle,
   serviceJsonLd,
 } from "@/lib/seo-catalog";
+import { absoluteTitle } from "@/lib/seo-meta";
 
 type Props = { params: Promise<{ country: string }> };
 
@@ -30,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = seoHubDescription(country);
   const canonical = `https://www.tempempire.store/buy/${country.slug}`;
   return {
-    title,
+    title: absoluteTitle(title),
     description,
     keywords: country.keywords,
     alternates: { canonical },
@@ -93,7 +95,7 @@ export default async function BuyCountryHubPage({ params }: Props) {
 
         <section className="mt-12">
           <h2 className="text-xl font-semibold tracking-tight">
-            Popular {country.adjective} OTP services
+            {seoHubServicesH2(country)}
           </h2>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             Open a guide for each app, then sign up to buy from live stock.
@@ -131,9 +133,21 @@ export default async function BuyCountryHubPage({ params }: Props) {
           <Link href={registerHref} className="btn btn-primary">
             Sign up to buy {country.adjective} numbers
           </Link>
-          <Link href={`/buy/${country.slug === "uk" ? "usa" : "uk"}`} className="btn btn-ghost">
-            {country.slug === "uk" ? "USA numbers" : "UK numbers"}
-          </Link>
+          {country.slug !== "usa" && (
+            <Link href="/buy/usa" className="btn btn-ghost">
+              US temp num
+            </Link>
+          )}
+          {country.slug !== "uk" && (
+            <Link href="/buy/uk" className="btn btn-ghost">
+              UK temp num
+            </Link>
+          )}
+          {country.slug !== "canada" && (
+            <Link href="/buy/canada" className="btn btn-ghost">
+              Temp num Canada
+            </Link>
+          )}
           <Link href="/support" className="btn btn-ghost">
             Support
           </Link>

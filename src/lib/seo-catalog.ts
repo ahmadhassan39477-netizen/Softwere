@@ -1,5 +1,7 @@
 /** Programmatic SEO catalog for /buy hubs and /buy/[country]/[service] pages. */
 
+import { PAGE_META } from "@/lib/seo-meta";
+
 export type SeoCountry = {
   slug: string;
   code: string;
@@ -28,12 +30,13 @@ export const SEO_COUNTRIES: SeoCountry[] = [
     flag: "🇺🇸",
     dial: "+1",
     keywords: [
+      "us temp num",
+      "temp num usa",
+      "temp number",
       "buy USA virtual number",
       "temporary USA phone number",
       "receive SMS online USA",
       "USA temp number for WhatsApp",
-      "disposable US phone number SMS OTP",
-      "American virtual number verification",
     ],
   },
   {
@@ -44,12 +47,26 @@ export const SEO_COUNTRIES: SeoCountry[] = [
     flag: "🇬🇧",
     dial: "+44",
     keywords: [
+      "uk temp num",
+      "temp number",
       "buy UK virtual number",
       "temporary UK phone number",
       "UK number for WhatsApp verification",
       "receive SMS online UK +44",
-      "disposable UK mobile number OTP",
-      "British virtual SMS number",
+    ],
+  },
+  {
+    slug: "canada",
+    code: "CA",
+    name: "Canada",
+    adjective: "Canada",
+    flag: "🇨🇦",
+    dial: "+1",
+    keywords: [
+      "temp num canada",
+      "canada temp number",
+      "temporary Canada phone number OTP",
+      "Canada virtual number SMS",
     ],
   },
   {
@@ -140,7 +157,7 @@ export const SEO_SERVICES: SeoService[] = [
 ];
 
 /** Priority markets for homepage / sitemap weight. */
-export const PRIORITY_SEO_COUNTRIES = ["usa", "uk"] as const;
+export const PRIORITY_SEO_COUNTRIES = ["usa", "uk", "canada"] as const;
 
 export function findSeoCountry(slug: string) {
   return SEO_COUNTRIES.find((c) => c.slug === slug);
@@ -151,51 +168,99 @@ export function findSeoService(slug: string) {
 }
 
 export function seoPageTitle(country: SeoCountry, service: SeoService) {
+  if (service.slug === "facebook") {
+    if (country.slug === "uk") return "Facebook OTP Number UK | Verification | Temp Empire";
+    if (country.slug === "usa") return "Facebook OTP | US Temp Num Verification | Temp Empire";
+    if (country.slug === "canada") return "Facebook OTP Canada | Temp Num Verification | Temp Empire";
+    return `Facebook OTP | ${country.adjective} Temp Num | Temp Empire`;
+  }
+  if (service.slug === "whatsapp") {
+    if (country.slug === "uk") return "OTP Website for WhatsApp | UK Temp Num | Temp Empire";
+    if (country.slug === "usa") return "OTP Website for WhatsApp | US Temp Num | Temp Empire";
+    if (country.slug === "canada") return "OTP Website for WhatsApp | Temp Num Canada | Temp Empire";
+    return `OTP Website for WhatsApp | ${country.adjective} | Temp Empire`;
+  }
   if (country.slug === "uk") {
-    return `Buy UK ${service.name} Number (${country.dial}) — Temporary SMS OTP`;
+    return `UK ${service.name} Temp Num | OTP Website | Temp Empire`;
   }
   if (country.slug === "usa") {
-    return `Buy USA ${service.name} Number (${country.dial}) — Temp SMS Verification`;
+    return `US ${service.name} Temp Num | OTP Website | Temp Empire`;
   }
-  return `Buy ${country.adjective} Temporary Number for ${service.name} OTP`;
+  if (country.slug === "canada") {
+    return `Canada ${service.name} Temp Num | OTP Website | Temp Empire`;
+  }
+  return `${country.adjective} ${service.name} Temp Num | OTP Website | Temp Empire`;
 }
 
 export function seoPageDescription(country: SeoCountry, service: SeoService) {
-  return `Get a private ${country.adjective} (${country.dial}) virtual number for ${service.name} SMS OTP on Temp Empire. Receive verification codes online — no SIM card. Sign up, deposit via WhatsApp, buy in seconds.`;
+  if (service.slug === "facebook") {
+    if (country.slug === "uk") {
+      return "Receive Facebook OTP on a UK temp num. Facebook OTP verification phone number, code not received help, and a private SMS inbox — not a public free-code wall.";
+    }
+    if (country.slug === "usa") {
+      return "Get Facebook OTP verification on a US temp num. Facebook OTP number, verification phone number, and help if the Facebook OTP code is not received.";
+    }
+    if (country.slug === "canada") {
+      return "Facebook OTP verification on a temp num Canada. Facebook OTP number and verification phone number — private SMS if the Facebook OTP code is not received.";
+    }
+    return `Facebook OTP verification on a ${country.adjective} temp number. Private Facebook OTP number and SMS inbox — not a public free-code wall.`;
+  }
+  if (service.slug === "whatsapp") {
+    return `OTP website for WhatsApp: buy a ${country.adjective} (${country.dial}) temp number, receive the WhatsApp OTP online, keep your phone private. Sign up, then deposit on WhatsApp.`;
+  }
+  return `Get a private ${country.adjective} (${country.dial}) temp number for ${service.name} on this SMS OTP website. Receive verification codes online — no SIM. Sign up, deposit via WhatsApp, buy in seconds.`;
 }
 
 export function seoH1(country: SeoCountry, service: SeoService) {
+  if (service.slug === "facebook") {
+    if (country.slug === "usa") return "Facebook OTP verification on a US temp num";
+    if (country.slug === "uk") return "Facebook OTP number — UK temp num verification";
+    if (country.slug === "canada") return "Facebook OTP on a temp num Canada";
+    return `Facebook OTP verification phone number (${country.adjective})`;
+  }
+  if (service.slug === "whatsapp") {
+    if (country.slug === "uk") return "OTP website for WhatsApp — UK temp num (+44)";
+    if (country.slug === "usa") return "OTP website for WhatsApp — US temp num (+1)";
+    if (country.slug === "canada") return "OTP website for WhatsApp — temp num Canada";
+    return `OTP website for WhatsApp — ${country.adjective} temp number`;
+  }
   if (country.slug === "uk") {
-    return `Buy a UK virtual number for ${service.name} OTP (${country.dial})`;
+    return `UK temp num for ${service.name} OTP (${country.dial})`;
   }
   if (country.slug === "usa") {
-    return `Buy a USA temporary number for ${service.name} SMS verification`;
+    return `US temp num for ${service.name} SMS verification`;
   }
-  return `Buy a ${country.adjective} virtual number for ${service.name} OTP`;
+  if (country.slug === "canada") {
+    return `Temp num Canada for ${service.name} OTP`;
+  }
+  return `${country.adjective} temp number for ${service.name} OTP`;
 }
 
 export function seoHubTitle(country: SeoCountry) {
-  if (country.slug === "uk") {
-    return `UK Virtual Phone Numbers (+44) for SMS OTP | Temp Empire`;
-  }
-  if (country.slug === "usa") {
-    return `USA Temporary Phone Numbers (+1) for SMS Verification | Temp Empire`;
-  }
-  return `${country.name} Temporary Numbers for SMS OTP | Temp Empire`;
+  if (country.slug === "uk") return PAGE_META.uk.title;
+  if (country.slug === "usa") return PAGE_META.usa.title;
+  if (country.slug === "canada") return PAGE_META.canada.title;
+  return `${country.name} Temp Number | OTP Website | Temp Empire`;
 }
 
 export function seoHubDescription(country: SeoCountry) {
-  return `Buy ${country.adjective} (${country.dial}) temporary phone numbers to receive SMS online. Private OTP for WhatsApp, Telegram, Google, Instagram and more — pay from your Temp Empire wallet.`;
+  if (country.slug === "uk") return PAGE_META.uk.description;
+  if (country.slug === "usa") return PAGE_META.usa.description;
+  if (country.slug === "canada") return PAGE_META.canada.description;
+  return `Buy a ${country.adjective} (${country.dial}) temp number on this OTP website. Private SMS for WhatsApp OTP, Facebook OTP, and more — pay from your Temp Empire wallet after signup.`;
 }
 
 export function seoHubH1(country: SeoCountry) {
   if (country.slug === "uk") {
-    return `UK temporary phone numbers (+44) for SMS verification`;
+    return "UK temp num (+44) — temporary number for SMS OTP";
   }
   if (country.slug === "usa") {
-    return `USA temporary phone numbers (+1) to receive SMS online`;
+    return "US temp num (+1) — temp num USA to receive SMS online";
   }
-  return `${country.name} temporary numbers for SMS OTP`;
+  if (country.slug === "canada") {
+    return "Temp num Canada — temporary +1 number for SMS OTP";
+  }
+  return `${country.name} temp number for SMS OTP`;
 }
 
 /** Long-form hub copy — UK/USA get richer competitor-style content. */
@@ -206,25 +271,35 @@ export function seoHubArticle(country: SeoCountry): string {
 
   if (country.slug === "uk") {
     return [
-      `Looking for a UK virtual number to receive SMS online? Temp Empire sells private +44 temporary phone numbers for SMS OTP — so you can verify WhatsApp, Telegram, Google, Instagram, Discord and other apps without sharing your personal mobile.`,
-      `A UK temporary number (also called a disposable UK mobile or British virtual SMS number) is a short-lived line you rent only to receive verification texts. When an app asks for a United Kingdom phone number, you paste the Temp Empire +44 number, wait for the one-time password in our live inbox, and finish signup. You are not buying a physical SIM, UK address, or carrier contract — just a private receive-SMS route with an OTP window.`,
-      `Why UK (+44) numbers rank among the most requested routes: many apps treat British mobile ranges as high-trust for verification, and people abroad often need a UK number for region-locked signups, travel accounts, or keeping work profiles separate from their real phone. Competitors pitch “real +44 for WhatsApp” and “receive SMS online UK” — we match that intent with clear pricing, private inbox delivery, and wallet credits.`,
-      `How to buy a UK number on Temp Empire in three steps. First, create an account (email and password). Second, open Deposit and message WhatsApp to add wallet credit — balance updates after we confirm payment. Third, open Services, choose United Kingdom and your app (WhatsApp, Telegram, Google, and more), buy a number, paste it into the app, and watch the live OTP panel. If SMS never arrives in the window, eligible orders are refunded to your balance.`,
-      `Popular UK OTP use cases: WhatsApp verification with a +44 line, Telegram SMS login, Google / Gmail phone checks, Instagram and TikTok signups, Discord, Facebook, X (Twitter), and exchange or AI tool verifications. Always follow each app’s terms — Temp Empire is for legitimate privacy and secondary-account hygiene, not for abusing platforms.`,
-      `Compared with public “free SMS” pages, a paid private UK number keeps your code out of shared inboxes. Compared with monthly rental SIMs, pay-per-OTP fits one-off verifications. Browse the service links below or go straight to Services after you sign up.`,
-      `Ready to start? Buy a UK virtual number for SMS OTP on Temp Empire, complete verification in minutes, and keep your personal phone private.`,
+      `Looking for a UK temp num to receive SMS online? Temp Empire is an OTP website that sells private +44 temporary phone numbers — a temp number you can use for WhatsApp OTP, Facebook OTP verification, Telegram, Google, Instagram, Discord and other apps without sharing your personal mobile.`,
+      `A UK temp num (also called a disposable UK mobile or British virtual SMS number) is a short-lived line you rent only to receive verification texts. When an app asks for a United Kingdom phone number, you paste the Temp Empire +44 number, wait for the one-time password in our live inbox, and finish signup. You are not buying a physical SIM, UK address, or carrier contract — just a private receive-SMS route with an OTP window.`,
+      `People often search for a temp num free or a free virtual number OTP website. Public shared inboxes post other people’s SMS for anyone to read. A paid UK temp num on Temp Empire keeps your code in your account. Temp Mail Plus-style email aliases are free to generate after you sign in.`,
+      `How to buy a UK temp num in three steps. First, create an account (email and password). Second, open Deposit and message WhatsApp 03072577778 to add wallet credit. Third, open Services, choose United Kingdom and your app, buy a number, paste it into the app, and watch the live OTP panel. If SMS never arrives, eligible orders refund to your balance.`,
+      `Popular UK OTP use cases: OTP website for WhatsApp with a +44 line, Facebook OTP number and verification phone number, Telegram SMS login, Google / Gmail, Instagram, TikTok, Discord, and X. Always follow each app’s terms — we help you receive SMS, not evade platform rules.`,
+      `Compared with monthly rental SIMs, pay-per-OTP fits one-off checks. Browse the service links below or go straight to Services after you sign up.`,
+      `Ready to start? Buy a UK temp num on this temp OTP website, complete verification in minutes, and keep your personal phone private.`,
     ].join("\n\n");
   }
 
   if (country.slug === "usa") {
     return [
-      `Need a USA temporary phone number to receive SMS online? Temp Empire sells private American (+1) virtual numbers for SMS OTP verification — WhatsApp, Telegram, Google, Instagram, TikTok, Discord and hundreds of other services — without a US SIM card or carrier plan.`,
-      `A USA temp number is a short-lived virtual SMS line. When a site or app requires a United States phone number, you purchase a +1 number from Temp Empire, enter it on the signup form, and read the verification code in your live order panel. Pay only when a number is issued; eligible failed deliveries refund to your wallet.`,
-      `Why USA (+1) numbers matter for ranking audiences: many platforms default to US verification, marketers and travelers want American numbers for region checks, and search demand clusters around phrases like “buy USA virtual number,” “temporary USA phone number,” and “receive SMS online USA.” We target those intents with clear service pages and instant inbox delivery.`,
-      `How it works. Sign up with email and password, add credit via WhatsApp deposit, then open Services → United States → pick your app → Buy. Copy the number, request the SMS from the app, and grab the OTP when it appears. No monthly lock-in — top up only what you need.`,
-      `High-demand USA OTP routes: WhatsApp, Telegram, Google / Gmail, Instagram, Facebook, X (Twitter), TikTok, Discord, Binance, and OpenAI / ChatGPT. Inventory and acceptance can vary by app; live prices show before you confirm.`,
-      `Privacy first: keep your personal cell off random signup forms, reduce spam risk, and separate work or travel accounts. Do not use temporary numbers to violate any service’s terms. Temp Empire markets disposable SMS OTP for legitimate verification and privacy.`,
-      `Get your USA temporary number now — sign up, deposit, and buy from Services in under a minute.`,
+      `Need a US temp num to receive SMS online? Temp Empire is an SMS OTP website with private American (+1) virtual numbers — temp num USA routes for WhatsApp OTP, Facebook OTP verification, Telegram, Google, Instagram, TikTok, Discord and more, without a US SIM card.`,
+      `A US temp num is a short-lived virtual SMS line. When a site asks for a United States phone number, you purchase a +1 temp number from Temp Empire, enter it on the form, and read the code in your live order panel. Pay only when a number is issued; eligible failed deliveries refund to your wallet.`,
+      `Searchers look for “us temp num,” “temp num usa,” and “temp number.” We match that intent with a private inbox — not a public temp num free wall where anyone can read your Facebook OTP or WhatsApp code.`,
+      `How it works. Sign up with email and password, add credit via WhatsApp 03072577778, then open Services → United States → pick your app → Buy. Copy the number, request the SMS, and grab the OTP when it appears.`,
+      `High-demand USA routes: OTP website for WhatsApp, Facebook OTP number, Telegram, Google / Gmail, Instagram, X, TikTok, Discord, Binance, and OpenAI / ChatGPT. Inventory can vary; live prices show before you confirm.`,
+      `Privacy first: keep your personal cell off random signup forms. Do not use a temporary number to violate any service’s terms. Temp Empire is for legitimate verification and privacy.`,
+      `Get your US temp num now — sign up, deposit, and buy from Services in under a minute.`,
+    ].join("\n\n");
+  }
+
+  if (country.slug === "canada") {
+    return [
+      `Need a temp num Canada to receive SMS online? Temp Empire sells private Canadian (+1) temporary numbers on this OTP website — a Canada temp number for WhatsApp OTP, Facebook OTP verification, Telegram, Google and other apps, without a Canadian SIM.`,
+      `A temp num Canada is a short-lived virtual SMS line. When a site wants a Canadian phone number, you buy the +1 number here, paste it into the app, and read the OTP in your live panel. Eligible failed deliveries refund to your wallet.`,
+      `How to buy. Create an account, message WhatsApp 03072577778 from Deposit, then open Services → Canada → choose your app. Signup stays required before OTP.`,
+      `Use a Canada temp number for legitimate account checks and privacy — never to break an app’s rules. Pair it with Temp Mail Plus-style disposable email if you also want to keep your real inbox private.`,
+      `Browse WhatsApp, Facebook OTP, Telegram, Google and more below, or sign up to buy from live stock.`,
     ].join("\n\n");
   }
 
@@ -239,48 +314,64 @@ export function seoHubFaqs(country: SeoCountry): SeoFaq[] {
   if (country.slug === "uk") {
     return [
       {
-        q: "Can I buy a UK number for WhatsApp verification?",
-        a: "Yes. Choose United Kingdom and WhatsApp in Services after you sign up and add credit. Paste the +44 number into WhatsApp and read the SMS OTP in your Temp Empire order panel.",
+        q: "Can I buy a UK temp num for WhatsApp OTP?",
+        a: "Yes. This is an OTP website for WhatsApp: after you sign up and add credit, choose United Kingdom and WhatsApp in Services. Paste the +44 UK temp num and read the SMS in your order panel.",
       },
       {
         q: "Do I need a UK SIM card or address?",
-        a: "No. Temp Empire UK numbers are virtual receive-SMS lines delivered in your dashboard. No physical SIM, UK address, or ID check is required to buy OTP numbers here.",
+        a: "No. A UK temp num here is a virtual receive-SMS line. No physical SIM, UK address, or ID check is required to buy OTP numbers.",
       },
       {
-        q: "How fast do UK SMS codes arrive?",
-        a: "Most codes appear within seconds after the app sends the SMS. Watch the live OTP panel on your order — you can copy the code with one tap.",
+        q: "Is there a temp num free on this OTP website?",
+        a: "Public “temp num free” pages share codes with everyone. Temp Empire sells a private temp number from your wallet. Temp Mail Plus-style email aliases are free after you sign in.",
       },
       {
         q: "What if the UK number does not receive SMS?",
-        a: "Eligible orders that expire without an SMS are refunded to your wallet balance so you can try another number.",
+        a: "Eligible orders that expire without an SMS are refunded to your wallet so you can try another temp number.",
       },
       {
         q: "How do I pay?",
-        a: "Message our WhatsApp deposit line from the Deposit page with your account email and amount. After we confirm payment, your wallet is credited — then buy UK numbers from Services.",
+        a: "Message WhatsApp 03072577778 from the Deposit page with your account email and amount. After we confirm payment, buy a UK temp num from Services.",
       },
     ];
   }
   if (country.slug === "usa") {
     return [
       {
-        q: "How do I get a temporary USA phone number?",
-        a: "Sign up on Temp Empire, add wallet credit via WhatsApp deposit, open Services, select United States and your app, then buy. The +1 number appears instantly for SMS OTP.",
+        q: "How do I get a US temp num?",
+        a: "Sign up, add wallet credit via WhatsApp 03072577778, open Services, select United States and your app, then buy. The +1 temp num USA appears instantly for SMS OTP.",
       },
       {
-        q: "Can I receive SMS online with a USA virtual number?",
+        q: "Can I receive SMS online with a US temp num?",
         a: "Yes. Incoming verification texts show in your live order panel. You do not need a US carrier plan or physical SIM.",
       },
       {
-        q: "Which apps work with USA temp numbers?",
-        a: "Common routes include WhatsApp, Telegram, Google, Instagram, TikTok, Discord, Facebook, X, and more. Availability depends on live stock for each service.",
+        q: "Which apps work with a temp num USA?",
+        a: "Common routes include WhatsApp OTP, Facebook OTP verification, Telegram, Google, Instagram, TikTok, Discord, and X. Availability depends on live stock.",
       },
       {
-        q: "Are these public free numbers?",
-        a: "No. Numbers you buy are tied to your account session — not a public shared inbox — so your OTP stays private.",
+        q: "Is this a free virtual number OTP website?",
+        a: "No shared public inbox. A temp num free wall would expose your code. You pay for a private US temp num; Temp Mail Plus email is free to generate after signup.",
       },
       {
         q: "What payment methods do you accept?",
-        a: "Wallet top-ups are arranged over WhatsApp from the Deposit page. Once credited, you pay per number from your balance.",
+        a: "Wallet top-ups are arranged over WhatsApp 03072577778 from the Deposit page. Once credited, you pay per temp number from your balance.",
+      },
+    ];
+  }
+  if (country.slug === "canada") {
+    return [
+      {
+        q: "How do I buy a temp num Canada?",
+        a: "Create an account, deposit via WhatsApp 03072577778, open Services, select Canada and your app, then buy. The +1 Canada temp number appears in your OTP panel.",
+      },
+      {
+        q: "Does a temp num Canada work for WhatsApp and Facebook OTP?",
+        a: "Often yes when stock is live — this OTP website lists WhatsApp, Facebook OTP, Telegram, Google and more under Canada. Always follow each app’s terms.",
+      },
+      {
+        q: "What if SMS never arrives?",
+        a: "Eligible failed deliveries refund to your wallet so you can purchase another Canada temp number.",
       },
     ];
   }
@@ -302,29 +393,94 @@ export function seoArticleBody(country: SeoCountry, service: SeoService) {
   const s = service.name;
   const dial = country.dial;
 
+  if (service.slug === "facebook") {
+    const place =
+      country.slug === "usa"
+        ? "a US temp num"
+        : country.slug === "uk"
+          ? "a UK temp num"
+          : country.slug === "canada"
+            ? "a temp num Canada"
+            : `a ${c} temp number`;
+    return [
+      `Need Facebook OTP verification without sharing your personal mobile? Temp Empire is an SMS OTP website where you rent ${place} (${dial}) as your Facebook OTP number — then read the Facebook OTP in a private live inbox.`,
+      `A Facebook OTP verification phone number here is a short-lived virtual SMS line. When Facebook asks for a phone number, paste the Temp Empire ${dial} number, request the SMS from Facebook, and copy the code when it arrives. We help you receive SMS. We do not help anyone skip or evade Facebook’s checks.`,
+      `People search for a Facebook OTP code free or a public dump of codes. Those sites post other people’s texts. Temp Empire does not list shared Facebook OTP codes. You buy a private Facebook OTP number so only your account sees the SMS.`,
+      `Facebook OTP code not received? Watch the live panel for the full window. If the Facebook OTP never lands, eligible orders refund to your wallet so you can try another temp number. Signup is required before you can buy.`,
+      `How it works. Create an account, message WhatsApp 03072577778 from Deposit, open Services, choose ${country.name} and Facebook, buy, then paste the number into Facebook. Pair it with Temp Mail Plus-style email if you also want a disposable inbox.`,
+      `Always follow Facebook’s terms. Use this Facebook OTP route for legitimate verification and privacy — not for banned-account schemes.`,
+    ].join("\n\n");
+  }
+
+  if (service.slug === "whatsapp") {
+    return [
+      `This is an OTP website for WhatsApp: buy a ${c} (${dial}) temp number, receive the WhatsApp OTP online, and keep your real phone private.`,
+      `Sign up (required before OTP), add credit via WhatsApp 03072577778, choose ${country.name} and WhatsApp in Services, paste the temp number into WhatsApp, and copy the code from the live panel.`,
+      `Public temp num free pages share WhatsApp codes with strangers. A paid private number on this temp OTP website keeps the SMS in your account. Eligible “code not received” orders refund to your wallet.`,
+      `Use WhatsApp OTP for legitimate verification only. Follow WhatsApp’s terms — we provide receive-SMS, not a way around their rules.`,
+    ].join("\n\n");
+  }
+
   const lead =
     country.slug === "uk"
-      ? `Looking for a UK (+44) number for ${s} verification? Temp Empire sells private temporary UK phone numbers so you can receive ${s} SMS OTP online — without sharing your personal mobile or buying a British SIM.`
+      ? `Looking for a UK temp num (${dial}) for ${s} verification? Temp Empire is an OTP website with private UK temporary numbers so you can receive ${s} SMS online — without sharing your personal mobile.`
       : country.slug === "usa"
-        ? `Need a USA (+1) temporary number for ${s}? Temp Empire lets you buy an American virtual SMS number, receive the ${s} verification code online, and keep your real phone private.`
-        : `Looking for a private way to receive a ${s} verification code without sharing your personal phone? Temp Empire sells disposable ${c} virtual numbers for SMS OTP — so you can protect your privacy and get codes in seconds.`;
+        ? `Need a US temp num (${dial}) for ${s}? This SMS OTP website lets you buy a temp num USA, receive the ${s} verification code online, and keep your real phone private.`
+        : country.slug === "canada"
+          ? `Need a temp num Canada for ${s}? Buy a Canada temp number on this OTP website, receive the ${s} code online, and keep your personal phone private.`
+          : `Looking for a private way to receive a ${s} verification code? Temp Empire sells a ${c} temp number for SMS OTP — protect your privacy and get codes in seconds.`;
 
   return [
     lead,
-    `A temporary phone number (also called a virtual SMS number or disposable number) is a short-lived line rented only for receiving text messages. When ${s} asks you to confirm a phone number, you paste the Temp Empire ${dial} number, wait for the one-time password in our live inbox, and finish signup. You are not buying a permanent SIM or carrier plan — just a verification route with an OTP window and refunds if SMS never arrives.`,
-    `Why people choose a ${c} number for ${s}: local ${dial} routing often improves delivery for region-aware flows, and keeping work, travel, or secondary accounts separate from your main device reduces spam and account recovery risk. Temp Empire’s catalog covers ${country.name} alongside other countries, with clear live pricing from your wallet balance.`,
-    `How it works in three steps. First, create an account with email and password. Second, open Deposit and message WhatsApp to add credit — we credit your wallet after confirming payment. Third, open Services, select ${country.name} and ${s}, buy a number, paste it into ${s}, then watch the live OTP panel — codes auto-appear and can be copied with one tap.`,
-    `Privacy-first stance. We market disposable numbers and virtual SMS OTP for legitimate account verification and privacy hygiene — not for evading platform security or banned-account schemes. Always follow ${s}’s terms of service. If you only need a code for a personal or business signup and prefer not to publish your real mobile, a temporary number is the right tool.`,
-    `Payments stay simple: WhatsApp deposits credit your wallet; each successful number purchase deducts only after a line is issued. Failed provider attempts do not keep your money. Support is available if deposits, OTP delivery, or account access need a human.`,
-    `Ready to start? Buy a ${c} virtual number for ${s} OTP on Temp Empire, complete verification in minutes, and keep your personal phone private.`,
+    `A temp number (also called a virtual SMS number) is a short-lived line rented only for receiving text messages. When ${s} asks you to confirm a phone number, you paste the Temp Empire ${dial} number, wait for the one-time password in our live inbox, and finish signup. Refunds apply if SMS never arrives.`,
+    `Why people choose a ${c} temp number for ${s}: local ${dial} routing often helps region-aware flows, and keeping work or travel accounts off your main device reduces spam. Live prices come from your wallet after a WhatsApp deposit.`,
+    `How it works. Create an account, message WhatsApp 03072577778 from Deposit, open Services, select ${country.name} and ${s}, buy, paste the number, then copy the OTP.`,
+    `We market disposable numbers for legitimate verification and privacy — not for evading platform security. Always follow ${s}’s terms.`,
+    `Ready to start? Buy a ${c} temp number for ${s} on this temp OTP website and keep your personal phone private.`,
   ].join("\n\n");
 }
 
 export function seoServiceFaqs(country: SeoCountry, service: SeoService): SeoFaq[] {
+  if (service.slug === "facebook") {
+    return [
+      {
+        q: "How do I get a Facebook OTP verification phone number?",
+        a: `Sign up, deposit on WhatsApp 03072577778, then buy a ${country.adjective} Facebook OTP number from Services. Paste it into Facebook and read the Facebook OTP in your panel.`,
+      },
+      {
+        q: "Do you give a Facebook OTP code free from a public list?",
+        a: "No. A “Facebook OTP code free” search usually means a shared dump. We never post other people’s Facebook OTP. You receive your own SMS on a private temp number.",
+      },
+      {
+        q: "Facebook OTP code not received — what now?",
+        a: "Wait for the live window. If the Facebook OTP never arrives, eligible orders refund to your wallet so you can try another Facebook OTP number.",
+      },
+      {
+        q: "Is this for skipping Facebook checks?",
+        a: "No. Temp Empire only helps you receive SMS for legitimate Facebook OTP verification. Follow Facebook’s terms.",
+      },
+    ];
+  }
+  if (service.slug === "whatsapp") {
+    return [
+      {
+        q: `Is Temp Empire an OTP website for WhatsApp?`,
+        a: `Yes. After signup you can buy a ${country.adjective} temp number for WhatsApp OTP and read the SMS in your inbox.`,
+      },
+      {
+        q: "Is the WhatsApp temp number private?",
+        a: "Paid numbers stay on your account. Unlike a temp num free public page, your WhatsApp OTP is not posted for strangers.",
+      },
+      {
+        q: "How do I pay?",
+        a: "Top up via WhatsApp 03072577778 on the Deposit page, then purchase from your wallet.",
+      },
+    ];
+  }
   return [
     {
-      q: `Can I use a ${country.adjective} number for ${service.name}?`,
-      a: `Yes — after you sign up and add credit, buy a ${country.name} number for ${service.name} from Services and read the SMS OTP in your order panel.`,
+      q: `Can I use a ${country.adjective} temp number for ${service.name}?`,
+      a: `Yes — after you sign up and add credit, buy a ${country.name} temp number for ${service.name} from Services and read the SMS OTP in your order panel.`,
     },
     {
       q: "Is the number private?",
@@ -332,23 +488,32 @@ export function seoServiceFaqs(country: SeoCountry, service: SeoService): SeoFaq
     },
     {
       q: "How do I pay for the number?",
-      a: "Top up via WhatsApp on the Deposit page, then purchase from your wallet balance.",
+      a: "Top up via WhatsApp 03072577778 on the Deposit page, then purchase from your wallet balance.",
     },
   ];
 }
 
 export const TOP_LONG_TAIL_KEYWORDS = [
-  "buy UK virtual number for WhatsApp",
-  "temporary UK phone number +44 SMS OTP",
-  "UK number for WhatsApp verification",
-  "receive SMS online UK",
-  "buy USA virtual number for WhatsApp OTP",
-  "temporary USA phone number receive SMS online",
-  "USA temp number SMS verification",
-  "disposable American phone number OTP",
-  "buy temporary number WhatsApp deposit",
-  "privacy virtual SMS OTP United Kingdom United States",
+  "us temp num",
+  "temp number",
+  "temp num free",
+  "uk temp num",
+  "temp num canada",
+  "temp num usa",
+  "facebook otp verification",
+  "facebook otp",
+  "sms otp website",
+  "otp website for whatsapp",
+  "temp otp website",
+  "temp mail plus",
 ] as const;
+
+export function seoHubServicesH2(country: SeoCountry) {
+  if (country.slug === "uk") return "UK temp num for WhatsApp, Facebook OTP, and more";
+  if (country.slug === "usa") return "US temp num for Facebook OTP, WhatsApp, and more";
+  if (country.slug === "canada") return "Temp num Canada for WhatsApp, Facebook OTP, and more";
+  return `Popular ${country.adjective} OTP services`;
+}
 
 export function allSeoParams() {
   const out: { country: string; service: string }[] = [];

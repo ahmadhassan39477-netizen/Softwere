@@ -2,7 +2,7 @@
 
 const TESTIMONIALS = [
   {
-    quote: "Got a US number for WhatsApp OTP in under a minute. Wallet topped up with crypto — simple.",
+    quote: "Got a US temp num for WhatsApp OTP in under a minute. Wallet topped up on WhatsApp — simple.",
     name: "Maya K.",
     flag: "🇺🇸",
   },

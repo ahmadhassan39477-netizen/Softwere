@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, IBM_Plex_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SiteJsonLd } from "@/components/site-json-ld";
+import { HOME_KEYWORDS, PAGE_META } from "@/lib/seo-meta";
 import "./globals.css";
 
 const display = Outfit({
@@ -21,21 +22,12 @@ const BASE = "https://www.tempempire.store";
 export const metadata: Metadata = {
   metadataBase: new URL(BASE),
   title: {
-    default: "Temp Empire — Buy UK & USA Temporary Numbers for SMS OTP",
+    default: PAGE_META.home.title,
     template: "%s · Temp Empire",
   },
-  description:
-    "Buy UK (+44) and USA (+1) temporary phone numbers to receive SMS OTP online. Private virtual numbers for WhatsApp, Telegram, Google and more — WhatsApp wallet deposit, no SIM card.",
+  description: PAGE_META.home.description,
   applicationName: "Temp Empire",
-  keywords: [
-    "buy UK virtual number",
-    "temporary USA phone number",
-    "UK number for WhatsApp verification",
-    "receive SMS online USA",
-    "temporary phone number SMS OTP",
-    "disposable virtual number",
-    "Temp Empire",
-  ],
+  keywords: [...HOME_KEYWORDS, "Temp Empire"],
   alternates: { canonical: BASE },
   icons: {
     icon: [
@@ -52,9 +44,8 @@ export const metadata: Metadata = {
     type: "website",
     url: BASE,
     siteName: "Temp Empire",
-    title: "Temp Empire — UK & USA Temporary Numbers for SMS OTP",
-    description:
-      "Private +44 and +1 virtual numbers for WhatsApp, Telegram, Google OTP. Receive SMS online — deposit via WhatsApp.",
+    title: PAGE_META.home.title,
+    description: PAGE_META.home.description,
     images: [
       {
         url: "/og-image.png",
@@ -66,9 +57,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Temp Empire — UK & USA Temporary Numbers for SMS OTP",
-    description:
-      "Buy UK and USA virtual numbers to receive SMS OTP online. Private inbox — WhatsApp deposit.",
+    title: PAGE_META.home.title,
+    description: PAGE_META.home.description,
     images: ["/og-image.png"],
   },
   robots: {

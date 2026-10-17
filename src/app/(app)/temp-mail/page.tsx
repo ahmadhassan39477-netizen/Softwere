@@ -56,8 +56,12 @@ export default function TempMailPage() {
   if (status === "unauthenticated") {
     return (
       <div className="panel p-8 text-center max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold">Temp Mail</h1>
-        <Link href="/login" className="btn btn-primary mt-6 inline-flex">
+        <h1 className="text-2xl font-bold">Temp Mail Plus</h1>
+        <p className="mt-3 text-sm text-[var(--text-muted)] leading-relaxed">
+          Temp Mail Plus-style disposable email — sign in to generate a free alias on this OTP
+          website.
+        </p>
+        <Link href="/login?callbackUrl=%2Ftemp-mail" className="btn btn-primary mt-6 inline-flex">
           Sign in
         </Link>
       </div>
@@ -70,8 +74,10 @@ export default function TempMailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Temp Mail</h1>
-          <p className="text-[var(--text-muted)] text-sm">One-click aliases with live inbox polling.</p>
+          <h1 className="text-2xl font-bold">Temp Mail Plus</h1>
+          <p className="text-[var(--text-muted)] text-sm">
+            Temp Mail Plus-style one-click aliases with live inbox polling.
+          </p>
         </div>
         <button className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
           <Plus size={16} /> New address

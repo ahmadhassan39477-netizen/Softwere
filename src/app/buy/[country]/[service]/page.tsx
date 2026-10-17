@@ -16,6 +16,7 @@ import {
   seoServiceFaqs,
   serviceJsonLd,
 } from "@/lib/seo-catalog";
+import { absoluteTitle } from "@/lib/seo-meta";
 
 type Props = { params: Promise<{ country: string; service: string }> };
 
@@ -28,11 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const country = findSeoCountry(cSlug);
   const service = findSeoService(sSlug);
   if (!country || !service) return { title: "Temporary number · Temp Empire" };
-  const title = `${seoPageTitle(country, service)} | Temp Empire`;
+  const title = seoPageTitle(country, service);
   const description = seoPageDescription(country, service);
   const canonical = `https://www.tempempire.store/buy/${country.slug}/${service.slug}`;
   return {
-    title,
+    title: absoluteTitle(title),
     description,
     keywords: [
       ...country.keywords.slice(0, 4),
@@ -114,6 +115,28 @@ export default async function BuySeoPage({ params }: Props) {
           ))}
         </div>
 
+        {service.slug === "facebook" && (
+          <section className="mt-12">
+            <h2 className="text-xl font-semibold tracking-tight">
+              Facebook OTP verification phone number
+            </h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Use this {country.adjective} Facebook OTP number to receive SMS — not a public
+              Facebook OTP code free list. If the Facebook OTP code is not received, eligible
+              orders refund to your wallet.
+            </p>
+          </section>
+        )}
+        {service.slug === "whatsapp" && (
+          <section className="mt-12">
+            <h2 className="text-xl font-semibold tracking-tight">OTP website for WhatsApp</h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Temp Empire is a temp OTP website where you rent a {country.adjective} temp number,
+              request the WhatsApp SMS yourself, and copy the code from a private inbox.
+            </p>
+          </section>
+        )}
+
         <section className="mt-12">
           <h2 className="text-xl font-semibold tracking-tight">FAQ</h2>
           <dl className="mt-6 space-y-5">
@@ -156,8 +179,8 @@ export default async function BuySeoPage({ params }: Props) {
           <Link href={registerHref} className="btn btn-primary">
             Sign up to buy {country.adjective} {service.name}
           </Link>
-          <Link href={`/buy/${country.slug === "uk" ? "usa" : "uk"}`} className="btn btn-ghost">
-            {country.slug === "uk" ? "USA numbers" : "UK numbers"}
+          <Link href={`/buy/${country.slug}`} className="btn btn-ghost">
+            All {country.adjective} temp numbers
           </Link>
           <Link href="/support" className="btn btn-ghost">
             Contact support

@@ -1,9 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { BrandWordmark } from "@/components/brand-mark";
+import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 
-export const metadata = {
-  title: "Support · Temp Empire",
-  description: "Contact Temp Empire support for deposits, OTP delivery, and account help.",
+export const metadata: Metadata = {
+  title: absoluteTitle(PAGE_META.support.title),
+  description: PAGE_META.support.description,
 };
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@tempempire.store";
@@ -18,10 +20,13 @@ export default function SupportPage() {
           <BrandWordmark />
         </Link>
         <p className="eyebrow">Contact</p>
-        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">Support</h1>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">
+          OTP website support
+        </h1>
         <p className="mt-3 text-[var(--text-muted)] leading-relaxed">
-          Questions about crypto deposits, temporary numbers, or your wallet? Reach us directly —
-          we reply during business hours.
+          Questions about a US temp num, UK temp num, Facebook OTP code not received, Temp Mail
+          Plus, or a WhatsApp deposit on 03072577778? Reach us directly — we reply during
+          business hours.
         </p>
 
         <div className="panel panel-accent mt-8 p-6 space-y-4">

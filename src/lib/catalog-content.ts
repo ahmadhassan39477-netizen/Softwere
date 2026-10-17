@@ -8,6 +8,7 @@ export const CATALOG_SERVICES = [
   { name: "Discord", slug: "discord", category: "Messaging", from: "0.30", note: "Community signups" },
   { name: "TikTok", slug: "tiktok", category: "Social", from: "0.46", note: "Creator & ads" },
   { name: "Instagram", slug: "instagram", category: "Social", from: "0.43", note: "Business & personal" },
+  { name: "Facebook", slug: "facebook", category: "Social", from: "0.30", note: "Facebook OTP verification" },
   { name: "Binance", slug: "binance", category: "Crypto", from: "0.74", note: "Exchange SMS codes" },
 ] as const;
 
@@ -52,7 +53,7 @@ export const HOW_IT_WORKS = [
   {
     n: "01",
     t: "Fund your wallet",
-    d: "Add credits with crypto. Your balance updates before you buy a number.",
+    d: "Add credits on WhatsApp 03072577778. Your balance updates before you buy a temp number.",
   },
   {
     n: "02",
@@ -79,7 +80,7 @@ export const PRODUCT_PILLARS = [
   },
   {
     k: "03",
-    title: "Wallet & crypto deposits",
-    body: "Pay with crypto, spend credits only when a number is issued, and get refunds if SMS never arrives.",
+    title: "Wallet & WhatsApp deposits",
+    body: "Message WhatsApp 03072577778, spend credits only when a temp number is issued, and get refunds if SMS never arrives.",
   },
 ] as const;
