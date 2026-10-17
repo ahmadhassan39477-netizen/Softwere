@@ -1,15 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
-
-function safeCallback(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/deposit";
-  return raw;
-}
+import { DEFAULT_POST_AUTH } from "@/lib/post-auth";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -17,10 +13,6 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const callbackUrl = useMemo(() => {
-    if (typeof window === "undefined") return "/deposit";
-    return safeCallback(new URLSearchParams(window.location.search).get("callbackUrl"));
-  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -37,23 +29,18 @@ export default function RegisterPage() {
       setError(data.error ?? "Registration failed");
       return;
     }
-    const next = safeCallback(
-      typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("callbackUrl")
-        : callbackUrl,
-    );
     const sign = await signIn("credentials", {
       email,
       password,
       redirect: false,
-      callbackUrl: next,
+      callbackUrl: DEFAULT_POST_AUTH,
     });
     setLoading(false);
     if (sign?.error) {
       setError(sign.error);
       return;
     }
-    window.location.assign(next);
+    window.location.assign(DEFAULT_POST_AUTH);
   }
 
   return (
@@ -107,7 +94,7 @@ export default function RegisterPage() {
         </button>
         <p className="text-sm text-[var(--text-muted)] text-center">
           Have an account?{" "}
-          <Link href="/login" className="text-[var(--accent)]">
+          <Link href="/login?callbackUrl=/deposit" className="text-[var(--accent)]">
             Sign in
           </Link>
         </p>

@@ -5,11 +5,7 @@ import { signIn } from "next-auth/react";
 import { FormEvent, useMemo, useState } from "react";
 import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
-
-function safeCallback(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/services";
-  return raw;
-}
+import { DEFAULT_POST_AUTH, postAuthDestination, sessionBalance } from "@/lib/post-auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,27 +13,26 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const callbackUrl = useMemo(() => {
-    if (typeof window === "undefined") return "/services";
-    return safeCallback(new URLSearchParams(window.location.search).get("callbackUrl"));
+    if (typeof window === "undefined") return DEFAULT_POST_AUTH;
+    return postAuthDestination(new URLSearchParams(window.location.search).get("callbackUrl"));
   }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const next = safeCallback(
+    const raw =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("callbackUrl")
-        : callbackUrl,
-    );
+        : callbackUrl;
     const res = await signIn("credentials", {
       email,
       password,
       redirect: false,
-      callbackUrl: next,
+      callbackUrl: DEFAULT_POST_AUTH,
     });
-    setLoading(false);
     if (!res || res.error) {
+      setLoading(false);
       setError(
         res?.error === "CredentialsSignin"
           ? "Invalid email or password"
@@ -45,7 +40,8 @@ export default function LoginPage() {
       );
       return;
     }
-    window.location.assign(next);
+    const balance = await sessionBalance();
+    window.location.assign(postAuthDestination(raw, balance));
   }
 
   return (

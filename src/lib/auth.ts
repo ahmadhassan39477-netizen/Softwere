@@ -11,6 +11,7 @@ import {
   ensureOwnerAdminsPromoted,
   isOwnerAdminEmail,
 } from "./owner-admins";
+import { DEFAULT_POST_AUTH, postAuthDestination } from "./post-auth";
 
 declare module "next-auth" {
   interface Session {
@@ -149,15 +150,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         process.env.AUTH_URL?.replace(/\/$/, "") ||
         process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
         baseUrl;
-      if (url.startsWith("/")) return `${configured}${url}`;
+      const toApp = (pathAndSearch: string) =>
+        `${configured}${postAuthDestination(pathAndSearch, 0)}`;
+      if (url.startsWith("/")) return toApp(url);
       try {
         const target = new URL(url);
         const base = new URL(configured);
-        if (target.origin === base.origin) return url;
+        if (target.origin === base.origin) {
+          return toApp(`${target.pathname}${target.search}`);
+        }
       } catch {
         /* fall through */
       }
-      return `${configured}/services`;
+      return `${configured}${DEFAULT_POST_AUTH}`;
     },
     async jwt({ token, user, trigger, account }) {
       // Best-effort: Decor → ADMIN; demote every other ADMIN → USER

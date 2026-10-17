@@ -169,7 +169,7 @@ export default function LandingPage() {
           <Link href="/about" className="btn btn-ghost !hidden md:!inline-flex">
             About
           </Link>
-          <Link href="/login" className="btn btn-ghost !hidden md:!inline-flex">
+          <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost !hidden md:!inline-flex">
             Sign in
           </Link>
           <Link
@@ -774,7 +774,7 @@ export default function LandingPage() {
             <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
               Sign up to start <ArrowRight size={16} />
             </Link>
-            <Link href="/login" className="btn btn-ghost">
+            <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost">
               Sign in
             </Link>
           </div>

@@ -6,6 +6,7 @@ import {
   CANONICAL_HOST,
   needsCanonicalRedirect,
 } from "@/lib/canonical-host";
+import { guestRegisterCallback } from "@/lib/post-auth";
 
 /**
  * Canonical host + auth gate for app routes.
@@ -71,7 +72,10 @@ export async function middleware(request: NextRequest) {
     if (!token?.sub && !(token as { id?: string } | null)?.id) {
       // Signup-first: guests must create an account before Services / Buy / OTP
       const signup = new URL("/register", request.url);
-      signup.searchParams.set("callbackUrl", pathname);
+      signup.searchParams.set(
+        "callbackUrl",
+        guestRegisterCallback(pathname, request.nextUrl.search),
+      );
       return NextResponse.redirect(signup);
     }
   }
