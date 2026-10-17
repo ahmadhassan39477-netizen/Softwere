@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, jsonError } from "@/lib/api-auth";
-import { maybeMockInbound } from "@/lib/providers/temp-mail";
+import { listMessages, TempMailProviderError } from "@/lib/providers/temp-mail";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -12,39 +12,33 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const mail = await prisma.tempMail.findFirst({
     where: { id, userId: user.id },
-    include: { messages: { orderBy: { receivedAt: "desc" } } },
   });
   if (!mail) return jsonError("Not found", 404);
 
-  // Inject a mock message once after ~5s of mailbox age for demo
-  if (
-    mail.messages.length === 0 &&
-    Date.now() - mail.createdAt.getTime() > 5_000
-  ) {
-    const mock = maybeMockInbound(mail.address, 0);
-    if (mock) {
-      await prisma.tempMailMessage.create({
-        data: { tempMailId: mail.id, ...mock },
-      });
-    }
+  if (!mail.providerSecret || mail.provider !== "mailtm") {
+    return jsonError(
+      "This address was created before live mail was enabled. Generate a new address.",
+      409,
+    );
   }
 
-  const refreshed = await prisma.tempMail.findUniqueOrThrow({
-    where: { id: mail.id },
-    include: { messages: { orderBy: { receivedAt: "desc" } } },
-  });
+  if (mail.expiresAt.getTime() < Date.now()) {
+    return jsonError("This address expired. Generate a new address.", 410);
+  }
 
-  return Response.json({
-    mail: { id: refreshed.id, address: refreshed.address },
-    messages: refreshed.messages.map((m) => ({
-      id: m.id,
-      from: m.fromAddr,
-      subject: m.subject,
-      textBody: m.textBody,
-      htmlBody: m.htmlBody,
-      attachments: m.attachments ? JSON.parse(m.attachments) : [],
-      read: m.read,
-      receivedAt: m.receivedAt,
-    })),
-  });
+  try {
+    const messages = await listMessages(mail.address, mail.providerSecret);
+    return Response.json({
+      mail: { id: mail.id, address: mail.address },
+      messages,
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    const message =
+      err instanceof TempMailProviderError
+        ? err.message
+        : "Temp Mail is temporarily unavailable. The inbox service is down. Try again in a minute.";
+    const status = err instanceof TempMailProviderError ? err.status : 503;
+    return jsonError(message, status);
+  }
 }

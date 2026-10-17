@@ -12,6 +12,7 @@ const cases: Array<[string, string | null, string]> = [
   ["facebook chip", "/services?service=facebook", "/services?service=facebook"],
   ["deposit becomes services", "/deposit", "/services"],
   ["mail becomes services", "/temp-mail", "/services"],
+  ["vpn becomes services", "/vpn", "/services"],
 ];
 
 let failed = 0;
@@ -37,6 +38,14 @@ if (guestRegisterCallback("/services", "?country=US") !== "/services?country=US"
 }
 if (guestRegisterCallback("/deposit") !== "/services") {
   console.error("FAIL guest deposit → services");
+  failed += 1;
+}
+if (guestRegisterCallback("/temp-mail") !== "/services") {
+  console.error("FAIL guest temp-mail → services");
+  failed += 1;
+}
+if (guestRegisterCallback("/vpn") !== "/services") {
+  console.error("FAIL guest vpn → services");
   failed += 1;
 }
 

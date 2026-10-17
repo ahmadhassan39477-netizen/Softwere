@@ -24,15 +24,19 @@ export const metadata: Metadata = {
 const faqs = [
   {
     q: "Is this like Temp Mail Plus?",
-    a: "Yes — Temp Empire includes Temp Mail Plus-style disposable email: create a free alias after you sign in and read messages in a live inbox.",
+    a: "Yes — Temp Empire includes Temp Mail Plus disposable email: after you sign in, generate a free address and read real incoming mail in a live inbox.",
   },
   {
     q: "Is the alias free?",
-    a: "Generating a Temp Mail Plus-style address is free on your account. Temporary phone numbers for SMS OTP are paid from your wallet.",
+    a: "Generating a Temp Mail Plus address is free on your account. Wallet credit is not required for email. Temporary phone numbers for SMS OTP are paid from your wallet.",
+  },
+  {
+    q: "Are the messages real?",
+    a: "Yes. This is a real inbox, not a demo. Mail appears only when someone sends to your address.",
   },
   {
     q: "Do I need to sign up?",
-    a: "Yes. Sign in to generate an address. The same account buys a US temp num, UK temp num, or temp num Canada for SMS OTP.",
+    a: "Yes. Sign in to generate an address. After sign up or sign in you land on Services; open Temp Mail Plus from the menu. The same account buys a US temp num, UK temp num, or temp num Canada for SMS OTP.",
   },
 ];
 
@@ -59,13 +63,15 @@ export default function TempMailPlusPage() {
         <div className="mt-8 space-y-5 text-[var(--text-muted)] leading-relaxed text-[0.98rem]">
           <p>
             Need an inbox that is not your personal Gmail? Temp Empire includes Temp Mail
-            Plus-style temporary email: one-click aliases and a live inbox, on the same SMS OTP
-            website you use for a US temp num, UK temp num, or temp num Canada.
+            Plus temporary email: one-click addresses and a live inbox that receives real
+            mail, on the same SMS OTP website you use for a US temp num, UK temp num, or
+            temp num Canada.
           </p>
           <p>
-            Create an account, open Temp Mail, generate a free address, and watch messages arrive.
-            Use it for signups where you would rather not publish your real email — alongside a
-            private temp number when an app also wants SMS.
+            Create an account (you land on Services), open Temp Mail Plus, generate a free
+            address, and wait for real messages. Wallet credit is not required for email.
+            Use it for signups where you would rather not publish your real address —
+            alongside a private temp number when an app also wants SMS.
           </p>
           <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] pt-2">
             Temp Mail Plus on this OTP website

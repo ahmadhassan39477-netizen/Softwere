@@ -189,7 +189,7 @@ async function main() {
       { key: "global_markup_percent", value: String(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") },
       { key: "order_ttl_minutes", value: "5" },
       { key: "cancel_window_seconds", value: "300" },
-      { key: "temp_mail_domains", value: JSON.stringify(["mail.tempempire.dev", "inbox.tempempire.dev"]) },
+      { key: "temp_mail_provider", value: "mailtm" },
     ],
   });
 

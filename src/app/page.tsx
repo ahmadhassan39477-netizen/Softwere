@@ -737,8 +737,8 @@ export default function LandingPage() {
           >
             <h3 className="text-xl font-semibold tracking-tight">Temp Mail Plus</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              Temp Mail Plus-style free disposable email on the same account as your temp number.
-              Sign in to generate an alias.
+              Temp Mail Plus free disposable email on the same account as your temp number.
+              Sign in to generate a real inbox. Wallet credit is not required for email.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
               Temp Mail Plus <ArrowRight size={14} />

@@ -172,17 +172,21 @@ model Transaction {
 }
 
 model TempMail {
-  id          String   @id @default(cuid())
-  userId      String
-  address     String   @unique
-  domain      String
-  active      Boolean  @default(true)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String
+  address         String   @unique
+  domain          String
+  /// mailtm | legacy mock rows have no secret
+  provider        String   @default("mailtm")
+  /// mail.tm account password (never returned to the browser)
+  providerSecret  String?
+  active          Boolean  @default(true)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    TempMailMessage[]
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        TempMailMessage[]
 
   @@index([userId])
 }
