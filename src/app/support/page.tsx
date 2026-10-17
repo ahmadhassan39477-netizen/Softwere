@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { BrandWordmark } from "@/components/brand-mark";
+import { PublicChrome } from "@/components/public-chrome";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 
 export const metadata: Metadata = {
   title: absoluteTitle(PAGE_META.support.title),
   description: PAGE_META.support.description,
+  alternates: { canonical: "https://www.tempempire.store/support" },
 };
 
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@tempempire.store";
@@ -14,22 +15,32 @@ export default function SupportPage() {
   const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Temp Empire support")}`;
 
   return (
-    <div className="min-h-screen px-4 py-10 sm:px-6">
+    <PublicChrome>
       <div className="mx-auto max-w-2xl">
-        <Link href="/" className="inline-block mb-8">
-          <BrandWordmark />
-        </Link>
         <p className="eyebrow">Contact</p>
         <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">
-          OTP website support
+          Talk to a person
         </h1>
         <p className="mt-3 text-[var(--text-muted)] leading-relaxed">
-          Questions about a US temp num, UK temp num, Facebook OTP code not received, Temp Mail
-          Plus, or a WhatsApp deposit on 03072577778? Reach us directly — we reply during
-          business hours.
+          Deposits, missing SMS, or account help — message WhatsApp{" "}
+          <span className="mono-data text-[var(--text)]">03072577778</span> or email us. We reply
+          during business hours.
         </p>
 
         <div className="panel panel-accent mt-8 p-6 space-y-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">
+              WhatsApp (deposits + help)
+            </div>
+            <a
+              href="https://wa.me/923072577778"
+              className="mt-1 inline-block text-[var(--accent)] font-medium mono-data"
+              rel="noopener noreferrer"
+            >
+              03072577778
+            </a>
+            <p className="text-sm text-[var(--text-muted)] mt-1">That number only.</p>
+          </div>
           <div>
             <div className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Email</div>
             <a href={mailto} className="mt-1 inline-block text-[var(--accent)] font-medium break-all">
@@ -41,9 +52,14 @@ export default function SupportPage() {
             <p className="mt-1 text-sm text-[var(--text)]">Mon–Fri · 09:00–18:00 UTC</p>
             <p className="text-sm text-[var(--text-muted)]">Weekend messages answered next business day.</p>
           </div>
-          <a href={mailto} className="btn btn-primary">
-            Email support
-          </a>
+          <div className="flex flex-wrap gap-3">
+            <a href="https://wa.me/923072577778" className="btn btn-primary" rel="noopener noreferrer">
+              Open WhatsApp
+            </a>
+            <a href={mailto} className="btn btn-ghost">
+              Email support
+            </a>
+          </div>
         </div>
 
         <form
@@ -84,11 +100,19 @@ export default function SupportPage() {
         </form>
 
         <p className="mt-8 text-sm text-[var(--text-muted)]">
+          <Link href="/privacy" className="text-[var(--accent)]">
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" className="text-[var(--accent)]">
+            Terms
+          </Link>
+          {" · "}
           <Link href="/" className="text-[var(--accent)]">
-            ← Back home
+            Home
           </Link>
         </p>
       </div>
-    </div>
+    </PublicChrome>
   );
 }

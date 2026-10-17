@@ -52,7 +52,7 @@ echo curl_exec($ch);`;
           <li>GET /api/v1/countries</li>
           <li>GET /api/v1/services?country=US&amp;q=whatsapp</li>
           <li>POST /api/v1/purchase</li>
-          <li>POST /api/buy-number (5SIM → SMS-Activate fallback; debit on success)</li>
+          <li>POST /api/buy-number (wallet debit on success)</li>
           <li>GET /api/v1/otp/:orderId</li>
           <li>GET /api/stream/otp/:orderId (SSE; client may poll as fallback)</li>
           <li>POST /api/v1/cancel/:orderId</li>

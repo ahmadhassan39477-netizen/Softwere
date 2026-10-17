@@ -85,8 +85,21 @@ export default function LoginPage() {
         </button>
         <p className="text-sm text-[var(--text-muted)] text-center">
           No account?{" "}
-          <Link href="/register" className="text-[var(--accent)]">
+          <Link href="/register?callbackUrl=/deposit" className="text-[var(--accent)]">
             Create account
+          </Link>
+        </p>
+        <p className="text-xs text-[var(--text-muted)] text-center">
+          <Link href="/privacy" className="text-[var(--accent)]">
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" className="text-[var(--accent)]">
+            Terms
+          </Link>
+          {" · "}
+          <Link href="/support" className="text-[var(--accent)]">
+            Contact
           </Link>
         </p>
       </form>

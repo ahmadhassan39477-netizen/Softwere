@@ -7,7 +7,7 @@ import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
 
 function safeCallback(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/services";
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/deposit";
   return raw;
 }
 
@@ -18,7 +18,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const callbackUrl = useMemo(() => {
-    if (typeof window === "undefined") return "/services";
+    if (typeof window === "undefined") return "/deposit";
     return safeCallback(new URLSearchParams(window.location.search).get("callbackUrl"));
   }, []);
 
@@ -64,8 +64,9 @@ export default function RegisterPage() {
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Create an account first — then buy OTP numbers and deposit via WhatsApp. Email and
-            password only.
+            Create an account first. Next you add credit on WhatsApp{" "}
+            <span className="mono-data">03072577778</span>, then buy a number on Services. Email
+            and password only.
           </p>
         </div>
         <div>
@@ -110,6 +111,17 @@ export default function RegisterPage() {
           <Link href="/login" className="text-[var(--accent)]">
             Sign in
           </Link>
+        </p>
+        <p className="text-xs text-[var(--text-muted)] text-center leading-relaxed">
+          By creating an account you agree to the{" "}
+          <Link href="/terms" className="text-[var(--accent)]">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-[var(--accent)]">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </form>
     </div>

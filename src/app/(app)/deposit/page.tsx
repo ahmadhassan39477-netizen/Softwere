@@ -101,6 +101,11 @@ export default function DepositPage() {
         <p className="text-[var(--text-muted)] text-sm mt-1">
           Current balance:{" "}
           <span className="mono-data text-[var(--accent)]">{balanceLabel}</span>
+          . WhatsApp <span className="mono-data">03072577778</span> only — then buy on{" "}
+          <Link href="/services" className="text-[var(--accent)]">
+            Services
+          </Link>
+          .
         </p>
       </div>
 
@@ -123,7 +128,7 @@ export default function DepositPage() {
         </p>
 
         <div>
-          <p className="text-sm font-medium mb-2">WhatsApp numbers</p>
+          <p className="text-sm font-medium mb-2">WhatsApp 03072577778</p>
           <ul className="space-y-2">
             {waLines.map((line) => {
               const href = `https://wa.me/${line.number}?text=${encodeURIComponent(prefill)}`;

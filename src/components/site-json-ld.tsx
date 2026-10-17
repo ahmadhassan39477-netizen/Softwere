@@ -22,9 +22,11 @@ export function SiteJsonLd() {
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
+      email: "support@tempempire.store",
       url: `${BASE}/support`,
       availableLanguage: ["English"],
     },
+    email: "support@tempempire.store",
   };
 
   const website = {

@@ -46,6 +46,21 @@ export const PAGE_META = {
     description:
       "Create a Temp Empire account to buy a temp number on this OTP website. US, UK, Canada, Facebook OTP, WhatsApp OTP, and Temp Mail Plus after signup.",
   },
+  about: {
+    title: "About Temp Empire | Honest Independent OTP Website",
+    description:
+      "Temp Empire is an independent shop for private temporary numbers and email. Sign up, add credit on WhatsApp 03072577778, then buy. We are not a phone carrier.",
+  },
+  privacy: {
+    title: "Privacy Policy | Temp Empire SMS OTP Data Practices",
+    description:
+      "How Temp Empire uses account email, wallet, and SMS inbox data. We do not sell personal information. Email support@tempempire.store or WhatsApp 03072577778.",
+  },
+  terms: {
+    title: "Terms of Use | Temp Empire Temporary Number Policy",
+    description:
+      "Sign up before buying. Deposit on WhatsApp 03072577778. Use numbers for legitimate checks only and follow each app’s terms. Refund if SMS never arrives.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [

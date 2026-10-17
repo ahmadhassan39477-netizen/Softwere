@@ -52,18 +52,18 @@ export const MARKETPLACE_FACTS = [
 export const HOW_IT_WORKS = [
   {
     n: "01",
-    t: "Fund your wallet",
-    d: "Add credits on WhatsApp 03072577778. Your balance updates before you buy a temp number.",
+    t: "Create an account",
+    d: "Sign up with email and password. You need an account before you can buy a number or read OTP.",
   },
   {
     n: "02",
-    t: "Choose country & service",
-    d: "Pick where the number should be from and which app you need the code for.",
+    t: "Add credit on WhatsApp",
+    d: "Message 03072577778 only. Tell us your account email and amount. Balance updates after we confirm payment.",
   },
   {
     n: "03",
-    t: "Receive & copy OTP",
-    d: "Your temporary number and verification code appear in a live inbox — tap to copy.",
+    t: "Buy a number, copy the OTP",
+    d: "Open Services, pick country and app, buy, then copy the code from your private inbox.",
   },
 ] as const;
 

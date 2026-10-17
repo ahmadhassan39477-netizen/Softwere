@@ -28,7 +28,8 @@ import {
   SERVER_POOLS,
 } from "@/lib/catalog-content";
 import { ServiceLogo } from "@/components/service-logo";
-import { TestimonialsMarquee } from "@/components/testimonials-marquee";
+import { SiteFooter } from "@/components/site-footer";
+import { TrustFacts } from "@/components/trust-facts";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -174,10 +175,13 @@ export default function LandingPage() {
           <button className="btn btn-ghost p-2" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+          <Link href="/about" className="btn btn-ghost hidden md:inline-flex">
+            About
+          </Link>
           <Link href="/login" className="btn btn-ghost hidden md:inline-flex">
             Sign in
           </Link>
-          <Link href="/register" className="btn btn-primary text-sm px-3 sm:px-4">
+          <Link href="/register?callbackUrl=/deposit" className="btn btn-primary text-sm px-3 sm:px-4">
             Sign up
           </Link>
         </motion.div>
@@ -258,8 +262,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
-              Buy a US temp num, UK temp num, or temp num Canada in seconds. Facebook OTP,
-              WhatsApp OTP, and Temp Mail Plus — private SMS, not a shared free inbox.
+              Private US and UK temporary numbers for receiving SMS. Sign up, add credit on
+              WhatsApp 03072577778, then buy — not a public shared inbox.
             </motion.p>
 
             <motion.div
@@ -283,13 +287,13 @@ export default function LandingPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-full"
               >
-                <Link href="/register" className="btn btn-primary">
+                <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
                   Sign up to buy <ArrowRight size={16} />
                 </Link>
               </motion.div>
-              <Link href="/api-docs" className="btn btn-ghost">
-                Reseller API
-              </Link>
+              <a href="#how-it-works" className="btn btn-ghost">
+                How first buy works
+              </a>
             </motion.div>
 
             <motion.div
@@ -334,6 +338,28 @@ export default function LandingPage() {
           transition={{ delay: d(1.9, 1.2), duration: 0.7, ease }}
           style={{ originX: 0 }}
         />
+
+        <motion.ol
+          className="mt-8 grid gap-3 sm:grid-cols-3"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: d(2.0, 1.25), duration: 0.45, ease }}
+          aria-label="First-time buyer path"
+        >
+          {[
+            { n: "1", t: "Sign up", d: "Email and password." },
+            { n: "2", t: "Deposit", d: "WhatsApp 03072577778 only." },
+            { n: "3", t: "Buy", d: "Services → number → OTP." },
+          ].map((step) => (
+            <li key={step.n} className="panel px-4 py-3 flex gap-3 items-start">
+              <span className="mono-data text-[var(--accent)] text-sm mt-0.5">{step.n}</span>
+              <span>
+                <span className="font-medium">{step.t}</span>
+                <span className="block text-sm text-[var(--text-muted)]">{step.d}</span>
+              </span>
+            </li>
+          ))}
+        </motion.ol>
       </section>
 
       {/* Marketplace facts */}
@@ -365,11 +391,11 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
+      <section id="how-it-works" className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHead
           eyebrow="How it works"
-          title="Wallet → route → OTP in three steps."
-          body="Same flow as the Services portal: fund once, buy numbers on demand, refunds when SMS never lands."
+          title="Sign up, deposit, then buy."
+          body="First-time path: create an account, add credit on WhatsApp 03072577778, then buy a number on Services. Eligible orders refund if SMS never arrives."
         />
         <div className="grid gap-4 md:grid-cols-3">
           {HOW_IT_WORKS.map((s, i) => (
@@ -496,8 +522,8 @@ export default function LandingPage() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <Link href="/register" className="btn btn-primary">
-            Open services catalog <ArrowRight size={16} />
+          <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
+            Sign up, then deposit <ArrowRight size={16} />
           </Link>
         </motion.div>
       </section>
@@ -573,16 +599,16 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Testimonials */}
+      {/* Honest trust — no fake named reviews */}
       <section className="relative z-10 border-y border-[var(--border)] py-14 sm:py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 mb-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionHead
-            eyebrow="Customers"
-            title="People who keep their real phone private."
-            body="Short stories from privacy-minded buyers — pause the strip on hover."
+            eyebrow="Trust"
+            title="What you can actually expect."
+            body="We are an independent shop, not a household-name carrier. Written Privacy and Terms, a real contact path, and refunds when SMS never arrives."
           />
+          <TrustFacts />
         </div>
-        <TestimonialsMarquee />
       </section>
 
       {/* API / reseller — developer surface; jargon stays here + /api-docs */}
@@ -616,7 +642,7 @@ export default function LandingPage() {
             <Link href="/api-docs" className="btn btn-primary">
               Read API docs <ArrowRight size={16} />
             </Link>
-            <Link href="/register" className="btn btn-ghost">
+            <Link href="/register?callbackUrl=/deposit" className="btn btn-ghost">
               Create account
             </Link>
           </div>
@@ -748,8 +774,8 @@ export default function LandingPage() {
             Enter the portal.
           </h2>
           <div className="mt-8 flex justify-center gap-3 flex-wrap">
-            <Link href="/register" className="btn btn-primary">
-              Launch services <ArrowRight size={16} />
+            <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
+              Sign up to start <ArrowRight size={16} />
             </Link>
             <Link href="/login" className="btn btn-ghost">
               Sign in
@@ -758,98 +784,7 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-[var(--border)]">
-        <div className="mx-auto max-w-6xl px-6 py-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sm:col-span-2">
-            <div className="flex items-center gap-2.5 mb-3">
-              <BrandMark size={28} />
-              <span className="font-semibold tracking-[-0.035em]">
-                <span>temp </span>
-                <span className="text-[var(--accent)]">empire</span>
-              </span>
-            </div>
-            <p className="text-sm text-[var(--text-muted)] max-w-sm leading-relaxed">
-              SMS OTP website for a US temp num, UK temp num, and temp num Canada — Facebook OTP,
-              WhatsApp OTP, Temp Mail Plus, WhatsApp deposit 03072577778.
-            </p>
-          </div>
-          <div>
-            <div className="mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)] mb-3">
-              Product
-            </div>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/services" className="hover:text-[var(--accent)]">
-                  Services
-                </Link>
-              </li>
-              <li>
-                <Link href="/buy/usa" className="hover:text-[var(--accent)]">
-                  US temp num (+1)
-                </Link>
-              </li>
-              <li>
-                <Link href="/buy/uk" className="hover:text-[var(--accent)]">
-                  UK temp num (+44)
-                </Link>
-              </li>
-              <li>
-                <Link href="/buy/canada" className="hover:text-[var(--accent)]">
-                  Temp num Canada
-                </Link>
-              </li>
-              <li>
-                <Link href="/buy/usa/facebook" className="hover:text-[var(--accent)]">
-                  Facebook OTP
-                </Link>
-              </li>
-              <li>
-                <Link href="/mail" className="hover:text-[var(--accent)]">
-                  Temp Mail Plus
-                </Link>
-              </li>
-              <li>
-                <Link href="/deposit" className="hover:text-[var(--accent)]">
-                  Deposit
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <div className="mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)] mb-3">
-              Help
-            </div>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/support" className="hover:text-[var(--accent)]">
-                  Contact / Support
-                </Link>
-              </li>
-              <li>
-                <Link href="/register" className="hover:text-[var(--accent)]">
-                  Create account
-                </Link>
-              </li>
-              <li>
-                <Link href="/login" className="hover:text-[var(--accent)]">
-                  Sign in
-                </Link>
-              </li>
-              <li>
-                <Link href="/api-docs" className="hover:text-[var(--accent)]">
-                  API docs
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="divider-neon opacity-40" />
-        <div className="mx-auto max-w-6xl px-6 py-5 flex flex-wrap justify-between gap-2 mono-data text-[10px] text-[var(--text-muted)] uppercase tracking-[0.14em]">
-          <span>© {new Date().getFullYear()} Temp Empire</span>
-          <span>Temp Empire · v0.1</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

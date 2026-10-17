@@ -773,7 +773,7 @@ export function ServicesPortal() {
                   <span className="mono-data font-semibold text-[var(--danger)]">
                     ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
                   </span>
-                  . Message us on WhatsApp to add credit.
+                  . Message WhatsApp 03072577778 to add credit.
                 </p>
               </div>
             </div>

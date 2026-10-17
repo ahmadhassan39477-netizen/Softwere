@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { resolveAuthSecret } from "@/lib/auth-secret";
+import {
+  CANONICAL_HOST,
+  needsCanonicalRedirect,
+} from "@/lib/canonical-host";
 
 /**
  * Canonical host + auth gate for app routes.
+ * Apex / http → 301 https://www.tempempire.store (only after Vercel serves the host).
  */
-const CANONICAL_HOST = "www.tempempire.store";
 
 const PROTECTED_PREFIXES = [
   "/services",
@@ -37,15 +41,11 @@ export async function middleware(request: NextRequest) {
     request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "")
   ).toLowerCase();
 
-  if (host === "tempempire.store" || host === CANONICAL_HOST) {
-    const needsHost = host !== CANONICAL_HOST;
-    const needsHttps = proto === "http";
-    if (needsHost || needsHttps) {
-      const url = request.nextUrl.clone();
-      url.protocol = "https:";
-      url.host = CANONICAL_HOST;
-      return NextResponse.redirect(url, 308);
-    }
+  if (needsCanonicalRedirect(host, proto)) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = CANONICAL_HOST;
+    return NextResponse.redirect(url, 301);
   }
 
   const needsAuth = PROTECTED_PREFIXES.some(
