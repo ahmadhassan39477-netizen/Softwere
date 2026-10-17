@@ -1,8 +1,14 @@
 /** Default deposit WhatsApp (digits only, country code). */
-export const DEFAULT_WHATSAPP_BUSINESS_NUMBER = "923072577778";
+export const DEFAULT_WHATSAPP_BUSINESS_NUMBER = "923153378418";
 
-/** Retired line — stripped on soft-migrate so Deposit never shows it again. */
-export const RETIRED_WHATSAPP_BUSINESS_NUMBER = "923287087121";
+/** Retired lines — stripped on soft-migrate so Deposit never shows them again. */
+export const RETIRED_WHATSAPP_BUSINESS_NUMBERS = [
+  "923072577778", // 03072577778
+  "923287087121", // 03287087121
+] as const;
+
+/** @deprecated Use RETIRED_WHATSAPP_BUSINESS_NUMBERS */
+export const RETIRED_WHATSAPP_BUSINESS_NUMBER = RETIRED_WHATSAPP_BUSINESS_NUMBERS[1];
 
 export const DEFAULT_WHATSAPP_BUSINESS_NUMBERS = [DEFAULT_WHATSAPP_BUSINESS_NUMBER] as const;
 
@@ -10,6 +16,10 @@ export const DEFAULT_WHATSAPP_BUSINESS_NUMBERS = [DEFAULT_WHATSAPP_BUSINESS_NUMB
 export const SECONDARY_WHATSAPP_BUSINESS_NUMBER = DEFAULT_WHATSAPP_BUSINESS_NUMBER;
 
 export const WHATSAPP_SETTING_KEY = "whatsapp_business_number";
+
+export function isRetiredWhatsAppNumber(digits: string): boolean {
+  return (RETIRED_WHATSAPP_BUSINESS_NUMBERS as readonly string[]).includes(digits);
+}
 
 /** Digits-only for wa.me links. Returns null if empty/invalid. */
 export function normalizeWhatsAppNumber(raw: string | null | undefined): string | null {

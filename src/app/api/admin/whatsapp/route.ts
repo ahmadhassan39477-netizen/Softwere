@@ -3,8 +3,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, jsonError } from "@/lib/api-auth";
 import {
+  DEFAULT_WHATSAPP_BUSINESS_NUMBER,
   DEFAULT_WHATSAPP_BUSINESS_NUMBERS,
   getWhatsAppBusinessNumbers,
+  isRetiredWhatsAppNumber,
   parseWhatsAppNumberList,
   serializeWhatsAppNumbers,
   WHATSAPP_SETTING_KEY,
@@ -36,11 +38,11 @@ export async function PATCH(req: NextRequest) {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid number");
 
-  const numbers = parseWhatsAppNumberList(parsed.data.number);
+  let numbers = parseWhatsAppNumberList(parsed.data.number).filter(
+    (n) => !isRetiredWhatsAppNumber(n),
+  );
   if (numbers.length === 0) {
-    return jsonError(
-      "Enter one or more WhatsApp numbers with country code (e.g. 923072577778 or 03072577778)",
-    );
+    numbers = [DEFAULT_WHATSAPP_BUSINESS_NUMBER];
   }
 
   const value = serializeWhatsAppNumbers(numbers);

@@ -3,10 +3,12 @@ import {
   DEFAULT_WHATSAPP_BUSINESS_NUMBER,
   DEFAULT_WHATSAPP_BUSINESS_NUMBERS,
   RETIRED_WHATSAPP_BUSINESS_NUMBER,
+  RETIRED_WHATSAPP_BUSINESS_NUMBERS,
   SECONDARY_WHATSAPP_BUSINESS_NUMBER,
   WHATSAPP_SETTING_KEY,
   buildDepositPrefill,
   formatWhatsAppDisplay,
+  isRetiredWhatsAppNumber,
   normalizeWhatsAppNumber,
   parseWhatsAppNumberList,
   serializeWhatsAppNumbers,
@@ -18,8 +20,10 @@ export {
   DEFAULT_WHATSAPP_BUSINESS_NUMBER,
   DEFAULT_WHATSAPP_BUSINESS_NUMBERS,
   RETIRED_WHATSAPP_BUSINESS_NUMBER,
+  RETIRED_WHATSAPP_BUSINESS_NUMBERS,
   SECONDARY_WHATSAPP_BUSINESS_NUMBER,
   WHATSAPP_SETTING_KEY,
+  isRetiredWhatsAppNumber,
   buildDepositPrefill,
   formatWhatsAppDisplay,
   normalizeWhatsAppNumber,
@@ -30,8 +34,8 @@ export {
 export type { WhatsAppDisplay };
 
 /**
- * Resolve deposit WhatsApp lines: Admin Setting → env → default (03072577778).
- * Soft-migrate: drop retired 03287087121 / 923287087121 from stored lists.
+ * Resolve deposit WhatsApp lines: Admin Setting → env → default (03153378418).
+ * Soft-migrate: drop retired 03072577778 / 03287087121 from stored lists.
  */
 export async function getWhatsAppBusinessNumbers(): Promise<string[]> {
   let fromStore: string[] = [];
@@ -52,12 +56,13 @@ export async function getWhatsAppBusinessNumbers(): Promise<string[]> {
         : [...DEFAULT_WHATSAPP_BUSINESS_NUMBERS];
 
   const before = numbers.join(",");
-  numbers = numbers.filter((n) => n !== RETIRED_WHATSAPP_BUSINESS_NUMBER);
-  if (numbers.length === 0) {
+  const hadRetired = numbers.some((n) => isRetiredWhatsAppNumber(n));
+  numbers = numbers.filter((n) => !isRetiredWhatsAppNumber(n));
+  if (numbers.length === 0 || hadRetired) {
     numbers = [...DEFAULT_WHATSAPP_BUSINESS_NUMBERS];
   }
 
-  // Persist strip of retired number (or empty → default)
+  // Persist strip of retired numbers (or empty → default)
   if (before !== numbers.join(",")) {
     await prisma.setting
       .upsert({

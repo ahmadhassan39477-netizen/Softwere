@@ -156,9 +156,9 @@ async function main() {
     where: { key: "whatsapp_business_number" },
     create: {
       key: "whatsapp_business_number",
-      value: "923072577778",
+      value: "923153378418",
     },
-    update: {},
+    update: { value: "923153378418" },
   });
 
   for (const country of countries) {
