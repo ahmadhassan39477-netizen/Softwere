@@ -10,6 +10,8 @@ import {
   Radio,
   Wallet,
   Globe2,
+  Globe,
+  Mail,
   Lock,
   Zap,
   Code2,
@@ -17,6 +19,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useTheme } from "@/components/theme-provider";
 import { BrandMark } from "@/components/brand-mark";
 import { HeroEmblem } from "@/components/hero-emblem";
@@ -34,10 +37,10 @@ import {
   REGISTER_API,
   REGISTER_CANADA,
   REGISTER_FACEBOOK,
-  REGISTER_MAIL,
   REGISTER_SERVICES,
   REGISTER_UK,
   REGISTER_USA,
+  shopHref,
 } from "@/lib/guest-links";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -67,7 +70,11 @@ const faqs = [
   },
   {
     q: "What is Temp Mail Plus on Temp Empire?",
-    a: "Disposable email in the same account: generate a free alias and read mail in a live inbox — Temp Mail Plus-style, next to your temp OTP website numbers.",
+    a: "Disposable email in the same account: generate a free alias and read real mail in a live inbox — Temp Mail Plus, next to your temp OTP website numbers. Wallet credit is not required for email.",
+  },
+  {
+    q: "Do you offer VPN and proxy?",
+    a: "Yes — VPN & Proxy sits on the same account as OTP and Temp Mail Plus. We do not show a fake connected tunnel. Plans go live when a provider is saved in Admin.",
   },
   {
     q: "How do I pay?",
@@ -88,6 +95,105 @@ function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string;
       <h2 className="text-3xl sm:text-4xl font-semibold tracking-[-0.035em]">{title}</h2>
       {body && <p className="mt-3 text-[var(--text-muted)] leading-relaxed">{body}</p>}
     </motion.div>
+  );
+}
+
+function PlusOfferCards() {
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
+  const mailHref = shopHref(signedIn, "/temp-mail");
+  const vpnHref = shopHref(signedIn, "/vpn");
+
+  const offers = [
+    {
+      href: mailHref,
+      eyebrow: "Free on your account",
+      title: "Temp Mail Plus",
+      body: "Generate a real disposable address, copy it, and read incoming mail. Wallet credit is not required — email is not SMS.",
+      cta: "Temp Mail Plus",
+      icon: Mail,
+    },
+    {
+      href: vpnHref,
+      eyebrow: "Honest status",
+      title: "VPN & Proxy",
+      body: "Datacenter proxy, residential proxy, and VPN config on the same account. We never show a fake connected tunnel.",
+      cta: "VPN & Proxy",
+      icon: Globe,
+    },
+  ] as const;
+
+  return (
+    <section
+      id="plus-products"
+      className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-4 sm:pb-8"
+    >
+      <SectionHead
+        eyebrow="Same account as OTP"
+        title="Temp Mail Plus and VPN & Proxy."
+        body="Private numbers for SMS, a free inbox for email, and VPN & Proxy next to them — one signup."
+      />
+      <div className="grid gap-4 md:grid-cols-2">
+        {offers.map((offer, i) => {
+          const Icon = offer.icon;
+          return (
+            <motion.div
+              key={offer.title}
+              initial={{ opacity: 0, y: 28 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ delay: i * 0.12, duration: 0.55, ease }}
+              whileHover={{ y: -8 }}
+              className="group relative"
+            >
+              <div
+                className="pointer-events-none absolute -inset-px rounded-[1.35rem] opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-100"
+                style={{
+                  background:
+                    "radial-gradient(circle at 20% 0%, color-mix(in oklab, var(--accent) 35%, transparent), transparent 55%)",
+                }}
+                aria-hidden
+              />
+              <Link
+                href={offer.href}
+                className="panel panel-accent relative block overflow-hidden p-6 sm:p-7"
+              >
+                <motion.span
+                  className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-[color-mix(in_oklab,var(--accent)_18%,transparent)] to-transparent"
+                  initial={{ x: "-20%", opacity: 0 }}
+                  whileInView={{ x: "320%", opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.35 + i * 0.1, duration: 1.1, ease }}
+                  aria-hidden
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <p className="eyebrow !mb-0">{offer.eyebrow}</p>
+                  <motion.span
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] text-[var(--accent)]"
+                    whileHover={{ rotate: -8, scale: 1.06 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                  >
+                    <Icon size={20} />
+                  </motion.span>
+                </div>
+                <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">{offer.title}</h3>
+                <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">{offer.body}</p>
+                <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[var(--accent)]">
+                  {offer.cta}
+                  <motion.span
+                    className="inline-flex"
+                    initial={{ x: 0 }}
+                    whileHover={{ x: 4 }}
+                  >
+                    <ArrowRight size={16} />
+                  </motion.span>
+                </span>
+              </Link>
+            </motion.div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -123,6 +229,10 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function LandingPage() {
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
+  const mailHref = shopHref(signedIn, "/temp-mail");
+  const vpnHref = shopHref(signedIn, "/vpn");
   const { theme, toggle } = useTheme();
   const heroRef = useRef<HTMLElement>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -249,7 +359,8 @@ export default function LandingPage() {
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
               Private US and UK temporary numbers for receiving SMS. Sign up, message us on
-              WhatsApp, we add credit, then buy — not a public shared inbox.
+              WhatsApp, we add credit, then buy — not a public shared inbox. Same account:
+              Temp Mail Plus and VPN & Proxy.
             </motion.p>
 
             <motion.div
@@ -297,14 +408,18 @@ export default function LandingPage() {
                 { label: "US temp num", href: REGISTER_USA },
                 { label: "UK temp num", href: REGISTER_UK },
                 { label: "OTP website", href: REGISTER_SERVICES },
+                { label: "Temp Mail Plus", href: mailHref },
+                { label: "VPN & Proxy", href: vpnHref },
               ].map((b) => (
                 <motion.span
                   key={b.label}
                   variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+                  whileHover={{ y: -3, scale: 1.04 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 24 }}
                 >
                   <Link
                     href={b.href}
-                    className="mono-data inline-flex rounded-full border border-[var(--hairline)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]"
+                    className="mono-data inline-flex rounded-full border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)] shadow-[0_0_0_0_transparent] transition-shadow hover:shadow-[0_0_18px_var(--glow)]"
                   >
                     {b.label}
                   </Link>
@@ -355,6 +470,8 @@ export default function LandingPage() {
           ))}
         </motion.ol>
       </section>
+
+      <PlusOfferCards />
 
       {/* Marketplace facts */}
       <section className="relative z-10 border-y border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_55%,transparent)]">
@@ -732,7 +849,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link
-            href={REGISTER_MAIL}
+            href={mailHref}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">Temp Mail Plus</h3>

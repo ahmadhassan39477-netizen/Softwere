@@ -3,6 +3,7 @@ import {
   guestRegisterCallback,
   postAuthDestination,
 } from "../src/lib/post-auth";
+import { shopHref } from "../src/lib/guest-links";
 
 const cases: Array<[string, string | null, string]> = [
   ["default empty", null, "/services"],
@@ -46,6 +47,23 @@ if (guestRegisterCallback("/temp-mail") !== "/services") {
 }
 if (guestRegisterCallback("/vpn") !== "/services") {
   console.error("FAIL guest vpn → services");
+  failed += 1;
+}
+
+if (shopHref(true, "/temp-mail") !== "/temp-mail") {
+  console.error("FAIL signed-in mail href");
+  failed += 1;
+}
+if (shopHref(true, "/vpn") !== "/vpn") {
+  console.error("FAIL signed-in vpn href");
+  failed += 1;
+}
+if (!shopHref(false, "/temp-mail").startsWith("/register?")) {
+  console.error("FAIL guest mail href");
+  failed += 1;
+}
+if (!shopHref(false, "/vpn").startsWith("/register?")) {
+  console.error("FAIL guest vpn href");
   failed += 1;
 }
 

@@ -16,3 +16,8 @@ export const REGISTER_DEPOSIT = registerHref("/services");
 export const REGISTER_MAIL = registerHref("/temp-mail");
 export const REGISTER_VPN = registerHref("/vpn");
 export const REGISTER_API = registerHref("/api-docs");
+
+/** Guests go through signup; signed-in shoppers open the live page. */
+export function shopHref(signedIn: boolean, path: "/temp-mail" | "/vpn"): string {
+  return signedIn ? path : registerHref(path);
+}
