@@ -10,10 +10,12 @@ const TOKEN_TTL_MS = 50 * 60_000;
 
 export class TempMailProviderError extends Error {
   status: number;
-  constructor(message: string, status = 503) {
+  upstreamStatus?: number;
+  constructor(message: string, status = 503, upstreamStatus?: number) {
     super(message);
     this.name = "TempMailProviderError";
     this.status = status;
+    this.upstreamStatus = upstreamStatus;
   }
 }
 
@@ -144,6 +146,7 @@ async function mailtm<T>(path: string, init: RequestInit = {}, attempt = 0): Pro
     throw new TempMailProviderError(
       providerErrorMessage(res.status),
       res.status >= 400 && res.status < 500 ? res.status : 502,
+      res.status,
     );
   }
 
@@ -165,7 +168,27 @@ export async function listDomains(): Promise<string[]> {
   return domains;
 }
 
+export type MailboxKind = "mailtm" | "guerrilla";
+
 export async function createMailbox(preferredDomain?: string): Promise<{
+  address: string;
+  domain: string;
+  password: string;
+  provider: MailboxKind;
+}> {
+  try {
+    const box = await createMailtmMailbox(preferredDomain);
+    return { ...box, provider: "mailtm" };
+  } catch (primary) {
+    try {
+      return await createGuerrillaMailbox();
+    } catch {
+      throw primary;
+    }
+  }
+}
+
+async function createMailtmMailbox(preferredDomain?: string): Promise<{
   address: string;
   domain: string;
   password: string;
@@ -194,6 +217,109 @@ export async function createMailbox(preferredDomain?: string): Promise<{
     }
   }
   throw lastErr ?? new TempMailProviderError(providerErrorMessage(422), 422);
+}
+
+const GUERRILLA_API = "https://api.guerrillamail.com/ajax.php";
+
+type GuerrillaAddress = {
+  email_addr?: string;
+  sid_token?: string;
+};
+
+type GuerrillaList = {
+  list?: Array<{
+    mail_id?: string;
+    mail_from?: string;
+    mail_subject?: string;
+    mail_excerpt?: string;
+    mail_timestamp?: string | number;
+  }>;
+};
+
+type GuerrillaMessage = {
+  mail_id?: string;
+  mail_from?: string;
+  mail_subject?: string;
+  mail_body?: string;
+  mail_timestamp?: string | number;
+};
+
+async function guerrilla<T>(params: Record<string, string>): Promise<T> {
+  const url = new URL(GUERRILLA_API);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  url.searchParams.set("ip", "127.0.0.1");
+  url.searchParams.set("agent", "TempEmpire");
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json", "User-Agent": "TempEmpire/1.0 (+https://www.tempempire.store)" },
+      signal: AbortSignal.timeout(FETCH_MS),
+    });
+  } catch {
+    throw new TempMailProviderError(providerErrorMessage(0, true), 503);
+  }
+  if (!res.ok) {
+    throw new TempMailProviderError(providerErrorMessage(res.status), res.status >= 400 && res.status < 500 ? res.status : 502, res.status);
+  }
+  return (await res.json()) as T;
+}
+
+async function createGuerrillaMailbox(): Promise<{
+  address: string;
+  domain: string;
+  password: string;
+  provider: "guerrilla";
+}> {
+  const first = await guerrilla<GuerrillaAddress>({ f: "get_email_address" });
+  if (!first.email_addr || !first.sid_token) {
+    throw new TempMailProviderError(providerErrorMessage(502), 502);
+  }
+  const local = `te${nanoid(8).toLowerCase()}`;
+  const named = await guerrilla<GuerrillaAddress>({
+    f: "set_email_user",
+    email_user: local,
+    sid_token: first.sid_token,
+  });
+  const address = (named.email_addr || `${local}@${first.email_addr.split("@")[1]}`).toLowerCase();
+  const domain = address.split("@")[1] || "guerrillamail.com";
+  const token = named.sid_token || first.sid_token;
+  return { address, domain, password: token, provider: "guerrilla" };
+}
+
+async function listGuerrilla(sid: string): Promise<TempMailListItem[]> {
+  const data = await guerrilla<GuerrillaList>({ f: "get_email_list", offset: "0", sid_token: sid });
+  return (data.list ?? [])
+    .filter((m) => m.mail_id)
+    .map((m) => ({
+      id: String(m.mail_id),
+      from: m.mail_from || "unknown",
+      subject: (m.mail_subject || "").trim() || "(no subject)",
+      intro: (m.mail_excerpt || "").trim(),
+      receivedAt: m.mail_timestamp
+        ? new Date(Number(m.mail_timestamp) * 1000).toISOString()
+        : new Date().toISOString(),
+      seen: false,
+      hasAttachments: false,
+    }));
+}
+
+async function readGuerrilla(sid: string, messageId: string): Promise<TempMailBody> {
+  const msg = await guerrilla<GuerrillaMessage>({
+    f: "fetch_email",
+    email_id: messageId,
+    sid_token: sid,
+  });
+  const html = msg.mail_body || "";
+  return {
+    id: String(msg.mail_id || messageId),
+    from: msg.mail_from || "unknown",
+    subject: (msg.mail_subject || "").trim() || "(no subject)",
+    textBody: htmlToText(html) || html || "(empty message)",
+    receivedAt: msg.mail_timestamp
+      ? new Date(Number(msg.mail_timestamp) * 1000).toISOString()
+      : new Date().toISOString(),
+  };
 }
 
 export async function getToken(address: string, password: string): Promise<string> {
@@ -225,7 +351,12 @@ function toListItem(msg: MailtmMessage): TempMailListItem | null {
   };
 }
 
-export async function listMessages(address: string, password: string): Promise<TempMailListItem[]> {
+export async function listMessages(
+  address: string,
+  password: string,
+  provider: MailboxKind | string = "mailtm",
+): Promise<TempMailListItem[]> {
+  if (provider === "guerrilla") return listGuerrilla(password);
   const token = await getToken(address, password);
   try {
     const data = await mailtm<HydraCollection<MailtmMessage>>("/messages", {
@@ -253,7 +384,9 @@ export async function readMessage(
   address: string,
   password: string,
   messageId: string,
+  provider: MailboxKind | string = "mailtm",
 ): Promise<TempMailBody> {
+  if (provider === "guerrilla") return readGuerrilla(password, messageId);
   const safeId = encodeURIComponent(messageId);
   const token = await getToken(address, password);
   const load = (bearer: string) =>

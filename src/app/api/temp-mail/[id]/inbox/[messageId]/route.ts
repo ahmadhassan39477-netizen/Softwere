@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, jsonError } from "@/lib/api-auth";
 import { readMessage, TempMailProviderError } from "@/lib/providers/temp-mail";
-import { mailboxSecret } from "@/lib/temp-mail-secret";
+import { mailboxCreds } from "@/lib/temp-mail-secret";
 
 type Ctx = { params: Promise<{ id: string; messageId: string }> };
 
@@ -18,8 +18,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   });
   if (!mail) return jsonError("Not found", 404);
 
-  const secret = await mailboxSecret(mail);
-  if (!secret) {
+  const creds = await mailboxCreds(mail);
+  if (!creds.secret) {
     return jsonError(
       "This address was created before live mail was enabled. Generate a new address.",
       409,
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const message = await readMessage(mail.address, secret, messageId);
+    const message = await readMessage(mail.address, creds.secret, messageId, creds.provider);
     return Response.json({ mail: { id: mail.id, address: mail.address }, message });
   } catch (err) {
     const message =

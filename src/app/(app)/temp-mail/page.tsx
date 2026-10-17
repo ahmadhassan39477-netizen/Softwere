@@ -310,15 +310,21 @@ export default function TempMailPage() {
 
       <p className="text-xs text-[var(--text-muted)]">
         Inbox powered by{" "}
+        <a href="https://mail.tm" className="text-[var(--accent)]" target="_blank" rel="noreferrer">
+          mail.tm
+        </a>
+        {" "}
+        (or{" "}
         <a
-          href="https://mail.tm"
+          href="https://www.guerrillamail.com"
           className="text-[var(--accent)]"
           target="_blank"
           rel="noreferrer"
         >
-          mail.tm
+          Guerrilla Mail
         </a>
-        . Free on your account. SMS numbers are a separate paid product.
+        {" "}
+        if mail.tm is unreachable). Free on your account. SMS numbers are a separate paid product.
       </p>
     </div>
   );

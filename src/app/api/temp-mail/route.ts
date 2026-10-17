@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, jsonError } from "@/lib/api-auth";
 import { createMailbox, TempMailProviderError } from "@/lib/providers/temp-mail";
+import { saveMailboxCreds } from "@/lib/temp-mail-secret";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 function isSchemaError(err: unknown): boolean {
@@ -63,22 +64,23 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           address: created.address,
           domain: created.domain,
-          provider: "mailtm",
+          provider: created.provider,
           providerSecret: created.password,
           expiresAt,
         },
       });
       return Response.json(
         {
-          mail: {
-            id: mail.id,
-            address: mail.address,
-            domain: mail.domain,
-            expiresAt: mail.expiresAt,
-          },
+        mail: {
+          id: mail.id,
+          address: mail.address,
+          domain: mail.domain,
+          expiresAt: mail.expiresAt,
+          provider: created.provider,
         },
-        { status: 201, headers: rateLimitHeaders(rl) },
-      );
+      },
+      { status: 201, headers: rateLimitHeaders(rl) },
+    );
     } catch (err) {
       if (!isSchemaError(err)) throw err;
       const mail = await prisma.tempMail.create({
@@ -89,11 +91,7 @@ export async function POST(req: NextRequest) {
           expiresAt,
         },
       });
-      await prisma.setting.upsert({
-        where: { key: `tempmail_secret_${mail.id}` },
-        create: { key: `tempmail_secret_${mail.id}`, value: created.password },
-        update: { value: created.password },
-      });
+      await saveMailboxCreds(mail.id, created.provider, created.password);
       return Response.json(
         {
           mail: {
