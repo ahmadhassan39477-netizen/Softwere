@@ -20,6 +20,7 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/settings",
   "/temp-mail",
+  "/mail",
   "/vpn",
   "/admin",
   "/api-docs",
@@ -77,7 +78,7 @@ export async function middleware(request: NextRequest) {
         "callbackUrl",
         guestRegisterCallback(pathname, request.nextUrl.search),
       );
-      return NextResponse.redirect(signup);
+      return NextResponse.redirect(signup, 307);
     }
   }
 

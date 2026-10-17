@@ -14,6 +14,7 @@ const cases: Array<[string, string | null, string]> = [
   ["deposit becomes services", "/deposit", "/services"],
   ["mail becomes services", "/temp-mail", "/services"],
   ["vpn becomes services", "/vpn", "/services"],
+  ["public mail becomes services", "/mail", "/services"],
 ];
 
 let failed = 0;
@@ -49,6 +50,10 @@ if (guestRegisterCallback("/vpn") !== "/services") {
   console.error("FAIL guest vpn → services");
   failed += 1;
 }
+if (guestRegisterCallback("/mail") !== "/services") {
+  console.error("FAIL guest /mail → services");
+  failed += 1;
+}
 
 if (shopHref(true, "/temp-mail") !== "/temp-mail") {
   console.error("FAIL signed-in mail href");
@@ -58,12 +63,12 @@ if (shopHref(true, "/vpn") !== "/vpn") {
   console.error("FAIL signed-in vpn href");
   failed += 1;
 }
-if (!shopHref(false, "/temp-mail").startsWith("/register?")) {
-  console.error("FAIL guest mail href");
+if (shopHref(false, "/temp-mail") !== "/temp-mail") {
+  console.error("FAIL guest mail path still /temp-mail (middleware 307)");
   failed += 1;
 }
-if (!shopHref(false, "/vpn").startsWith("/register?")) {
-  console.error("FAIL guest vpn href");
+if (shopHref(false, "/vpn") !== "/vpn") {
+  console.error("FAIL guest vpn path still /vpn (middleware 307)");
   failed += 1;
 }
 

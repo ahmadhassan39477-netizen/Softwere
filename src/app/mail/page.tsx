@@ -48,7 +48,7 @@ export default function TempMailPlusPage() {
           <BrandWordmark compact priority />
         </Link>
         <Link
-          href="/register?callbackUrl=%2Ftemp-mail"
+          href="/temp-mail"
           className="btn btn-primary shrink-0 whitespace-nowrap text-sm px-3 min-h-10"
         >
           Sign up
@@ -96,7 +96,7 @@ export default function TempMailPlusPage() {
         </section>
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Link href="/register?callbackUrl=%2Ftemp-mail" className="btn btn-primary">
+          <Link href="/temp-mail" className="btn btn-primary">
             Sign up to open Temp Mail
           </Link>
           <Link href="/buy/usa" className="btn btn-ghost">
