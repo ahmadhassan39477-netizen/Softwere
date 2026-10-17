@@ -64,9 +64,8 @@ export default function RegisterPage() {
           <p className="eyebrow">Access</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Create an account first. Next you add credit on WhatsApp{" "}
-            <span className="mono-data">03072577778</span>, then buy a number on Services. Email
-            and password only.
+            Create an account first. Next you add credit on WhatsApp from Deposit, then buy a
+            number on Services. Email and password only.
           </p>
         </div>
         <div>

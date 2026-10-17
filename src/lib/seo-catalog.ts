@@ -274,7 +274,7 @@ export function seoHubArticle(country: SeoCountry): string {
       `Looking for a UK temp num to receive SMS online? Temp Empire is an OTP website that sells private +44 temporary phone numbers — a temp number you can use for WhatsApp OTP, Facebook OTP verification, Telegram, Google, Instagram, Discord and other apps without sharing your personal mobile.`,
       `A UK temp num (also called a disposable UK mobile or British virtual SMS number) is a short-lived line you rent only to receive verification texts. When an app asks for a United Kingdom phone number, you paste the Temp Empire +44 number, wait for the one-time password in our live inbox, and finish signup. You are not buying a physical SIM, UK address, or carrier contract — just a private receive-SMS route with an OTP window.`,
       `People often search for a temp num free or a free virtual number OTP website. Public shared inboxes post other people’s SMS for anyone to read. A paid UK temp num on Temp Empire keeps your code in your account. Temp Mail Plus-style email aliases are free to generate after you sign in.`,
-      `How to buy a UK temp num in three steps. First, create an account (email and password). Second, open Deposit and message WhatsApp 03072577778 to add wallet credit. Third, open Services, choose United Kingdom and your app, buy a number, paste it into the app, and watch the live OTP panel. If SMS never arrives, eligible orders refund to your balance.`,
+      `How to buy a UK temp num in three steps. First, create an account (email and password). Second, open Deposit and message WhatsApp from Deposit after you sign in to add wallet credit. Third, open Services, choose United Kingdom and your app, buy a number, paste it into the app, and watch the live OTP panel. If SMS never arrives, eligible orders refund to your balance.`,
       `Popular UK OTP use cases: OTP website for WhatsApp with a +44 line, Facebook OTP number and verification phone number, Telegram SMS login, Google / Gmail, Instagram, TikTok, Discord, and X. Always follow each app’s terms — we help you receive SMS, not evade platform rules.`,
       `Compared with monthly rental SIMs, pay-per-OTP fits one-off checks. Browse the service links below or go straight to Services after you sign up.`,
       `Ready to start? Buy a UK temp num on this temp OTP website, complete verification in minutes, and keep your personal phone private.`,
@@ -286,7 +286,7 @@ export function seoHubArticle(country: SeoCountry): string {
       `Need a US temp num to receive SMS online? Temp Empire is an SMS OTP website with private American (+1) virtual numbers — temp num USA routes for WhatsApp OTP, Facebook OTP verification, Telegram, Google, Instagram, TikTok, Discord and more, without a US SIM card.`,
       `A US temp num is a short-lived virtual SMS line. When a site asks for a United States phone number, you purchase a +1 temp number from Temp Empire, enter it on the form, and read the code in your live order panel. Pay only when a number is issued; eligible failed deliveries refund to your wallet.`,
       `Searchers look for “us temp num,” “temp num usa,” and “temp number.” We match that intent with a private inbox — not a public temp num free wall where anyone can read your Facebook OTP or WhatsApp code.`,
-      `How it works. Sign up with email and password, add credit via WhatsApp 03072577778, then open Services → United States → pick your app → Buy. Copy the number, request the SMS, and grab the OTP when it appears.`,
+      `How it works. Sign up with email and password, add credit via WhatsApp from Deposit after you sign in, then open Services → United States → pick your app → Buy. Copy the number, request the SMS, and grab the OTP when it appears.`,
       `High-demand USA routes: OTP website for WhatsApp, Facebook OTP number, Telegram, Google / Gmail, Instagram, X, TikTok, Discord, Binance, and OpenAI / ChatGPT. Inventory can vary; live prices show before you confirm.`,
       `Privacy first: keep your personal cell off random signup forms. Do not use a temporary number to violate any service’s terms. Temp Empire is for legitimate verification and privacy.`,
       `Get your US temp num now — sign up, deposit, and buy from Services in under a minute.`,
@@ -297,7 +297,7 @@ export function seoHubArticle(country: SeoCountry): string {
     return [
       `Need a temp num Canada to receive SMS online? Temp Empire sells private Canadian (+1) temporary numbers on this OTP website — a Canada temp number for WhatsApp OTP, Facebook OTP verification, Telegram, Google and other apps, without a Canadian SIM.`,
       `A temp num Canada is a short-lived virtual SMS line. When a site wants a Canadian phone number, you buy the +1 number here, paste it into the app, and read the OTP in your live panel. Eligible failed deliveries refund to your wallet.`,
-      `How to buy. Create an account, message WhatsApp 03072577778 from Deposit, then open Services → Canada → choose your app. Signup stays required before OTP.`,
+      `How to buy. Create an account, message WhatsApp from Deposit after you sign in from Deposit, then open Services → Canada → choose your app. Signup stays required before OTP.`,
       `Use a Canada temp number for legitimate account checks and privacy — never to break an app’s rules. Pair it with Temp Mail Plus-style disposable email if you also want to keep your real inbox private.`,
       `Browse WhatsApp, Facebook OTP, Telegram, Google and more below, or sign up to buy from live stock.`,
     ].join("\n\n");
@@ -331,7 +331,7 @@ export function seoHubFaqs(country: SeoCountry): SeoFaq[] {
       },
       {
         q: "How do I pay?",
-        a: "Message WhatsApp 03072577778 from the Deposit page with your account email and amount. After we confirm payment, buy a UK temp num from Services.",
+        a: "Message WhatsApp from Deposit after you sign in from the Deposit page with your account email and amount. After we confirm payment, buy a UK temp num from Services.",
       },
     ];
   }
@@ -339,7 +339,7 @@ export function seoHubFaqs(country: SeoCountry): SeoFaq[] {
     return [
       {
         q: "How do I get a US temp num?",
-        a: "Sign up, add wallet credit via WhatsApp 03072577778, open Services, select United States and your app, then buy. The +1 temp num USA appears instantly for SMS OTP.",
+        a: "Sign up, add wallet credit via WhatsApp from Deposit after you sign in, open Services, select United States and your app, then buy. The +1 temp num USA appears instantly for SMS OTP.",
       },
       {
         q: "Can I receive SMS online with a US temp num?",
@@ -355,7 +355,7 @@ export function seoHubFaqs(country: SeoCountry): SeoFaq[] {
       },
       {
         q: "What payment methods do you accept?",
-        a: "Wallet top-ups are arranged over WhatsApp 03072577778 from the Deposit page. Once credited, you pay per temp number from your balance.",
+        a: "Wallet top-ups are arranged over WhatsApp from Deposit after you sign in from the Deposit page. Once credited, you pay per temp number from your balance.",
       },
     ];
   }
@@ -363,7 +363,7 @@ export function seoHubFaqs(country: SeoCountry): SeoFaq[] {
     return [
       {
         q: "How do I buy a temp num Canada?",
-        a: "Create an account, deposit via WhatsApp 03072577778, open Services, select Canada and your app, then buy. The +1 Canada temp number appears in your OTP panel.",
+        a: "Create an account, deposit via WhatsApp from Deposit after you sign in, open Services, select Canada and your app, then buy. The +1 Canada temp number appears in your OTP panel.",
       },
       {
         q: "Does a temp num Canada work for WhatsApp and Facebook OTP?",
@@ -407,7 +407,7 @@ export function seoArticleBody(country: SeoCountry, service: SeoService) {
       `A Facebook OTP verification phone number here is a short-lived virtual SMS line. When Facebook asks for a phone number, paste the Temp Empire ${dial} number, request the SMS from Facebook, and copy the code when it arrives. We help you receive SMS. We do not help anyone skip or evade Facebook’s checks.`,
       `People search for a Facebook OTP code free or a public dump of codes. Those sites post other people’s texts. Temp Empire does not list shared Facebook OTP codes. You buy a private Facebook OTP number so only your account sees the SMS.`,
       `Facebook OTP code not received? Watch the live panel for the full window. If the Facebook OTP never lands, eligible orders refund to your wallet so you can try another temp number. Signup is required before you can buy.`,
-      `How it works. Create an account, message WhatsApp 03072577778 from Deposit, open Services, choose ${country.name} and Facebook, buy, then paste the number into Facebook. Pair it with Temp Mail Plus-style email if you also want a disposable inbox.`,
+      `How it works. Create an account, message WhatsApp from Deposit after you sign in from Deposit, open Services, choose ${country.name} and Facebook, buy, then paste the number into Facebook. Pair it with Temp Mail Plus-style email if you also want a disposable inbox.`,
       `Always follow Facebook’s terms. Use this Facebook OTP route for legitimate verification and privacy — not for banned-account schemes.`,
     ].join("\n\n");
   }
@@ -415,7 +415,7 @@ export function seoArticleBody(country: SeoCountry, service: SeoService) {
   if (service.slug === "whatsapp") {
     return [
       `This is an OTP website for WhatsApp: buy a ${c} (${dial}) temp number, receive the WhatsApp OTP online, and keep your real phone private.`,
-      `Sign up (required before OTP), add credit via WhatsApp 03072577778, choose ${country.name} and WhatsApp in Services, paste the temp number into WhatsApp, and copy the code from the live panel.`,
+      `Sign up (required before OTP), add credit via WhatsApp from Deposit after you sign in, choose ${country.name} and WhatsApp in Services, paste the temp number into WhatsApp, and copy the code from the live panel.`,
       `Public temp num free pages share WhatsApp codes with strangers. A paid private number on this temp OTP website keeps the SMS in your account. Eligible “code not received” orders refund to your wallet.`,
       `Use WhatsApp OTP for legitimate verification only. Follow WhatsApp’s terms — we provide receive-SMS, not a way around their rules.`,
     ].join("\n\n");
@@ -434,7 +434,7 @@ export function seoArticleBody(country: SeoCountry, service: SeoService) {
     lead,
     `A temp number (also called a virtual SMS number) is a short-lived line rented only for receiving text messages. When ${s} asks you to confirm a phone number, you paste the Temp Empire ${dial} number, wait for the one-time password in our live inbox, and finish signup. Refunds apply if SMS never arrives.`,
     `Why people choose a ${c} temp number for ${s}: local ${dial} routing often helps region-aware flows, and keeping work or travel accounts off your main device reduces spam. Live prices come from your wallet after a WhatsApp deposit.`,
-    `How it works. Create an account, message WhatsApp 03072577778 from Deposit, open Services, select ${country.name} and ${s}, buy, paste the number, then copy the OTP.`,
+    `How it works. Create an account, message WhatsApp from Deposit after you sign in from Deposit, open Services, select ${country.name} and ${s}, buy, paste the number, then copy the OTP.`,
     `We market disposable numbers for legitimate verification and privacy — not for evading platform security. Always follow ${s}’s terms.`,
     `Ready to start? Buy a ${c} temp number for ${s} on this temp OTP website and keep your personal phone private.`,
   ].join("\n\n");
@@ -445,7 +445,7 @@ export function seoServiceFaqs(country: SeoCountry, service: SeoService): SeoFaq
     return [
       {
         q: "How do I get a Facebook OTP verification phone number?",
-        a: `Sign up, deposit on WhatsApp 03072577778, then buy a ${country.adjective} Facebook OTP number from Services. Paste it into Facebook and read the Facebook OTP in your panel.`,
+        a: `Sign up, deposit on WhatsApp from Deposit after you sign in, then buy a ${country.adjective} Facebook OTP number from Services. Paste it into Facebook and read the Facebook OTP in your panel.`,
       },
       {
         q: "Do you give a Facebook OTP code free from a public list?",
@@ -473,7 +473,7 @@ export function seoServiceFaqs(country: SeoCountry, service: SeoService): SeoFaq
       },
       {
         q: "How do I pay?",
-        a: "Top up via WhatsApp 03072577778 on the Deposit page, then purchase from your wallet.",
+        a: "Top up via WhatsApp from Deposit after you sign in on the Deposit page, then purchase from your wallet.",
       },
     ];
   }
@@ -488,7 +488,7 @@ export function seoServiceFaqs(country: SeoCountry, service: SeoService): SeoFaq
     },
     {
       q: "How do I pay for the number?",
-      a: "Top up via WhatsApp 03072577778 on the Deposit page, then purchase from your wallet balance.",
+      a: "Top up via WhatsApp from Deposit after you sign in on the Deposit page, then purchase from your wallet balance.",
     },
   ];
 }

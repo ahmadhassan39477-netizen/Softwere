@@ -39,12 +39,15 @@ const faqs = [
 export default function TempMailPlusPage() {
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
-        <Link href="/">
+      <header className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-4 sm:px-6">
+        <Link href="/" className="min-w-0">
           <BrandWordmark compact priority />
         </Link>
-        <Link href="/register?callbackUrl=%2Ftemp-mail" className="btn btn-primary text-sm">
-          Sign up for Temp Mail
+        <Link
+          href="/register?callbackUrl=%2Ftemp-mail"
+          className="btn btn-primary shrink-0 whitespace-nowrap text-sm px-3 min-h-10"
+        >
+          Sign up
         </Link>
       </header>
 

@@ -34,7 +34,7 @@ export const PAGE_META = {
   support: {
     title: "OTP Website Support | Temp Number Help | Temp Empire",
     description:
-      "Help for this SMS OTP website: US temp num, UK temp num, Facebook OTP code not received, WhatsApp deposits on 03072577778, and Temp Mail Plus.",
+      "Help for this SMS OTP website: US temp num, UK temp num, Facebook OTP code not received, WhatsApp deposits after signup, and Temp Mail Plus.",
   },
   login: {
     title: "Sign In | Temp Number SMS OTP Website | Temp Empire",
@@ -49,17 +49,17 @@ export const PAGE_META = {
   about: {
     title: "About Temp Empire | Honest Independent OTP Website",
     description:
-      "Temp Empire is an independent shop for private temporary numbers and email. Sign up, add credit on WhatsApp 03072577778, then buy. We are not a phone carrier.",
+      "Temp Empire is an independent shop for private temporary numbers and email. Sign up, message us on WhatsApp, we add credit, then buy. Not a phone carrier.",
   },
   privacy: {
     title: "Privacy Policy | Temp Empire SMS OTP Data Practices",
     description:
-      "How Temp Empire uses account email, wallet, and SMS inbox data. We do not sell personal information. Email support@tempempire.store or WhatsApp 03072577778.",
+      "How Temp Empire uses account email, wallet, and SMS inbox data. We do not sell personal information. Email support@tempempire.store after you create an account.",
   },
   terms: {
     title: "Terms of Use | Temp Empire Temporary Number Policy",
     description:
-      "Sign up before buying. Deposit on WhatsApp 03072577778. Use numbers for legitimate checks only and follow each app’s terms. Refund if SMS never arrives.",
+      "Sign up before buying. Add credit on WhatsApp from Deposit after you sign in. Use numbers for legitimate checks only. Refund if SMS never arrives.",
   },
 } as const satisfies Record<string, PageMeta>;
 

@@ -20,6 +20,7 @@ const PROTECTED_PREFIXES = [
   "/settings",
   "/temp-mail",
   "/admin",
+  "/api-docs",
 ];
 
 /** Google Search Console HTML-file verify + public proof — never send to /register. */

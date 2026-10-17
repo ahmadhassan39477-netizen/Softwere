@@ -10,7 +10,7 @@ const FACTS = [
   {
     icon: MessageCircle,
     t: "WhatsApp deposit only",
-    d: "Add credit on 03072577778. Nothing auto-charges. Balance updates after we confirm.",
+    d: "Message us on WhatsApp after you sign in. Nothing auto-charges. Balance updates after we confirm.",
   },
   {
     icon: RefreshCcw,

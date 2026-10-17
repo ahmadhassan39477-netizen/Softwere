@@ -30,6 +30,16 @@ import {
 import { ServiceLogo } from "@/components/service-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { TrustFacts } from "@/components/trust-facts";
+import {
+  REGISTER_API,
+  REGISTER_CANADA,
+  REGISTER_DEPOSIT,
+  REGISTER_FACEBOOK,
+  REGISTER_MAIL,
+  REGISTER_SERVICES,
+  REGISTER_UK,
+  REGISTER_USA,
+} from "@/lib/guest-links";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -62,11 +72,9 @@ const faqs = [
   },
   {
     q: "How do I pay?",
-    a: "Message WhatsApp 03072577778 from the Deposit page. After we confirm payment, buy a temp number from Services.",
+    a: "Sign up, then message us on WhatsApp from the Deposit page. After we confirm payment, buy a temp number from Services.",
   },
 ];
-
-const beats = ["US temp num", "UK temp num", "OTP website"];
 
 function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
   return (
@@ -142,16 +150,20 @@ export default function LandingPage() {
         style={{ scale: glowScale }}
       />
 
-      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-6">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Temp Empire home">
-          <BrandMark size={34} priority />
-          <span className="font-semibold tracking-[-0.035em] text-[1.1rem] leading-none">
+      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-6">
+        <Link
+          href="/"
+          className="flex min-w-0 items-center gap-2 sm:gap-2.5"
+          aria-label="Temp Empire home"
+        >
+          <BrandMark size={32} priority />
+          <span className="min-w-0 truncate font-semibold tracking-[-0.035em] text-[1.05rem] sm:text-[1.1rem] leading-none">
             <span className="text-[var(--text)]">temp </span>
             <span className="text-[var(--accent)]">empire</span>
           </span>
         </Link>
-        <div className="flex items-center gap-2">
-          <button className="btn btn-ghost p-2" onClick={toggle} aria-label="Toggle theme">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <button className="btn btn-ghost p-2 shrink-0" onClick={toggle} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <Link href="/about" className="btn btn-ghost hidden md:inline-flex">
@@ -160,7 +172,10 @@ export default function LandingPage() {
           <Link href="/login" className="btn btn-ghost hidden md:inline-flex">
             Sign in
           </Link>
-          <Link href="/register?callbackUrl=/deposit" className="btn btn-primary text-sm px-3 sm:px-4">
+          <Link
+            href={REGISTER_DEPOSIT}
+            className="btn btn-primary shrink-0 whitespace-nowrap text-sm px-3 min-h-10 sm:px-4"
+          >
             Sign up
           </Link>
         </div>
@@ -234,8 +249,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: d(1.35, 0.7), duration: 0.45, ease }}
             >
-              Private US and UK temporary numbers for receiving SMS. Sign up, add credit on
-              WhatsApp 03072577778, then buy — not a public shared inbox.
+              Private US and UK temporary numbers for receiving SMS. Sign up, message us on
+              WhatsApp, we add credit, then buy — not a public shared inbox.
             </motion.p>
 
             <motion.div
@@ -259,7 +274,7 @@ export default function LandingPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-full"
               >
-                <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
+                <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
                   Sign up to buy <ArrowRight size={16} />
                 </Link>
               </motion.div>
@@ -279,13 +294,21 @@ export default function LandingPage() {
                 },
               }}
             >
-              {beats.map((b) => (
+              {[
+                { label: "US temp num", href: REGISTER_USA },
+                { label: "UK temp num", href: REGISTER_UK },
+                { label: "OTP website", href: REGISTER_SERVICES },
+              ].map((b) => (
                 <motion.span
-                  key={b}
+                  key={b.label}
                   variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                  className="mono-data rounded-full border border-[var(--hairline)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]"
                 >
-                  {b}
+                  <Link
+                    href={b.href}
+                    className="mono-data inline-flex rounded-full border border-[var(--hairline)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--accent)]"
+                  >
+                    {b.label}
+                  </Link>
                 </motion.span>
               ))}
             </motion.div>
@@ -320,7 +343,7 @@ export default function LandingPage() {
         >
           {[
             { n: "1", t: "Sign up", d: "Email and password." },
-            { n: "2", t: "Deposit", d: "WhatsApp 03072577778 only." },
+            { n: "2", t: "Deposit", d: "Message us on WhatsApp. We add credit." },
             { n: "3", t: "Buy", d: "Services → number → OTP." },
           ].map((step) => (
             <li key={step.n} className="panel px-4 py-3 flex gap-3 items-start">
@@ -367,7 +390,7 @@ export default function LandingPage() {
         <SectionHead
           eyebrow="How it works"
           title="Sign up, deposit, then buy."
-          body="First-time path: create an account, add credit on WhatsApp 03072577778, then buy a number on Services. Eligible orders refund if SMS never arrives."
+          body="First-time path: create an account, message us on WhatsApp, we add credit, then buy a number on Services. Eligible orders refund if SMS never arrives."
         />
         <div className="grid gap-4 md:grid-cols-3">
           {HOW_IT_WORKS.map((s, i) => (
@@ -447,6 +470,7 @@ export default function LandingPage() {
               whileHover={{ y: -5, borderColor: "var(--accent)" }}
               className="panel panel-accent p-4 flex flex-col gap-3"
             >
+              <Link href={REGISTER_SERVICES} className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <ServiceLogo slug={svc.slug} name={svc.name} />
@@ -461,6 +485,7 @@ export default function LandingPage() {
                 from ${svc.from}
               </div>
               <p className="text-xs text-[var(--text-muted)] leading-relaxed">{svc.note}</p>
+              </Link>
             </motion.div>
           ))}
         </div>
@@ -494,7 +519,7 @@ export default function LandingPage() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
+          <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
             Sign up, then deposit <ArrowRight size={16} />
           </Link>
         </motion.div>
@@ -611,10 +636,10 @@ export default function LandingPage() {
             and polling patterns documented on the API page.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/api-docs" className="btn btn-primary">
+            <Link href={REGISTER_API} className="btn btn-primary">
               Read API docs <ArrowRight size={16} />
             </Link>
-            <Link href="/register?callbackUrl=/deposit" className="btn btn-ghost">
+            <Link href={REGISTER_DEPOSIT} className="btn btn-ghost">
               Create account
             </Link>
           </div>
@@ -630,7 +655,7 @@ export default function LandingPage() {
         />
         <div className="grid gap-4 md:grid-cols-3">
           <Link
-            href="/buy/usa"
+            href={REGISTER_USA}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇺🇸 United States</p>
@@ -644,7 +669,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link
-            href="/buy/uk"
+            href={REGISTER_UK}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇬🇧 United Kingdom</p>
@@ -658,7 +683,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link
-            href="/buy/canada"
+            href={REGISTER_CANADA}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇨🇦 Canada</p>
@@ -682,7 +707,7 @@ export default function LandingPage() {
         />
         <div className="grid gap-4 md:grid-cols-3">
           <Link
-            href="/buy/usa/facebook"
+            href={REGISTER_FACEBOOK}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">Facebook OTP verification</h3>
@@ -695,7 +720,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link
-            href="/buy/uk/whatsapp"
+            href={REGISTER_UK}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">OTP website for WhatsApp</h3>
@@ -708,7 +733,7 @@ export default function LandingPage() {
             </span>
           </Link>
           <Link
-            href="/mail"
+            href={REGISTER_MAIL}
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">Temp Mail Plus</h3>
@@ -746,7 +771,7 @@ export default function LandingPage() {
             Enter the portal.
           </h2>
           <div className="mt-8 flex justify-center gap-3 flex-wrap">
-            <Link href="/register?callbackUrl=/deposit" className="btn btn-primary">
+            <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
               Sign up to start <ArrowRight size={16} />
             </Link>
             <Link href="/login" className="btn btn-ghost">

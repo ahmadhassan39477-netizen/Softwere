@@ -58,7 +58,7 @@ export const HOW_IT_WORKS = [
   {
     n: "02",
     t: "Add credit on WhatsApp",
-    d: "Message 03072577778 only. Tell us your account email and amount. Balance updates after we confirm payment.",
+    d: "Message us on WhatsApp from Deposit after you sign in. Tell us your account email and amount. Credit appears after we confirm.",
   },
   {
     n: "03",
@@ -81,6 +81,6 @@ export const PRODUCT_PILLARS = [
   {
     k: "03",
     title: "Wallet & WhatsApp deposits",
-    body: "Message WhatsApp 03072577778, spend credits only when a temp number is issued, and get refunds if SMS never arrives.",
+    body: "Message us on WhatsApp after you sign in, spend credits only when a temp number is issued, and get refunds if SMS never arrives.",
   },
 ] as const;

@@ -22,25 +22,11 @@ export default function SupportPage() {
           Talk to a person
         </h1>
         <p className="mt-3 text-[var(--text-muted)] leading-relaxed">
-          Deposits, missing SMS, or account help — message WhatsApp{" "}
-          <span className="mono-data text-[var(--text)]">03072577778</span> or email us. We reply
-          during business hours.
+          Deposits, missing SMS, or account help — email us, or message us on WhatsApp after you
+          sign in (the number is on Deposit). We reply during business hours.
         </p>
 
         <div className="panel panel-accent mt-8 p-6 space-y-4">
-          <div>
-            <div className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              WhatsApp (deposits + help)
-            </div>
-            <a
-              href="https://wa.me/923072577778"
-              className="mt-1 inline-block text-[var(--accent)] font-medium mono-data"
-              rel="noopener noreferrer"
-            >
-              03072577778
-            </a>
-            <p className="text-sm text-[var(--text-muted)] mt-1">That number only.</p>
-          </div>
           <div>
             <div className="text-xs uppercase tracking-[0.16em] text-[var(--text-muted)]">Email</div>
             <a href={mailto} className="mt-1 inline-block text-[var(--accent)] font-medium break-all">
@@ -53,12 +39,12 @@ export default function SupportPage() {
             <p className="text-sm text-[var(--text-muted)]">Weekend messages answered next business day.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a href="https://wa.me/923072577778" className="btn btn-primary" rel="noopener noreferrer">
-              Open WhatsApp
-            </a>
-            <a href={mailto} className="btn btn-ghost">
+            <a href={mailto} className="btn btn-primary">
               Email support
             </a>
+            <Link href="/register?callbackUrl=/deposit" className="btn btn-ghost">
+              Sign up to deposit
+            </Link>
           </div>
         </div>
 

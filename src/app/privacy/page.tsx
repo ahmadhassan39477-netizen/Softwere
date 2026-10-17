@@ -60,7 +60,7 @@ export default function PrivacyPage() {
             <a href="mailto:support@tempempire.store" className="text-[var(--accent)]">
               support@tempempire.store
             </a>{" "}
-            or WhatsApp 03072577778. See also{" "}
+            . See also{" "}
             <Link href="/terms" className="text-[var(--accent)]">
               Terms
             </Link>{" "}

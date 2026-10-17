@@ -33,10 +33,10 @@ export function BrandWordmark({
   priority?: boolean;
 }) {
   return (
-    <span className="brand-wordmark inline-flex items-center gap-2.5">
+    <span className="brand-wordmark inline-flex min-w-0 items-center gap-2.5">
       <BrandMark size={compact ? 28 : 32} priority={priority} />
       <span
-        className={`font-semibold tracking-[-0.035em] leading-none ${
+        className={`min-w-0 truncate font-semibold tracking-[-0.035em] leading-none ${
           compact ? "text-[1.02rem]" : "text-[1.12rem] sm:text-[1.2rem]"
         }`}
       >

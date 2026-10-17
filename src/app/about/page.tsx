@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicChrome } from "@/components/public-chrome";
+import { REGISTER_DEPOSIT } from "@/lib/guest-links";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 
 export const metadata: Metadata = {
@@ -23,17 +24,16 @@ export default function AboutPage() {
           bank, or household-name OTP brand.
         </p>
         <p className="text-[var(--text-muted)] leading-relaxed">
-          First visit is simple: create an account, add wallet credit on WhatsApp{" "}
-          <span className="mono-data text-[var(--text)]">03072577778</span> (that number only),
-          then buy a number on Services and copy the code from your inbox.
+          First visit is simple: create an account, message us on WhatsApp, we add credit, then buy
+          a number on Services and copy the code from your inbox.
         </p>
         <ol className="panel p-5 space-y-3 text-sm leading-relaxed">
           <li>
             <strong>1. Sign up</strong> — email and password. Guests cannot buy OTP.
           </li>
           <li>
-            <strong>2. Deposit</strong> — message WhatsApp 03072577778 with your account email and
-            amount. Credit appears after we confirm payment.
+            <strong>2. Deposit</strong> — after you sign in, message us on WhatsApp with your
+            account email and amount. Credit appears after we confirm payment.
           </li>
           <li>
             <strong>3. Buy</strong> — pick a country and app on Services. If SMS never arrives,
@@ -49,11 +49,12 @@ export default function AboutPage() {
           <Link href="/support" className="text-[var(--accent)]">
             Contact
           </Link>
-          , email{" "}
+          {" "}
+          or email{" "}
           <a href="mailto:support@tempempire.store" className="text-[var(--accent)]">
             support@tempempire.store
           </a>
-          , or WhatsApp 03072577778. Legal:{" "}
+          . Legal:{" "}
           <Link href="/privacy" className="text-[var(--accent)]">
             Privacy
           </Link>{" "}
@@ -63,7 +64,7 @@ export default function AboutPage() {
           </Link>
           .
         </p>
-        <Link href="/register?callbackUrl=/deposit" className="btn btn-primary inline-flex">
+        <Link href={REGISTER_DEPOSIT} className="btn btn-primary inline-flex">
           Sign up to start
         </Link>
       </article>

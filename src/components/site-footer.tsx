@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import {
+  REGISTER_DEPOSIT,
+  REGISTER_MAIL,
+  REGISTER_SERVICES,
+  REGISTER_UK,
+  REGISTER_USA,
+} from "@/lib/guest-links";
 
 const PRODUCT = [
-  { href: "/register?callbackUrl=/deposit", label: "Sign up" },
-  { href: "/deposit", label: "Deposit" },
-  { href: "/services", label: "Services" },
-  { href: "/buy/usa", label: "US numbers" },
-  { href: "/buy/uk", label: "UK numbers" },
-  { href: "/mail", label: "Temp Mail Plus" },
+  { href: REGISTER_DEPOSIT, label: "Sign up" },
+  { href: REGISTER_DEPOSIT, label: "Deposit" },
+  { href: REGISTER_SERVICES, label: "Services" },
+  { href: REGISTER_USA, label: "US numbers" },
+  { href: REGISTER_UK, label: "UK numbers" },
+  { href: REGISTER_MAIL, label: "Temp Mail Plus" },
 ] as const;
 
 const TRUST = [
@@ -30,9 +37,8 @@ export function SiteFooter() {
             </span>
           </div>
           <p className="text-sm text-[var(--text-muted)] max-w-sm leading-relaxed">
-            Independent shop for private temporary numbers and disposable email. Sign up, add
-            credit on WhatsApp <span className="mono-data">03072577778</span>, then buy a number.
-            Not a phone carrier.
+            Independent shop for private temporary numbers and disposable email. Sign up, message
+            us on WhatsApp, we add credit, then buy a number. Not a phone carrier.
           </p>
         </div>
         <div>
@@ -41,7 +47,7 @@ export function SiteFooter() {
           </div>
           <ul className="space-y-2 text-sm">
             {PRODUCT.map((item) => (
-              <li key={item.href}>
+              <li key={`${item.href}-${item.label}`}>
                 <Link href={item.href} className="hover:text-[var(--accent)]">
                   {item.label}
                 </Link>
@@ -61,15 +67,6 @@ export function SiteFooter() {
                 </Link>
               </li>
             ))}
-            <li>
-              <a
-                href="https://wa.me/923072577778"
-                className="hover:text-[var(--accent)]"
-                rel="noopener noreferrer"
-              >
-                WhatsApp 03072577778
-              </a>
-            </li>
           </ul>
         </div>
       </div>

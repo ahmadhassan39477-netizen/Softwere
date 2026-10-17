@@ -33,9 +33,8 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold tracking-tight">Accounts and payment</h2>
           <p className="text-sm text-[var(--text-muted)] leading-relaxed">
             You must create an account before buying OTP. Wallet credit is added after you pay via
-            WhatsApp <span className="mono-data">03072577778</span> only — nothing is charged
-            automatically. Keep your password private. You are responsible for activity on your
-            account.
+            WhatsApp from the Deposit page after you sign in — nothing is charged automatically.
+            Keep your password private. You are responsible for activity on your account.
           </p>
         </section>
         <section className="space-y-2">
@@ -64,7 +63,7 @@ export default function TermsPage() {
             <a href="mailto:support@tempempire.store" className="text-[var(--accent)]">
               support@tempempire.store
             </a>{" "}
-            or WhatsApp 03072577778. Privacy details are on the{" "}
+            . Privacy details are on the{" "}
             <Link href="/privacy" className="text-[var(--accent)]">
               Privacy Policy
             </Link>
