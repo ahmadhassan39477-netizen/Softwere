@@ -61,7 +61,7 @@ export default function TempMailPage() {
           Temp Mail Plus-style disposable email — sign in to generate a free alias on this OTP
           website.
         </p>
-        <Link href="/login?callbackUrl=%2Ftemp-mail" className="btn btn-primary mt-6 inline-flex">
+        <Link href="/login?callbackUrl=/services" className="btn btn-primary mt-6 inline-flex">
           Sign in
         </Link>
       </div>
