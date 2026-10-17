@@ -29,7 +29,7 @@ Provider and payment secrets are stubbed behind env vars with mock adapters (`US
 ## Key routes
 
 - `/services` — buy OTP (country / service / server / live inbox)
-- `/temp-mail` · `/deposit` · `/orders` · `/api-docs` · `/admin` · `/settings`
+- `/temp-mail` · `/vpn` · `/deposit` · `/orders` · `/api-docs` · `/admin` · `/settings`
 
 Reseller REST: `/api/v1/countries|services|purchase|otp|cancel|balance`
 

@@ -7,6 +7,8 @@ import {
   BookOpen,
   History,
   LogOut,
+  Globe,
+  Mail,
   MessageCircle,
   Settings,
   Wallet,
@@ -96,6 +98,12 @@ export default function AccountPage() {
             Shortcuts
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
+            <Link href="/temp-mail" className="btn btn-ghost text-xs min-h-9 gap-1.5 px-3">
+              <Mail size={14} /> Temp Mail
+            </Link>
+            <Link href="/vpn" className="btn btn-ghost text-xs min-h-9 gap-1.5 px-3">
+              <Globe size={14} /> VPN & Proxy
+            </Link>
             <Link href="/deposit" className="btn btn-ghost text-xs min-h-9 gap-1.5 px-3">
               <Wallet size={14} /> Deposit
             </Link>

@@ -14,4 +14,5 @@ export const REGISTER_FACEBOOK = registerHref("/services?service=facebook");
 /** Footer Deposit still goes through signup; after auth they land on Services. */
 export const REGISTER_DEPOSIT = registerHref("/services");
 export const REGISTER_MAIL = registerHref("/temp-mail");
+export const REGISTER_VPN = registerHref("/vpn");
 export const REGISTER_API = registerHref("/api-docs");

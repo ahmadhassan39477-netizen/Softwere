@@ -3,6 +3,7 @@ import { BrandMark } from "@/components/brand-mark";
 import {
   REGISTER_DEPOSIT,
   REGISTER_MAIL,
+  REGISTER_VPN,
   REGISTER_SERVICES,
   REGISTER_UK,
   REGISTER_USA,
@@ -15,6 +16,7 @@ const PRODUCT = [
   { href: REGISTER_USA, label: "US numbers" },
   { href: REGISTER_UK, label: "UK numbers" },
   { href: REGISTER_MAIL, label: "Temp Mail Plus" },
+  { href: REGISTER_VPN, label: "VPN & Proxy" },
 ] as const;
 
 const TRUST = [

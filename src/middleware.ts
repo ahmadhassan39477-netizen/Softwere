@@ -20,6 +20,7 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/settings",
   "/temp-mail",
+  "/vpn",
   "/admin",
   "/api-docs",
 ];

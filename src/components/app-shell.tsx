@@ -7,6 +7,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid,
+  Globe,
   Mail,
   Wallet,
   History,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 const DESKTOP_NAV = [
   { href: "/services", label: "Services", icon: LayoutGrid },
   { href: "/temp-mail", label: "Temp Mail", icon: Mail },
+  { href: "/vpn", label: "VPN & Proxy", icon: Globe },
   { href: "/deposit", label: "Deposit", icon: Wallet },
   { href: "/orders", label: "Orders", icon: History },
   { href: "/account", label: "Account", icon: UserRound },
@@ -43,6 +45,8 @@ const MOBILE_TABS = [
 
 const PROFILE_LINKS = [
   { href: "/account", label: "Account", icon: UserRound },
+  { href: "/temp-mail", label: "Temp Mail", icon: Mail },
+  { href: "/vpn", label: "VPN & Proxy", icon: Globe },
   { href: "/deposit", label: "Deposit", icon: Wallet },
   { href: "/orders", label: "Orders", icon: History },
   { href: "/api-docs", label: "API Docs", icon: BookOpen },
