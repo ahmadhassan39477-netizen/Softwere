@@ -18,7 +18,20 @@ const PROTECTED_PREFIXES = [
   "/admin",
 ];
 
+/** Google Search Console HTML-file verify + public proof — never send to /register. */
+function isPublicRootHtml(pathname: string) {
+  return (
+    pathname === "/gsc-file-public-check.html" ||
+    /^\/google[a-z0-9]+\.html$/i.test(pathname)
+  );
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (isPublicRootHtml(pathname)) {
+    return NextResponse.next();
+  }
+
   const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
   const proto = (
     request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "")
@@ -35,7 +48,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const { pathname } = request.nextUrl;
   const needsAuth = PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
@@ -67,5 +79,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|gsc-file-public-check.html|google[^/]+\\.html$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|html|txt|xml)$).*)",
+  ],
 };

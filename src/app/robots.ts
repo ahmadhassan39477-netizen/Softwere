@@ -5,7 +5,7 @@ const BASE = "https://www.tempempire.store";
 
 /**
  * Allow Google to crawl brand icons / OG assets for Search favicon + share preview.
- * Do not disallow /favicon.ico, /icon-*.png, /og-image.png, /logo.png, /apple-touch-icon.png.
+ * Do not disallow icons, OG assets, or Google Search Console /google*.html verify files.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -23,6 +23,7 @@ export default function robots(): MetadataRoute.Robots {
           "/og-image.png",
           "/logo.png",
           "/brand/",
+          "/gsc-file-public-check.html",
         ],
         // No Disallow of icon or preview assets
       },
