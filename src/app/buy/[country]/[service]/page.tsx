@@ -68,7 +68,7 @@ export default async function BuySeoPage({ params }: Props) {
   const paragraphs = body.split("\n\n");
   const faqs = seoServiceFaqs(country, service);
   const related = SEO_SERVICES.filter((s) => s.slug !== service.slug).slice(0, 6);
-  const registerHref = `/register?callbackUrl=${encodeURIComponent("/deposit")}`;
+  const registerHref = `/register?callbackUrl=${encodeURIComponent(`/services?country=${country.code}&service=${service.slug}`)}`;
 
   return (
     <div className="min-h-screen">

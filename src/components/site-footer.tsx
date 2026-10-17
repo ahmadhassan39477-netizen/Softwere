@@ -9,7 +9,7 @@ import {
 } from "@/lib/guest-links";
 
 const PRODUCT = [
-  { href: REGISTER_DEPOSIT, label: "Sign up" },
+  { href: REGISTER_SERVICES, label: "Sign up" },
   { href: REGISTER_DEPOSIT, label: "Deposit" },
   { href: REGISTER_SERVICES, label: "Services" },
   { href: REGISTER_USA, label: "US numbers" },

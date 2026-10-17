@@ -55,7 +55,7 @@ export default async function BuyCountryHubPage({ params }: Props) {
   const h1 = seoHubH1(country);
   const paragraphs = seoHubArticle(country).split("\n\n");
   const faqs = seoHubFaqs(country);
-  const registerHref = `/register?callbackUrl=${encodeURIComponent("/deposit")}`;
+  const registerHref = `/register?callbackUrl=${encodeURIComponent(`/services?country=${country.code}`)}`;
 
   return (
     <div className="min-h-screen">

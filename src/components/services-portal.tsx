@@ -665,10 +665,10 @@ export function ServicesPortal() {
           Create an account or sign in first — then you can buy numbers and receive OTP codes.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link href="/register?callbackUrl=/deposit" className="btn btn-primary inline-flex">
+          <Link href="/register?callbackUrl=/services" className="btn btn-primary inline-flex">
             Create account
           </Link>
-          <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost inline-flex">
+          <Link href="/login?callbackUrl=/services" className="btn btn-ghost inline-flex">
             Sign in
           </Link>
         </div>

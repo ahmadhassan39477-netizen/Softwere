@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicChrome } from "@/components/public-chrome";
-import { REGISTER_DEPOSIT } from "@/lib/guest-links";
+import { REGISTER_SERVICES } from "@/lib/guest-links";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 
 export const metadata: Metadata = {
@@ -64,7 +64,7 @@ export default function AboutPage() {
           </Link>
           .
         </p>
-        <Link href={REGISTER_DEPOSIT} className="btn btn-primary inline-flex">
+        <Link href={REGISTER_SERVICES} className="btn btn-primary inline-flex">
           Sign up to start
         </Link>
       </article>

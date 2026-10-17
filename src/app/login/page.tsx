@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { FormEvent, useMemo, useState } from "react";
 import { BrandWordmark } from "@/components/brand-mark";
 import { PasswordField } from "@/components/password-field";
-import { DEFAULT_POST_AUTH, postAuthDestination, sessionBalance } from "@/lib/post-auth";
+import { DEFAULT_POST_AUTH, postAuthDestination } from "@/lib/post-auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,18 +21,19 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const raw =
+    const next = postAuthDestination(
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("callbackUrl")
-        : callbackUrl;
+        : callbackUrl,
+    );
     const res = await signIn("credentials", {
       email,
       password,
       redirect: false,
-      callbackUrl: DEFAULT_POST_AUTH,
+      callbackUrl: next,
     });
+    setLoading(false);
     if (!res || res.error) {
-      setLoading(false);
       setError(
         res?.error === "CredentialsSignin"
           ? "Invalid email or password"
@@ -40,8 +41,7 @@ export default function LoginPage() {
       );
       return;
     }
-    const balance = await sessionBalance();
-    window.location.assign(postAuthDestination(raw, balance));
+    window.location.assign(next);
   }
 
   return (
@@ -81,7 +81,7 @@ export default function LoginPage() {
         </button>
         <p className="text-sm text-[var(--text-muted)] text-center">
           No account?{" "}
-          <Link href="/register?callbackUrl=/deposit" className="text-[var(--accent)]">
+          <Link href="/register?callbackUrl=/services" className="text-[var(--accent)]">
             Create account
           </Link>
         </p>

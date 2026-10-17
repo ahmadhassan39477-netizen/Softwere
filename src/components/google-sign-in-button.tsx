@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
-export function GoogleSignInButton({ callbackUrl = "/deposit" }: { callbackUrl?: string }) {
+export function GoogleSignInButton({ callbackUrl = "/services" }: { callbackUrl?: string }) {
   const [googleReady, setGoogleReady] = useState<boolean | null>(null);
   const [message, setMessage] = useState("");
 

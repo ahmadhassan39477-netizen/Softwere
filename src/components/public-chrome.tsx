@@ -10,11 +10,11 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
           <BrandWordmark priority />
         </Link>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost !hidden md:!inline-flex">
+          <Link href="/login?callbackUrl=/services" className="btn btn-ghost !hidden md:!inline-flex">
             Sign in
           </Link>
           <Link
-            href="/register?callbackUrl=/deposit"
+            href="/register?callbackUrl=/services"
             className="btn btn-primary shrink-0 whitespace-nowrap text-sm !px-3 !min-h-10 sm:!px-4"
           >
             Sign up

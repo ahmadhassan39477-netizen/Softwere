@@ -33,7 +33,6 @@ import { TrustFacts } from "@/components/trust-facts";
 import {
   REGISTER_API,
   REGISTER_CANADA,
-  REGISTER_DEPOSIT,
   REGISTER_FACEBOOK,
   REGISTER_MAIL,
   REGISTER_SERVICES,
@@ -169,11 +168,11 @@ export default function LandingPage() {
           <Link href="/about" className="btn btn-ghost !hidden md:!inline-flex">
             About
           </Link>
-          <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost !hidden md:!inline-flex">
+          <Link href="/login?callbackUrl=/services" className="btn btn-ghost !hidden md:!inline-flex">
             Sign in
           </Link>
           <Link
-            href={REGISTER_DEPOSIT}
+            href={REGISTER_SERVICES}
             className="btn btn-primary shrink-0 whitespace-nowrap text-sm !px-3 !min-h-10 sm:!px-4"
           >
             Sign up
@@ -274,7 +273,7 @@ export default function LandingPage() {
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 className="rounded-full"
               >
-                <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
+                <Link href={REGISTER_SERVICES} className="btn btn-primary">
                   Sign up to buy <ArrowRight size={16} />
                 </Link>
               </motion.div>
@@ -519,7 +518,7 @@ export default function LandingPage() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
         >
-          <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
+          <Link href={REGISTER_SERVICES} className="btn btn-primary">
             Sign up, then deposit <ArrowRight size={16} />
           </Link>
         </motion.div>
@@ -639,7 +638,7 @@ export default function LandingPage() {
             <Link href={REGISTER_API} className="btn btn-primary">
               Read API docs <ArrowRight size={16} />
             </Link>
-            <Link href={REGISTER_DEPOSIT} className="btn btn-ghost">
+            <Link href={REGISTER_SERVICES} className="btn btn-ghost">
               Create account
             </Link>
           </div>
@@ -771,10 +770,10 @@ export default function LandingPage() {
             Enter the portal.
           </h2>
           <div className="mt-8 flex justify-center gap-3 flex-wrap">
-            <Link href={REGISTER_DEPOSIT} className="btn btn-primary">
+            <Link href={REGISTER_SERVICES} className="btn btn-primary">
               Sign up to start <ArrowRight size={16} />
             </Link>
-            <Link href="/login?callbackUrl=/deposit" className="btn btn-ghost">
+            <Link href="/login?callbackUrl=/services" className="btn btn-ghost">
               Sign in
             </Link>
           </div>

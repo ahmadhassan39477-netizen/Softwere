@@ -151,7 +151,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
         baseUrl;
       const toApp = (pathAndSearch: string) =>
-        `${configured}${postAuthDestination(pathAndSearch, 0)}`;
+        `${configured}${postAuthDestination(pathAndSearch)}`;
       if (url.startsWith("/")) return toApp(url);
       try {
         const target = new URL(url);
