@@ -9,6 +9,7 @@ import {
   DEFAULT_SLOT_MARKUP,
   ensureProviderSlots,
   envKeyForType,
+  looksLikeApiDocsUrl,
   sanitizeApiKeyForType,
   slotKeyForServer,
   type SlotProviderType,
@@ -69,20 +70,37 @@ export async function POST(req: NextRequest) {
       if (cfgKey) candidates.push({ source: "legacy-providerConfig:5sim", key: cfgKey });
 
       // Env only if that wallet actually has credit (her deposit account)
-      const envRaw = envKeyForType(type);
-      const envKey = sanitizeApiKeyForType(type, envRaw);
-      if (envKey) {
+      const envRaw = envKeyForType(type)?.trim() || "";
+      if (!envRaw) {
+        results[`${slotKey}:env`] = {
+          repaired: false,
+          note: "No FIVESIM env var set",
+        };
+      } else if (looksLikeApiDocsUrl(envRaw) || !sanitizeApiKeyForType(type, envRaw)) {
+        results[`${slotKey}:env`] = {
+          repaired: false,
+          note: "FIVESIM env looks like a URL/junk — not a profile API key (not copied)",
+        };
+      } else {
+        const envKey = sanitizeApiKeyForType(type, envRaw)!;
         const envProbe = await probeFiveSimApiKey(envKey);
         if (envProbe.ok && envProbe.balance != null && envProbe.balance > 0) {
           candidates.push({ source: "env:FIVESIM_API_KEY(balance>0)", key: envKey });
+          results[`${slotKey}:env`] = {
+            repaired: false,
+            note: "Env 5SIM key has balance — will copy onto slot",
+            balance: envProbe.balance,
+            masked: maskKey(envKey),
+          };
         } else {
-          results[`${slotKey}:env-skipped`] = {
+          results[`${slotKey}:env`] = {
             repaired: false,
             note:
               envProbe.ok && (envProbe.balance == null || envProbe.balance <= 0)
                 ? "Env 5SIM key has empty wallet — not copied (would buy-fail)"
-                : "Env 5SIM key rejected or missing — not copied",
+                : "Env 5SIM key rejected by provider — not copied",
             balance: envProbe.balance,
+            masked: maskKey(envKey),
           };
         }
       }
