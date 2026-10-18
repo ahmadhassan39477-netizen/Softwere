@@ -1163,7 +1163,7 @@ export function ServicesPortal() {
                             </div>
                             <div className="text-right text-[11px] text-[var(--text-muted)]">
                               <div className="inline-flex items-center gap-1">
-                                <Clock size={12} /> 5 min window
+                                <Clock size={12} /> 20 min window
                               </div>
                               <div className="mt-0.5">{pool.label}</div>
                             </div>
