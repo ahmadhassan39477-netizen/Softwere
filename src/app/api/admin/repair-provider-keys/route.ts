@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
   > = {};
 
   // --- Server 1 = 5SIM ---
+  // Scan every ProviderSetting / ProviderConfig row (wrong-slot pastes) + env
+  // with balance>0. Never return or log raw tokens.
   {
     const slotKey = slotKeyForServer(1);
     const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
@@ -59,15 +61,38 @@ export async function POST(req: NextRequest) {
           ? "Slot already has a key"
           : "Slot key present but provider rejected it",
       };
+      if (row && !row.enabled && probe.ok) {
+        await prisma.providerSetting.update({
+          where: { key: slotKey },
+          data: { enabled: true },
+        });
+        results[slotKey].enabled = true;
+        results[slotKey].note = "Re-enabled existing Server 1 key";
+      }
     } else {
       const candidates: Candidate[] = [];
-      const legacy = await prisma.providerSetting.findUnique({ where: { key: "5sim" } });
-      const leg = sanitizeApiKeyForType(type, legacy?.apiKey);
-      if (leg) candidates.push({ source: "legacy-providerSetting:5sim", key: leg });
+      const seen = new Set<string>();
+      const pushCand = (source: string, raw: string | null | undefined) => {
+        const cleaned = sanitizeApiKeyForType(type, raw);
+        if (!cleaned || seen.has(cleaned)) return;
+        seen.add(cleaned);
+        candidates.push({ source, key: cleaned });
+      };
 
-      const cfg = await prisma.providerConfig.findUnique({ where: { key: "5sim" } });
-      const cfgKey = sanitizeApiKeyForType(type, cfg?.apiKey);
-      if (cfgKey) candidates.push({ source: "legacy-providerConfig:5sim", key: cfgKey });
+      const settingRows = await prisma.providerSetting.findMany({
+        select: { key: true, apiKey: true, providerType: true },
+      });
+      for (const s of settingRows) {
+        if (s.key === slotKey) continue;
+        pushCand(`providerSetting:${s.key}`, s.apiKey);
+      }
+
+      const configRows = await prisma.providerConfig.findMany({
+        select: { key: true, apiKey: true },
+      });
+      for (const c of configRows) {
+        pushCand(`providerConfig:${c.key}`, c.apiKey);
+      }
 
       // Env only if that wallet actually has credit (her deposit account)
       const envRaw = envKeyForType(type)?.trim() || "";
@@ -85,7 +110,7 @@ export async function POST(req: NextRequest) {
         const envKey = sanitizeApiKeyForType(type, envRaw)!;
         const envProbe = await probeFiveSimApiKey(envKey);
         if (envProbe.ok && envProbe.balance != null && envProbe.balance > 0) {
-          candidates.push({ source: "env:FIVESIM_API_KEY(balance>0)", key: envKey });
+          pushCand("env:FIVESIM_API_KEY(balance>0)", envKey);
           results[`${slotKey}:env`] = {
             repaired: false,
             note: "Env 5SIM key has balance — will copy onto slot",
@@ -105,12 +130,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      results[`${slotKey}:scan`] = {
+        repaired: false,
+        note: `Probing ${candidates.length} stored candidate(s) against 5SIM profile`,
+      };
+
       let applied: { source: string; key: string; balance: number | null } | null =
         null;
+      let probedOk = 0;
       for (const c of candidates) {
         const probe = await probeFiveSimApiKey(c.key);
         if (!probe.ok) continue;
-        // Prefer any valid key; prefer positive balance when available
+        probedOk += 1;
+        // Prefer positive balance (her topped-up wallet); keep first valid otherwise
         if (probe.balance != null && probe.balance > 0) {
           applied = { source: c.source, key: c.key, balance: probe.balance };
           break;
@@ -119,6 +151,7 @@ export async function POST(req: NextRequest) {
           applied = { source: c.source, key: c.key, balance: probe.balance };
         }
       }
+      results[`${slotKey}:scan`].note = `Probed ${candidates.length} candidate(s); ${probedOk} accepted by 5SIM`;
 
       if (applied) {
         await prisma.providerSetting.update({
@@ -158,7 +191,7 @@ export async function POST(req: NextRequest) {
       } else {
         results[slotKey] = {
           repaired: false,
-          note: "No usable 5SIM token found in legacy/config/env-with-balance",
+          note: "No usable 5SIM profile token in any ProviderSetting/ProviderConfig/env-with-balance",
         };
       }
     }

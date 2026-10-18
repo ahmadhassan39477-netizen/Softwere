@@ -370,13 +370,31 @@ export async function PATCH(req: NextRequest) {
 
   const markupOut = Number(updated.markupPercent) || DEFAULT_SLOT_MARKUP;
 
+  const savedKey = sanitizeApiKeyForType(
+    isSlotProviderType(updated.providerType) ? updated.providerType : "sms-activate",
+    updated.apiKey,
+  );
+  const buyReady =
+    updated.enabled &&
+    Boolean(savedKey) &&
+    probedFiveSimBalance != null &&
+    probedFiveSimBalance > 0;
+
   return Response.json({
     provider: {
       key: updated.key,
       slot: updated.priority,
       providerType: updated.providerType,
       enabled: updated.enabled,
-      hasApiKey: Boolean(updated.apiKey),
+      hasApiKey: Boolean(savedKey),
+      apiKeyMasked: savedKey ? maskKey(savedKey) : maskKey(null),
+      balance:
+        probedFiveSimBalance != null
+          ? probedFiveSimBalance
+          : updated.lastBalance != null
+            ? Number(updated.lastBalance)
+            : null,
+      buyReady,
       markupPercent: String(markupOut),
       baseUrl: updated.baseUrl,
       priority: updated.priority,

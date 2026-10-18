@@ -76,6 +76,8 @@ export default function AdminPage() {
   const [vpnMarkup, setVpnMarkup] = useState("20");
   const [vpnDisplay, setVpnDisplay] = useState("VPN & Proxy");
   const [vpnBase, setVpnBase] = useState("https://api.proxy-cheap.com");
+  const [keyFieldUnlocked, setKeyFieldUnlocked] = useState<Record<string, boolean>>({});
+  const [repairTried, setRepairTried] = useState(false);
 
   const stats = useQuery({
     queryKey: ["admin-stats"],
@@ -208,7 +210,14 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Update failed");
       return data as {
-        provider?: { key: string; enabled: boolean; hasApiKey: boolean };
+        provider?: {
+          key: string;
+          enabled: boolean;
+          hasApiKey: boolean;
+          apiKeyMasked?: string;
+          balance?: number | null;
+          buyReady?: boolean;
+        };
       };
     },
     onMutate: async (payload) => {
@@ -232,21 +241,28 @@ export default function AdminPage() {
       return { prev };
     },
     onSuccess: (data, payload) => {
+      const savedKeyOk =
+        payload.apiKey !== undefined && Boolean(data.provider?.hasApiKey);
       setMsg(
         typeof payload.enabled === "boolean"
           ? payload.enabled
             ? "Enabled — stays on after refresh when a valid key is saved."
             : "Disabled."
-          : "Saved.",
+          : savedKeyOk
+            ? `Key saved on ${data.provider?.key ?? "slot"} — stays after refresh.`
+            : payload.apiKey !== undefined
+              ? "Save did not store a key (rejected)."
+              : "Saved.",
       );
-      if (payload.apiKey !== undefined) {
+      // Only clear draft after a confirmed store — keep text on reject so she can see what failed
+      if (savedKeyOk && typeof payload.key === "string") {
         setKeyDrafts((prev) => {
           const next = { ...prev };
-          if (typeof payload.key === "string") delete next[payload.key];
+          delete next[payload.key as string];
           return next;
         });
       }
-      // Keep optimistic enabled from PATCH response before slow probe=1 refetch
+      // Keep optimistic slot state from PATCH before slow probe=1 refetch
       if (data.provider?.key) {
         qc.setQueryData(["admin-provider-settings"], (old: unknown) => {
           if (!old || typeof old !== "object") return old;
@@ -260,6 +276,22 @@ export default function AdminPage() {
                     ...p,
                     enabled: data.provider!.enabled,
                     hasApiKey: data.provider!.hasApiKey || p.hasApiKey,
+                    apiKeyMasked:
+                      data.provider!.apiKeyMasked ??
+                      (data.provider!.hasApiKey ? p.apiKeyMasked : p.apiKeyMasked),
+                    balance:
+                      data.provider!.balance !== undefined
+                        ? data.provider!.balance
+                        : p.balance,
+                    buyReady:
+                      data.provider!.buyReady !== undefined
+                        ? data.provider!.buyReady
+                        : p.buyReady,
+                    buyBlockedReason: data.provider!.hasApiKey
+                      ? data.provider!.buyReady
+                        ? null
+                        : "no_balance"
+                      : "no_key",
                   }
                 : p,
             ),
@@ -272,9 +304,66 @@ export default function AdminPage() {
       if (ctx && typeof ctx === "object" && "prev" in ctx && ctx.prev !== undefined) {
         qc.setQueryData(["admin-provider-settings"], ctx.prev);
       }
+      // Keep key draft so a rejected paste is visible; do not claim Saved
       setMsg(e.message);
     },
   });
+
+  const repairKeys = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/repair-provider-keys", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Repair failed");
+      return data as {
+        ok?: boolean;
+        results?: Record<
+          string,
+          { repaired?: boolean; masked?: string; balance?: number | null; note?: string; source?: string }
+        >;
+      };
+    },
+    onSuccess: (data) => {
+      const s1 = data.results?.["server-1"];
+      if (s1?.repaired) {
+        setMsg(
+          `Server 1 repaired from ${s1.source ?? "stored key"}${
+            s1.balance != null ? ` · $${s1.balance}` : ""
+          }`,
+        );
+      } else {
+        setMsg(s1?.note ?? "Repair finished — no usable 5SIM token found in DB.");
+      }
+      qc.invalidateQueries({ queryKey: ["admin-provider-settings"] });
+    },
+    onError: (e: Error) => setMsg(e.message),
+  });
+
+  // One auto-repair when Server 1 is Enabled but empty (owner should not re-paste)
+  useEffect(() => {
+    if (repairTried) return;
+    const s1 = settings.data?.providers?.find((p) => p.key === "server-1");
+    if (!s1 || s1.hasApiKey || !s1.enabled) return;
+    setRepairTried(true);
+    void fetch("/api/admin/repair-provider-keys", { method: "POST" })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as {
+          results?: Record<
+            string,
+            { repaired?: boolean; masked?: string; balance?: number | null; note?: string; source?: string }
+          >;
+        };
+        const s1r = data.results?.["server-1"];
+        if (s1r?.repaired) {
+          setMsg(
+            `Server 1 repaired from ${s1r.source ?? "stored key"}${
+              s1r.balance != null ? ` · $${s1r.balance}` : ""
+            }`,
+          );
+        }
+        await qc.invalidateQueries({ queryKey: ["admin-provider-settings"] });
+      })
+      .catch(() => undefined);
+  }, [settings.data?.providers, repairTried, qc]);
 
   const saveWa = useMutation({
     mutationFn: async () => {
@@ -666,17 +755,25 @@ export default function AdminPage() {
       </div>
 
       <div className="panel p-5" data-testid="admin-server-slots">
-        <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
-        <p className="text-xs text-[var(--text-muted)] mb-4">
-          Each server is a slot: pick provider type, paste API key, set margin %. Default margin
-          is {settings.data?.grizzlyDefaultMarkup ?? 20}% for all servers (retail = wholesale ×
-          1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man.
-          5SIM: 5sim.net → Profile / Settings → copy the API key only (not a GET/product-balance
-          URL). Grizzly: paste api_key from grizzlysms.com. SMS-Man: Profile token only — never a
-          get-sms docs URL. Click Save key (stores token + turns Enabled on), or toggle Enabled
-          after a key is saved — Enabled must still say Enabled after refresh. Customer /services
-          never shows wholesale brand names. Keys stay in Admin — never shared in chat.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
+            <p className="text-xs text-[var(--text-muted)]">
+              Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man. Margin{" "}
+              {settings.data?.grizzlyDefaultMarkup ?? 20}% (retail = wholesale × 1.20). A saved
+              key stays after refresh; URL/docs pastes are rejected. Customer /services never
+              shows wholesale brand names. Keys stay in Admin — never in chat.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost text-sm"
+            disabled={repairKeys.isPending}
+            onClick={() => repairKeys.mutate()}
+          >
+            {repairKeys.isPending ? "Repairing…" : "Repair empty keys"}
+          </button>
+        </div>
         <div className="space-y-4">
           {providers.map((p) => {
             const types = mergeProviderTypes(settings.data?.providerTypes);
@@ -724,12 +821,12 @@ export default function AdminPage() {
                     {p.enabled && !p.hasApiKey ? (
                       <div className="text-xs text-amber-400 mt-1">
                         {type === "5sim" && p.envJunkUrl
-                          ? "Vercel FIVESIM env is a URL/docs paste, not a profile API key — it cannot buy. Paste the API key from the same 5sim.net account that has the deposit into Save key below."
+                          ? "Server 1 has no profile API key in the database. Vercel FIVESIM env is URL junk (ignored for buy). Repair Empty Keys scans every stored slot/config for a real 5SIM token with balance."
                           : type === "5sim"
-                            ? "No API key on this Admin slot. Live prices can show from the public catalog; buy needs the profile API key from the 5SIM account you topped up — Save key below."
+                            ? "Server 1 has no profile API key on this slot. Live prices can show from the public catalog; buy stays blocked until a real 5SIM profile token is on Server 1."
                             : p.envConfigured
-                              ? "Save the API key from the provider account you topped up (env leftovers are not used for buy)."
-                              : "Enabled but no API key on this server slot — paste the key once and click Save key (Enable alone does not store a key)."}
+                              ? "No Admin key on this slot (env leftover is not used for buy)."
+                              : "Enabled but no API key on this server slot — Enable alone does not store a key."}
                       </div>
                     ) : null}
                     {p.enabled && p.hasApiKey && !(Number(p.balance) > 0) ? (
@@ -874,13 +971,19 @@ export default function AdminPage() {
                       className="input w-full font-mono text-sm"
                       type="text"
                       inputMode="text"
-                      autoComplete="off"
+                      autoComplete="new-password"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      name={`slot-api-key-${p.key}`}
+                      name={`te-slot-key-${p.key}`}
+                      id={`te-slot-key-${p.key}`}
                       data-1p-ignore="true"
                       data-lpignore="true"
+                      data-form-type="other"
+                      readOnly={!keyFieldUnlocked[p.key]}
+                      onFocus={() =>
+                        setKeyFieldUnlocked((prev) => ({ ...prev, [p.key]: true }))
+                      }
                       placeholder={keyPlaceholder}
                       value={keyDrafts[p.key] ?? ""}
                       onChange={(e) =>
@@ -892,12 +995,17 @@ export default function AdminPage() {
                     type="button"
                     className="btn btn-ghost text-sm mt-0.5"
                     disabled={patch.isPending || !(keyDrafts[p.key] ?? "").trim()}
-                    onClick={() =>
+                    onClick={() => {
+                      const raw = (keyDrafts[p.key] ?? "").trim();
+                      if (!raw) {
+                        setMsg("Nothing to save — key field is empty.");
+                        return;
+                      }
                       patch.mutate({
                         key: p.key,
-                        apiKey: (keyDrafts[p.key] ?? "").trim() || null,
-                      })
-                    }
+                        apiKey: raw,
+                      });
+                    }}
                   >
                     Save key
                   </button>
