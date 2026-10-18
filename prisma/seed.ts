@@ -187,8 +187,8 @@ async function main() {
   await prisma.setting.createMany({
     data: [
       { key: "global_markup_percent", value: String(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20") },
-      { key: "order_ttl_minutes", value: "5" },
-      { key: "cancel_window_seconds", value: "300" },
+      { key: "order_ttl_minutes", value: "20" },
+      { key: "cancel_window_seconds", value: "1200" },
       { key: "temp_mail_provider", value: "mailtm" },
     ],
   });

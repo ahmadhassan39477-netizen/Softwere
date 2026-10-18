@@ -21,6 +21,11 @@ export type BuyResult = {
   serverSlot?: 1 | 2 | 3;
   /** Slot markup % used for retail (default 20 → × 1.20) */
   markupPercent?: number;
+  /**
+   * Provider-reported activation deadline (e.g. 5SIM `expires`).
+   * Shop wait window = max(floor TTL, this time).
+   */
+  providerExpiresAt?: Date;
 };
 
 export type SmsStatus = {

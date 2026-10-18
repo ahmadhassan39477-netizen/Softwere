@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AllProvidersFailedError } from "@/lib/sms/types";
 import { smsAggregator, serverNumberForProvider } from "@/lib/sms/aggregator";
+import { resolveOrderTtlMinutes } from "@/lib/sms/order-lifecycle";
 import {
   CUSTOMER_BUY_FAILED,
   CUSTOMER_NO_STOCK,
@@ -96,8 +97,8 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   }
 
   const ttlSetting = await prisma.setting.findUnique({ where: { key: "order_ttl_minutes" } });
-  const ttlMin = Number(ttlSetting?.value ?? 5);
-  const expiresAt = new Date(Date.now() + Math.max(1, ttlMin) * 60_000);
+  const ttlMin = resolveOrderTtlMinutes(ttlSetting?.value);
+  let expiresAt = new Date(Date.now() + ttlMin * 60_000);
 
   let purchase;
   try {
@@ -137,6 +138,15 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
       ),
       { status: 502 },
     );
+  }
+
+  // Honor provider activation deadline when longer than the 20-minute floor
+  if (
+    purchase.providerExpiresAt instanceof Date &&
+    !Number.isNaN(purchase.providerExpiresAt.getTime()) &&
+    purchase.providerExpiresAt.getTime() > expiresAt.getTime()
+  ) {
+    expiresAt = purchase.providerExpiresAt;
   }
 
   const serverUsed =

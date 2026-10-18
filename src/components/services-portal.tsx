@@ -130,6 +130,31 @@ function useCountdown(expiresAt?: string) {
   return { left, label: `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` };
 }
 
+/** Full SMS with OTP digits highlighted — keep entire message readable. */
+function OtpSmsBody({ message, code }: { message: string; code?: string | null }) {
+  const text = message.trim();
+  if (!text) return null;
+  const otp = code?.trim();
+  if (!otp || !text.includes(otp)) {
+    return <p className="mt-2 text-sm text-[var(--text)] leading-relaxed break-words">{text}</p>;
+  }
+  const parts = text.split(otp);
+  return (
+    <p className="mt-2 text-sm text-[var(--text)] leading-relaxed break-words">
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 ? (
+            <mark className="mx-0.5 rounded px-1.5 py-0.5 font-mono text-base font-bold tracking-[0.12em] bg-[color-mix(in_oklab,var(--accent)_28%,transparent)] text-[var(--accent)]">
+              {otp}
+            </mark>
+          ) : null}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function useIsDesktop() {
   const [desktop, setDesktop] = useState(false);
   useEffect(() => {
@@ -168,11 +193,13 @@ function LiveOrderPanel({
   return (
     <motion.section
       ref={panelRef}
+      tabIndex={-1}
+      id={`live-order-${order.id}`}
       initial={{ opacity: 0, y: -28, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
-      className={`panel panel-accent relative overflow-hidden p-4 sm:p-5 ring-2 ring-[var(--accent)] ${
+      className={`panel panel-accent relative overflow-hidden p-4 sm:p-5 ring-2 ring-[var(--accent)] outline-none ${
         waiting ? "live-pulse" : ""
       }`}
     >
@@ -222,8 +249,8 @@ function LiveOrderPanel({
           <div className="text-xs text-[var(--text-muted)] mb-1">OTP code</div>
           <div className="flex gap-2">
             <code
-              className={`flex-1 panel px-3 py-3 font-mono text-lg tracking-[0.14em] min-h-[48px] ${
-                order.otpCode ? "text-[var(--accent)] font-semibold" : "text-[var(--text-muted)]"
+              className={`flex-1 panel px-3 py-3 font-mono text-2xl sm:text-3xl tracking-[0.18em] min-h-[56px] flex items-center ${
+                order.otpCode ? "text-[var(--accent)] font-bold" : "text-[var(--text-muted)] text-lg tracking-normal font-medium"
               }`}
             >
               {order.otpCode ?? (waiting ? "Waiting for SMS…" : "—")}
@@ -239,9 +266,14 @@ function LiveOrderPanel({
               </button>
             )}
           </div>
-          {order.otpMessage && (
-            <p className="mt-2 text-xs text-[var(--text-muted)]">{order.otpMessage}</p>
-          )}
+          {order.otpMessage ? (
+            <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-1">
+                Full SMS
+              </div>
+              <OtpSmsBody message={order.otpMessage} code={order.otpCode} />
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -265,7 +297,7 @@ function LiveOrderPanel({
         <p className="text-xs text-[var(--text-muted)]">
           {hasCode
             ? "OTP received — this card stays here until you dismiss. Account history keeps the order."
-            : "This card stays on Services if you leave and come back. Cancel within 5 minutes for a refund, or auto-refund if no SMS."}
+            : "This card stays on Services if you leave and come back. You have at least 20 minutes (or the provider wait if longer). Cancel anytime unused for a refund; auto-refund if no SMS when the timer ends."}
         </p>
       </div>
     </motion.section>
@@ -284,7 +316,6 @@ export function ServicesPortal() {
   const [liveOrders, setLiveOrders] = useState<ActiveOrder[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [orderFlash, setOrderFlash] = useState(0);
   const activeOrderRef = useRef<HTMLDivElement | null>(null);
   // Mobile wizard: hide country list after pick so user focuses on numbers
   const [mobileStep, setMobileStep] = useState<MobileStep>("country");
@@ -414,15 +445,25 @@ export function ServicesPortal() {
       setError("");
       const order = { ...data.order, otpCode: data.order.otpCode ?? null };
       setLiveOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
-      setMobileStep("order");
-      setOrderFlash((n) => n + 1);
+      // Keep catalog on the "services" step so countries/services do not unmount
+      setMobileStep("services");
       await update();
-      qc.invalidateQueries({ queryKey: ["services"] });
+      // Soft refresh history only — do not blank the services catalog
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      const scrollToPanel = () => {
+        const el =
+          activeOrderRef.current ??
+          document.getElementById(`live-order-${order.id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (el instanceof HTMLElement) el.focus({ preventScroll: true });
+      };
       window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, behavior: "smooth" });
-        activeOrderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        scrollToPanel();
+        window.setTimeout(scrollToPanel, 120);
+        window.setTimeout(scrollToPanel, 360);
       });
     },
     onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
@@ -668,8 +709,11 @@ export function ServicesPortal() {
     );
   }
 
-  const showCountries = isDesktop || mobileStep === "country";
-  const showServices = isDesktop || mobileStep === "services";
+  // Catalog must stay mounted while a live OTP card is showing (no full-page blank)
+  const hasLivePanel = liveOrders.length > 0;
+  const showCountries = isDesktop || mobileStep === "country" || hasLivePanel;
+  const showServices =
+    isDesktop || mobileStep === "services" || mobileStep === "order" || hasLivePanel;
   const showOrder = isDesktop || mobileStep === "order" || (mobileStep === "services" && !!active);
 
   const pool = SERVER_POOLS.find((p) => p.id === server) ?? SERVER_POOLS[0];
@@ -794,7 +838,7 @@ export function ServicesPortal() {
       <AnimatePresence>
         {liveOrders.map((order, idx) => (
           <LiveOrderPanel
-            key={`live-${order.id}-${idx === 0 ? orderFlash : 0}`}
+            key={`live-${order.id}`}
             order={order}
             panelRef={idx === 0 ? activeOrderRef : undefined}
             copied={copied}
@@ -1201,7 +1245,7 @@ export function ServicesPortal() {
                 <p>Buy a number — the OTP card stays on top of Services until you Cancel.</p>
                 <ul className="space-y-2">
                   {[
-                    { icon: Clock, t: "5-minute wait · stays if you leave" },
+                    { icon: Clock, t: "20+ minute wait · stays if you leave" },
                     { icon: ShieldCheck, t: "Cancel refund or dismiss after OTP" },
                     { icon: Copy, t: "Phone & OTP copy buttons" },
                   ].map((row, i) => (

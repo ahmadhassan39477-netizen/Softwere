@@ -135,16 +135,16 @@ export async function ensureCatalogSeeded(): Promise<void> {
         update: { enabled: true },
       });
 
-      // 5-minute OTP window + cancel/auto-refund (was 15m / 2m)
+      // ≥20-minute OTP wait + cancel/auto-refund (provider may extend further)
       await prisma.setting.upsert({
         where: { key: "order_ttl_minutes" },
-        create: { key: "order_ttl_minutes", value: "5" },
-        update: { value: "5" },
+        create: { key: "order_ttl_minutes", value: "20" },
+        update: { value: "20" },
       });
       await prisma.setting.upsert({
         where: { key: "cancel_window_seconds" },
-        create: { key: "cancel_window_seconds", value: "300" },
-        update: { value: "300" },
+        create: { key: "cancel_window_seconds", value: "1200" },
+        update: { value: "1200" },
       });
       await prisma.setting.upsert({
         where: { key: "global_markup_percent" },

@@ -8,6 +8,7 @@ import {
   SmsStatus,
 } from "../types";
 import { FIVESIM_COUNTRY, FIVESIM_PRODUCT } from "../service-map";
+import { extractOtpCode } from "../sa-status";
 
 const USER_API = "https://5sim.net/v1/user";
 const GUEST_API = "https://5sim.net/v1/guest";
@@ -107,27 +108,49 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
       if (status === 402 || /balance/i.test(text)) throw new ProviderBalanceError("NO_BALANCE");
       if (!ok) throw new Error(text.slice(0, 120) || `http_${status}`);
 
-      const data = json as { id?: number | string; phone?: string; price?: number };
+      const data = json as {
+        id?: number | string;
+        phone?: string;
+        price?: number;
+        expires?: string;
+      };
       if (!data?.id || !data?.phone) throw new Error("incomplete_response");
+      let providerExpiresAt: Date | undefined;
+      if (data.expires) {
+        const d = new Date(data.expires);
+        if (!Number.isNaN(d.getTime())) providerExpiresAt = d;
+      }
       return {
         providerKey: "5sim",
         providerOrderId: String(data.id),
         phoneNumber: data.phone.startsWith("+") ? data.phone : `+${data.phone}`,
         wholesaleCost: Number(data.price ?? 0),
+        providerExpiresAt,
       };
     },
 
     async checkSMS(providerOrderId: string): Promise<SmsStatus> {
       const { ok, json } = await api(USER_API, `/check/${providerOrderId}`);
       if (!ok || !json) return { status: "WAIT", code: null, message: null };
-      const data = json as { status?: string; sms?: { code?: string; text?: string }[] };
-      const sms = data.sms?.[0];
-      if (sms?.code) {
-        return {
-          status: "RECEIVED",
-          code: sms.code,
-          message: sms.text ?? `Your verification code is ${sms.code}`,
-        };
+      const data = json as {
+        status?: string;
+        sms?: { code?: string; text?: string }[] | { code?: string; text?: string };
+      };
+      const list = Array.isArray(data.sms) ? data.sms : data.sms ? [data.sms] : [];
+      // Prefer newest SMS that yields a code; keep full text for the live card
+      for (let i = list.length - 1; i >= 0; i--) {
+        const sms = list[i];
+        const text = sms?.text?.trim() || null;
+        const code =
+          extractOtpCode(sms?.code != null ? String(sms.code) : null) ??
+          extractOtpCode(text);
+        if (code) {
+          return {
+            status: "RECEIVED",
+            code,
+            message: text || `Your verification code is ${code}`,
+          };
+        }
       }
       if (data.status === "CANCELED" || data.status === "TIMEOUT") {
         return { status: "EXPIRED", code: null, message: null };

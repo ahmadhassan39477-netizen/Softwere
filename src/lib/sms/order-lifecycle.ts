@@ -4,13 +4,27 @@ import { creditWallet } from "@/lib/wallet";
 import { dismissOrderFromServices } from "@/lib/services-panel";
 import { smsAggregator } from "./aggregator";
 
-/** Default wait window: 5 minutes (not 15). */
-export const DEFAULT_ORDER_TTL_MINUTES = 5;
+/** Minimum wait window before auto-refund if no SMS (minutes). */
+export const DEFAULT_ORDER_TTL_MINUTES = 20;
 /** Manual cancel allowed for the full wait window. */
 export const DEFAULT_CANCEL_WINDOW_SECONDS = DEFAULT_ORDER_TTL_MINUTES * 60;
 
+/** Effective shop TTL: at least the floor, never below 20 minutes. */
+export function resolveOrderTtlMinutes(configured?: string | number | null): number {
+  const n = Number(configured ?? DEFAULT_ORDER_TTL_MINUTES);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_ORDER_TTL_MINUTES;
+  return Math.max(DEFAULT_ORDER_TTL_MINUTES, Math.floor(n));
+}
+
+/** Effective cancel window in seconds — matches wait floor (20 min). */
+export function resolveCancelWindowSeconds(configured?: string | number | null): number {
+  const n = Number(configured ?? DEFAULT_CANCEL_WINDOW_SECONDS);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_CANCEL_WINDOW_SECONDS;
+  return Math.max(DEFAULT_CANCEL_WINDOW_SECONDS, Math.floor(n));
+}
+
 /**
- * Poll one active order: check provider SMS, apply 5-min expiry refund.
+ * Poll one active order: check provider SMS, apply wait-window expiry refund.
  * Safe to call from SSE, cron, or client Refresh.
  */
 export async function pollOrder(orderId: string) {
@@ -28,7 +42,7 @@ export async function pollOrder(orderId: string) {
     };
   }
 
-  // 5-min auto-refund when window elapsed
+  // Auto-refund when wait window elapsed with no SMS
   if (order.expiresAt.getTime() < Date.now()) {
     return expireAndRefund(order);
   }
@@ -138,7 +152,7 @@ async function expireAndRefund(
 
 /**
  * Cancel from /services panel:
- * - Waiting (no OTP): refund within 5-min window
+ * - Waiting (no OTP): refund within the wait window (min 20 minutes)
  * - OTP already received: dismiss from /services only (no refund) so the card goes away
  */
 export async function cancelOrder(orderId: string, userId: string, opts?: { force?: boolean }) {
@@ -161,7 +175,7 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
     const cancelWindow = await prisma.setting.findUnique({
       where: { key: "cancel_window_seconds" },
     });
-    const windowSec = Number(cancelWindow?.value ?? DEFAULT_CANCEL_WINDOW_SECONDS);
+    const windowSec = resolveCancelWindowSeconds(cancelWindow?.value);
     const ageSec = (Date.now() - order.createdAt.getTime()) / 1000;
     if (ageSec > windowSec) {
       throw Object.assign(

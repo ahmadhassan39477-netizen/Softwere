@@ -23,13 +23,13 @@ export async function ensureServiceCountryCatalog(): Promise<void> {
       });
       await prisma.setting.upsert({
         where: { key: "order_ttl_minutes" },
-        create: { key: "order_ttl_minutes", value: "5" },
-        update: { value: "5" },
+        create: { key: "order_ttl_minutes", value: "20" },
+        update: { value: "20" },
       });
       await prisma.setting.upsert({
         where: { key: "cancel_window_seconds" },
-        create: { key: "cancel_window_seconds", value: "300" },
-        update: { value: "300" },
+        create: { key: "cancel_window_seconds", value: "1200" },
+        update: { value: "1200" },
       });
 
       const count = await prisma.serviceCountryCatalog.count();
