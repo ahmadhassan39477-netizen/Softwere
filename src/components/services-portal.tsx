@@ -24,6 +24,7 @@ import {
 import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
 import { cn } from "@/lib/utils";
+import { sanitizeCustomerBuyError } from "@/lib/sms/customer-errors";
 import { ServiceLogo } from "@/components/service-logo";
 import { CatalogSearch } from "@/components/catalog-search";
 import Link from "next/link";
@@ -418,7 +419,7 @@ export function ServicesPortal() {
         activeOrderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
   });
 
   const cancel = useMutation({
@@ -433,7 +434,7 @@ export function ServicesPortal() {
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
   });
 
   const refreshOtp = useMutation({
@@ -467,7 +468,7 @@ export function ServicesPortal() {
       qc.invalidateQueries({ queryKey: ["orders"] });
       update();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
   });
 
   // SSE for every waiting live order (OTP stays on card when RECEIVED)

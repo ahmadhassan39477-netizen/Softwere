@@ -2,6 +2,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AllProvidersFailedError } from "@/lib/sms/types";
 import { smsAggregator, serverNumberForProvider } from "@/lib/sms/aggregator";
+import {
+  CUSTOMER_BUY_FAILED,
+  CUSTOMER_NO_STOCK,
+  CUSTOMER_PROVIDER_BALANCE,
+  CUSTOMER_SERVER_UNAVAILABLE,
+  sanitizeCustomerBuyError,
+} from "@/lib/sms/customer-errors";
 import { decimalJson } from "@/lib/money";
 import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { worldCountryByCode } from "@/lib/world-countries";
@@ -101,26 +108,33 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     });
   } catch (e) {
     if (e instanceof AllProvidersFailedError) {
-      const missingKeys = e.attempts.some((a) => a.error.includes("MISSING_KEYS"));
+      const slotNoKey = e.attempts.some((a) =>
+        /SLOT_NO_KEY|MISSING_KEYS/i.test(a.error),
+      );
+      const slotDisabled = e.attempts.some((a) => /SLOT_DISABLED/i.test(a.error));
       const balanceFail = e.attempts.some((a) =>
         /NO_BALANCE|balance/i.test(a.error),
       );
       const stockFail = e.attempts.some((a) =>
         /NO_NUMBERS|NO_STOCK|UNSUPPORTED|no free|not enough/i.test(a.error),
       );
-      // Do not tell customers "no stock" when the wholesale wallet is empty
-      const message = missingKeys
-        ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Paste keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)."
+      // Customer copy only — no env vars, no wholesale brand names, no Admin paste instructions
+      const message = slotDisabled || slotNoKey
+        ? CUSTOMER_SERVER_UNAVAILABLE
         : balanceFail && !stockFail
-          ? "PROVIDER_NO_BALANCE — the Server pool’s wholesale wallet is empty. Top up that provider on its own website (deposit there buys credit, not numbers), then retry. Shop stock can still show qty from the public catalog."
-          : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
+          ? CUSTOMER_PROVIDER_BALANCE
+          : stockFail || e.attempts.length > 0
+            ? CUSTOMER_NO_STOCK
+            : CUSTOMER_BUY_FAILED;
       throw Object.assign(new Error(message), {
-        status: balanceFail && !stockFail && !missingKeys ? 402 : 409,
+        status: balanceFail && !stockFail && !slotNoKey && !slotDisabled ? 402 : 409,
         attempts: e.attempts,
       });
     }
     throw Object.assign(
-      new Error(e instanceof Error ? e.message : "Provider error"),
+      new Error(
+        sanitizeCustomerBuyError(e instanceof Error ? e.message : CUSTOMER_BUY_FAILED),
+      ),
       { status: 502 },
     );
   }

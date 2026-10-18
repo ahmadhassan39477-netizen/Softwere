@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireUser, jsonError } from "@/lib/api-auth";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { purchaseNumber } from "@/lib/purchase-number";
+import { sanitizeCustomerBuyError } from "@/lib/sms/customer-errors";
 
 const schema = z.object({
   countryCode: z.string().min(2).max(4),
@@ -31,12 +32,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ order }, { status: 201, headers: rateLimitHeaders(rl) });
   } catch (e) {
     const status = (e as { status?: number })?.status ?? 500;
-    const attempts = (e as { attempts?: unknown })?.attempts;
+    // Never return attempts/provider codes to the browser — they leak wholesale brands
+    const raw = e instanceof Error ? e.message : "Purchase failed";
     return Response.json(
-      {
-        error: e instanceof Error ? e.message : "Purchase failed",
-        ...(attempts ? { attempts } : {}),
-      },
+      { error: sanitizeCustomerBuyError(raw) },
       { status, headers: rateLimitHeaders(rl) },
     );
   }

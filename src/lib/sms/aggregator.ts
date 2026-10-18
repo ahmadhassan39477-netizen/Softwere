@@ -152,13 +152,25 @@ export class SmsAggregator {
   }
 
   async buy(input: BuyInput): Promise<BuyResult> {
+    const slots = await loadProviderSlots();
     let adapters = await this.adaptersForBuy(input.server);
     if (adapters.length === 0) {
+      // Distinguish Disabled vs empty key for Admin logs — never put brands/env in customer text
+      const wanted =
+        input.server === 1 || input.server === 2 || input.server === 3
+          ? slots.filter((s) => s.priority === input.server)
+          : slots;
+      const anyEnabled = wanted.some((s) => s.enabled);
+      const anyKeyed = wanted.some((s) => Boolean(s.apiKey?.trim()));
+      const code = !anyEnabled
+        ? "SLOT_DISABLED"
+        : !anyKeyed
+          ? "SLOT_NO_KEY"
+          : "SLOT_UNAVAILABLE";
       throw new AllProvidersFailedError([
         {
           provider: "sms-activate",
-          error:
-            "MISSING_KEYS — paste wholesale API keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)",
+          error: code,
         },
       ]);
     }

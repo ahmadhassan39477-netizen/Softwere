@@ -643,11 +643,23 @@ export default function AdminPage() {
                         : p.live === false
                           ? " · live prices missing"
                           : ""}
+                      {p.enabled && p.hasApiKey
+                        ? " · buy ready"
+                        : p.enabled && !p.hasApiKey
+                          ? " · buy blocked (no key)"
+                          : " · buy off"}
                     </div>
+                    {p.enabled && !p.hasApiKey ? (
+                      <div className="text-xs text-amber-400 mt-1">
+                        Enabled but no API key on this server slot — paste the key once and
+                        click Save key (Enable alone does not store a key). Legacy keys are
+                        copied automatically when found.
+                      </div>
+                    ) : null}
                     {p.tokenLooksLikeDocsUrl ? (
                       <div className="text-xs text-amber-400 mt-1">
-                        Saved value looks like a get-sms docs URL — clear it and paste the
-                        profile token from sms-man.com only, then Save key.
+                        Saved value looks like a docs URL — clear it and paste the profile
+                        token only, then Save key.
                       </div>
                     ) : null}
                     {type === "sms-man" && settings.data?.liveProbe?.[p.key] ? (

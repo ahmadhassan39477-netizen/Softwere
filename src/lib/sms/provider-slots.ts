@@ -280,11 +280,15 @@ export async function ensureProviderSlots(): Promise<void> {
       update: { value: "1" },
     });
   } else {
-    // Ongoing hygiene: strip docs URLs, force 20% if stuck at 40
+    // Ongoing hygiene: strip docs URLs, force 20% if stuck at 40, and always
+    // re-attach legacy keys onto empty server-N slots (Enable must not leave buy keyless).
     for (const slot of [1, 2, 3] as const) {
       const slotKey = slotKeyForServer(slot);
       const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
       if (!row) continue;
+      const type: SlotProviderType = isSlotProviderType(row.providerType)
+        ? row.providerType
+        : SLOT_TYPE_DEFAULTS[slot];
       const patch: { markupPercent?: Prisma.Decimal; apiKey?: string | null } = {};
       if (Number(row.markupPercent) === 40) {
         patch.markupPercent = new Prisma.Decimal(DEFAULT_SLOT_MARKUP);
@@ -295,24 +299,13 @@ export async function ensureProviderSlots(): Promise<void> {
       ) {
         patch.apiKey = null;
       }
+      if (!row.apiKey?.trim() || patch.apiKey === null) {
+        const recovered = await resolveSlotApiKey(type, slotKey, null);
+        if (recovered) patch.apiKey = recovered;
+      }
       if (Object.keys(patch).length > 0) {
         await prisma.providerSetting.update({ where: { key: slotKey }, data: patch });
       }
-    }
-
-    // Keep S2 Grizzly keyed from legacy row when empty (S3 is SMS-Man — do not copy)
-    const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
-    const legacyG = await prisma.providerSetting.findUnique({ where: { key: "grizzlysms" } });
-    if (
-      s2 &&
-      s2.providerType === "grizzlysms" &&
-      !s2.apiKey?.trim() &&
-      legacyG?.apiKey?.trim()
-    ) {
-      await prisma.providerSetting.update({
-        where: { key: "server-2" },
-        data: { apiKey: legacyG.apiKey },
-      });
     }
   }
 
@@ -378,6 +371,68 @@ export type SlotRow = {
   markupPercent: number;
 };
 
+/** Legacy ProviderSetting / ProviderConfig keys that often still hold the real token. */
+function legacySettingKeysForType(type: SlotProviderType): string[] {
+  if (type === "5sim") return ["5sim"];
+  if (type === "grizzlysms") return ["grizzlysms"];
+  if (type === "sms-man") return ["sms-man"];
+  if (type === "sms-activate" || type === "custom-sa") return ["sms-activate"];
+  return [];
+}
+
+/**
+ * Resolve a usable API key for a slot: Admin slot → legacy ProviderSetting →
+ * ProviderConfig → env. Never logs the key. Optionally writes a recovered key
+ * back onto server-N so Enable alone cannot leave buy with an empty slot.
+ */
+export async function resolveSlotApiKey(
+  type: SlotProviderType,
+  slotKey: SlotKey,
+  rawSlotKey: string | null | undefined,
+): Promise<string | null> {
+  const fromSlot = sanitizeApiKeyForType(type, rawSlotKey);
+  if (fromSlot) return fromSlot;
+
+  for (const legacyKey of legacySettingKeysForType(type)) {
+    try {
+      const legacy = await prisma.providerSetting.findUnique({
+        where: { key: legacyKey },
+      });
+      const recovered = sanitizeApiKeyForType(type, legacy?.apiKey);
+      if (recovered) {
+        await prisma.providerSetting
+          .update({
+            where: { key: slotKey },
+            data: { apiKey: recovered },
+          })
+          .catch(() => undefined);
+        return recovered;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    const configKey = type === "custom-sa" ? "sms-activate" : type;
+    const cfg = await prisma.providerConfig.findUnique({ where: { key: configKey } });
+    const recovered = sanitizeApiKeyForType(type, cfg?.apiKey);
+    if (recovered) {
+      await prisma.providerSetting
+        .update({
+          where: { key: slotKey },
+          data: { apiKey: recovered },
+        })
+        .catch(() => undefined);
+      return recovered;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return sanitizeApiKeyForType(type, envKeyForType(type));
+}
+
 export async function loadProviderSlots(): Promise<SlotRow[]> {
   await ensureProviderSlots().catch(() => undefined);
   const rows = await prisma.providerSetting.findMany({
@@ -393,9 +448,7 @@ export async function loadProviderSlots(): Promise<SlotRow[]> {
       row && isSlotProviderType(row.providerType)
         ? row.providerType
         : SLOT_TYPE_DEFAULTS[slot];
-    const rawKey = row?.apiKey ?? null;
-    const apiKey =
-      type === "sms-man" ? sanitizeApiKeyForType("sms-man", rawKey) : rawKey;
+    const apiKey = await resolveSlotApiKey(type, key, row?.apiKey ?? null);
     out.push({
       key,
       name: row?.name ?? `Server ${slot}`,
