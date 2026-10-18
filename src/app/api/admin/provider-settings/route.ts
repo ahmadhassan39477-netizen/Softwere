@@ -12,6 +12,7 @@ import {
   defaultMarkupForType,
   displayNameForType,
   ensureProviderSlots,
+  envKeyForType,
   isSlotProviderType,
   loadProviderSlots,
   looksLikeApiDocsUrl,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/sms/provider-slots";
 import { isSmsManDocsUrl, probeSmsManToken } from "@/lib/sms/adapters/sms-man";
 import { probeGrizzlyApiKey } from "@/lib/sms/adapters/grizzlysms";
+import { probeFiveSimApiKey } from "@/lib/sms/adapters/fivesim";
 import { fetchLiveStockBySlot } from "@/lib/sms/live-stock";
 
 export async function GET(req: NextRequest) {
@@ -83,9 +85,9 @@ export async function GET(req: NextRequest) {
   // Raw DB keys for docs-URL detection (loadProviderSlots already strips bad SMS-Man values)
   const rawRows = await prisma.providerSetting.findMany({
     where: { key: { in: slots.map((s) => s.key) } },
-    select: { key: true, apiKey: true },
+    select: { key: true, apiKey: true, lastBalance: true },
   });
-  const rawByKey = new Map(rawRows.map((r) => [r.key, r.apiKey]));
+  const rawByKey = new Map(rawRows.map((r) => [r.key, r]));
 
   return Response.json({
     markupPercent: markup?.value ?? process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? "20",
@@ -96,12 +98,36 @@ export async function GET(req: NextRequest) {
     providers: slots.map((s) => {
       const bal = balances.find((b) => b.key === s.key);
       const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
-      const rawDb = rawByKey.get(s.key)?.trim() ?? "";
-      const usableKey = s.apiKey?.trim() ?? "";
+      const rawRow = rawByKey.get(s.key);
+      const rawDb = rawRow?.apiKey?.trim() ?? "";
+      const typeOk = isSlotProviderType(s.providerType)
+        ? s.providerType
+        : ("sms-activate" as SlotProviderType);
+      // Slot DB key only — never count Vercel/env as a saved Admin key
+      const slotKeyOnly =
+        sanitizeApiKeyForType(typeOk, rawDb) ??
+        sanitizeApiKeyForType(typeOk, s.apiKey);
       const docsUrlStored = Boolean(rawDb) && looksLikeApiDocsUrl(rawDb);
-      // Never advertise a junk URL paste as a saved key
-      const hasRealKey =
-        Boolean(usableKey) && !looksLikeApiDocsUrl(usableKey);
+      const hasRealKey = Boolean(slotKeyOnly);
+      const lastBal =
+        rawRow?.lastBalance != null ? Number(rawRow.lastBalance) : null;
+      // Prefer live wallet for the Admin slot key; fall back to last probed Save-key balance
+      const balance =
+        bal?.balance ??
+        (hasRealKey && lastBal != null && Number.isFinite(lastBal) ? lastBal : null);
+      const envOnly =
+        !hasRealKey &&
+        Boolean(envKeyForType(typeOk)?.trim() || bal?.envConfigured);
+      // buy ready = Enabled + Admin key + positive wallet on THAT key (never env-only)
+      const buyReady =
+        s.enabled && hasRealKey && balance != null && Number(balance) > 0;
+      const buyBlockedReason = !s.enabled
+        ? "off"
+        : !hasRealKey
+          ? "no_key"
+          : balance == null || Number(balance) <= 0
+            ? "no_balance"
+            : null;
       return {
         id: s.key,
         key: s.key,
@@ -113,14 +139,16 @@ export async function GET(req: NextRequest) {
         enabled: s.enabled,
         priority: s.priority,
         markupPercent: String(markupPct),
-        hasApiKey: hasRealKey || Boolean(bal?.hasApiKey && !docsUrlStored),
+        hasApiKey: hasRealKey,
         apiKeyMasked: hasRealKey
-          ? maskKey(usableKey)
+          ? maskKey(slotKeyOnly)
           : docsUrlStored
             ? "(URL rejected — paste API key only)"
             : maskKey(null),
-        balance: bal?.balance ?? null,
-        envConfigured: Boolean(bal?.hasApiKey && !hasRealKey),
+        balance,
+        envConfigured: envOnly,
+        buyReady,
+        buyBlockedReason,
         // Safe flags only — never echo token
         tokenLooksLikeDocsUrl: docsUrlStored,
         live: liveProbe?.[s.key]?.live ?? null,
@@ -189,6 +217,7 @@ export async function PATCH(req: NextRequest) {
 
   // Reject docs/HTTP URL pastes — never store as API keys; never log the pasted value
   let nextApiKey: string | null | undefined = undefined;
+  let probedFiveSimBalance: number | null | undefined = undefined;
   if (parsed.data.apiKey !== undefined) {
     const raw = parsed.data.apiKey;
     if (raw?.trim() && looksLikeApiDocsUrl(raw)) {
@@ -225,7 +254,18 @@ export async function PATCH(req: NextRequest) {
       }
       return jsonError("Invalid API key — paste the provider token only, not a URL.", 400);
     }
-    // Verify SMS-Man / Grizzly keys before saving (never log the pasted value)
+    // Verify keys before saving (never log the pasted value)
+    if (nextApiKey && typeForSanitize === "5sim") {
+      const probe = await probeFiveSimApiKey(nextApiKey);
+      if (!probe.ok) {
+        return jsonError(
+          probe.error ??
+            "5SIM rejected this key. Copy the API key from the same 5sim.net account you topped up.",
+          400,
+        );
+      }
+      probedFiveSimBalance = probe.balance;
+    }
     if (nextApiKey && typeForSanitize === "sms-man") {
       const probe = await probeSmsManToken(nextApiKey);
       if (!probe.ok) {
@@ -290,6 +330,12 @@ export async function PATCH(req: NextRequest) {
       ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
       ...(nextMarkup !== undefined
         ? { markupPercent: new Prisma.Decimal(nextMarkup) }
+        : {}),
+      ...(probedFiveSimBalance !== undefined && probedFiveSimBalance != null
+        ? {
+            lastBalance: new Prisma.Decimal(probedFiveSimBalance),
+            lastBalanceAt: new Date(),
+          }
         : {}),
     },
   });

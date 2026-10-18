@@ -39,8 +39,8 @@ export type SlotAdapter = {
 /** Build live adapter from Admin slot (Admin key preferred over env). */
 export function buildAdapterForSlot(slot: SlotRow): SmsAdapter | null {
   if (!slot.enabled) return null;
-  // Prefer Admin ProviderSetting apiKey over env
-  const keyValue = slot.apiKey?.trim() || envKeyForType(slot.providerType);
+  // Admin slot key only — never silently buy with a Vercel/env leftover wallet
+  const keyValue = slot.apiKey?.trim();
   if (!keyValue) return null;
 
   const type = slot.providerType;
@@ -101,8 +101,9 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
 
   // Fill empty Server 2 from Grizzly Server 3 only when S3 is Grizzly
   if (slot2 && slot3) {
-    const s2HasKey = Boolean(slot2.apiKey?.trim() || envKeyForType(slot2.providerType));
-    const s3HasKey = Boolean(slot3.apiKey?.trim() || envKeyForType(slot3.providerType));
+    // Admin slot keys only — env leftovers must not masquerade as a saved key
+    const s2HasKey = Boolean(slot2.apiKey?.trim());
+    const s3HasKey = Boolean(slot3.apiKey?.trim());
     const s2EmptyOrDisabled = !slot2.enabled || !s2HasKey;
     if (
       s2EmptyOrDisabled &&
@@ -265,13 +266,15 @@ export class SmsAggregator {
       balance: number | null;
       enabled: boolean;
       hasApiKey: boolean;
+      envConfigured?: boolean;
       markupPercent: number;
     }[]
   > {
     const slots = await loadProviderSlots();
     const out = [];
     for (const slot of slots) {
-      const hasApiKey = Boolean(slot.apiKey?.trim() || envKeyForType(slot.providerType));
+      // Slot key only (matches Admin Save key) — env is reported separately
+      const hasApiKey = Boolean(slot.apiKey?.trim());
       const adapter = buildAdapterForSlot(slot);
       let balance: number | null = null;
       if (adapter) {
@@ -289,6 +292,7 @@ export class SmsAggregator {
         balance,
         enabled: slot.enabled,
         hasApiKey,
+        envConfigured: Boolean(envKeyForType(slot.providerType)) && !hasApiKey,
         markupPercent: slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP,
       });
     }
@@ -301,6 +305,7 @@ export class SmsAggregator {
         balance: 999,
         enabled: true,
         hasApiKey: false,
+        envConfigured: false,
         markupPercent: 20,
       });
     }

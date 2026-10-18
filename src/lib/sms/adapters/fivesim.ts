@@ -12,6 +12,55 @@ import { FIVESIM_COUNTRY, FIVESIM_PRODUCT } from "../service-map";
 const USER_API = "https://5sim.net/v1/user";
 const GUEST_API = "https://5sim.net/v1/guest";
 
+/** Probe a 5SIM profile API key via /user/profile — never logs the key. */
+export async function probeFiveSimApiKey(
+  apiKey: string,
+): Promise<{ ok: boolean; balance: number | null; error?: string }> {
+  const key = apiKey.trim();
+  if (!key || key === "guest") {
+    return { ok: false, balance: null, error: "Paste a 5SIM API key from profile/settings." };
+  }
+  try {
+    const res = await fetch(`${USER_API}/profile`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${key}`,
+        "User-Agent": "TempEmpire/1.0 (+https://www.tempempire.store)",
+      },
+      cache: "no-store",
+    });
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      /* plain */
+    }
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        balance: null,
+        error:
+          "5SIM rejected this key. Copy the API key from the same 5sim.net account you topped up.",
+      };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        balance: null,
+        error: "Could not verify this 5SIM key. Try again in a moment.",
+      };
+    }
+    const bal = (json as { balance?: number } | null)?.balance;
+    return {
+      ok: true,
+      balance: typeof bal === "number" ? bal : null,
+    };
+  } catch {
+    return { ok: false, balance: null, error: "Could not reach 5SIM to verify this key." };
+  }
+}
+
 export function createFiveSimAdapter(apiKey: string): SmsAdapter {
   async function api(base: string, path: string, init?: RequestInit) {
     const headers: Record<string, string> = {

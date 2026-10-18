@@ -401,7 +401,9 @@ export async function resolveSlotApiKey(
     /* ignore */
   }
 
-  return sanitizeApiKeyForType(type, envKeyForType(type));
+  // Never treat Vercel/env keys as the Admin slot key — buy must use the key she
+  // Save-key'd (same wallet she topped up). Env leftovers caused false "buy ready".
+  return null;
 }
 
 export async function loadProviderSlots(): Promise<SlotRow[]> {

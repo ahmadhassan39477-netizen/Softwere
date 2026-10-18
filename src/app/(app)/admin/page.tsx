@@ -19,6 +19,8 @@ type ProviderRow = {
   apiKeyMasked: string;
   balance: number | null;
   envConfigured: boolean;
+  buyReady?: boolean;
+  buyBlockedReason?: "off" | "no_key" | "no_balance" | null;
   tokenLooksLikeDocsUrl?: boolean;
   live?: boolean | null;
   livePriceRows?: number | null;
@@ -698,24 +700,35 @@ export default function AdminPage() {
                     </div>
                     <div className="text-xs text-[var(--text-muted)]">
                       {p.key} · key {p.hasApiKey ? p.apiKeyMasked : "not set"}
-                      {p.envConfigured ? " · env fallback" : ""} · balance{" "}
+                      {p.envConfigured ? " · env leftover (not used for buy)" : ""} · balance{" "}
                       {p.balance != null ? `$${p.balance}` : "—"}
                       {p.live === true
                         ? ` · live prices OK (${p.livePriceRows ?? 0} rows)`
                         : p.live === false
                           ? " · live prices missing"
                           : ""}
-                      {p.enabled && p.hasApiKey
+                      {p.buyReady
                         ? " · buy ready"
-                        : p.enabled && !p.hasApiKey
+                        : p.buyBlockedReason === "no_key" || (p.enabled && !p.hasApiKey)
                           ? " · buy blocked (no key)"
-                          : " · buy off"}
+                          : p.buyBlockedReason === "no_balance" ||
+                              (p.enabled && p.hasApiKey && !(Number(p.balance) > 0))
+                            ? " · buy blocked (no balance)"
+                            : " · buy off"}
                     </div>
                     {p.enabled && !p.hasApiKey ? (
                       <div className="text-xs text-amber-400 mt-1">
-                        Enabled but no API key on this server slot — paste the key once and
-                        click Save key (Enable alone does not store a key). Legacy keys are
-                        copied automatically when found.
+                        {type === "5sim"
+                          ? "Save the API key from the 5SIM account you topped up (not an env leftover). Live prices can show from the public catalog while buy still needs your wallet key."
+                          : p.envConfigured
+                            ? "Save the API key from the provider account you topped up (env leftovers are not used for buy)."
+                            : "Enabled but no API key on this server slot — paste the key once and click Save key (Enable alone does not store a key)."}
+                      </div>
+                    ) : null}
+                    {p.enabled && p.hasApiKey && !(Number(p.balance) > 0) ? (
+                      <div className="text-xs text-amber-400 mt-1">
+                        Key is saved but wallet balance is empty — top up on the same provider
+                        account as this key, then refresh Admin.
                       </div>
                     ) : null}
                     {p.tokenLooksLikeDocsUrl ? (
@@ -843,20 +856,34 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    className="input flex-1 min-w-[200px] font-mono text-sm"
-                    type="password"
-                    autoComplete="off"
-                    placeholder={keyPlaceholder}
-                    value={keyDrafts[p.key] ?? ""}
-                    onChange={(e) =>
-                      setKeyDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
-                    }
-                  />
+                <div className="flex flex-wrap gap-2 items-start">
+                  <div className="flex-1 min-w-[200px] space-y-1">
+                    {p.hasApiKey ? (
+                      <div className="text-[11px] text-[var(--text-muted)] mono-data">
+                        Saved on slot: {p.apiKeyMasked}
+                      </div>
+                    ) : null}
+                    <input
+                      className="input w-full font-mono text-sm"
+                      type="text"
+                      inputMode="text"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      name={`slot-api-key-${p.key}`}
+                      data-1p-ignore="true"
+                      data-lpignore="true"
+                      placeholder={keyPlaceholder}
+                      value={keyDrafts[p.key] ?? ""}
+                      onChange={(e) =>
+                        setKeyDrafts((prev) => ({ ...prev, [p.key]: e.target.value }))
+                      }
+                    />
+                  </div>
                   <button
                     type="button"
-                    className="btn btn-ghost text-sm"
+                    className="btn btn-ghost text-sm mt-0.5"
                     disabled={patch.isPending || !(keyDrafts[p.key] ?? "").trim()}
                     onClick={() =>
                       patch.mutate({
