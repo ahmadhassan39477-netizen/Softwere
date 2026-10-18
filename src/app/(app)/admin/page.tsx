@@ -19,6 +19,7 @@ type ProviderRow = {
   apiKeyMasked: string;
   balance: number | null;
   envConfigured: boolean;
+  envJunkUrl?: boolean;
   buyReady?: boolean;
   buyBlockedReason?: "off" | "no_key" | "no_balance" | null;
   tokenLooksLikeDocsUrl?: boolean;
@@ -700,8 +701,12 @@ export default function AdminPage() {
                     </div>
                     <div className="text-xs text-[var(--text-muted)]">
                       {p.key} · key {p.hasApiKey ? p.apiKeyMasked : "not set"}
-                      {p.envConfigured ? " · env leftover (not used for buy)" : ""} · balance{" "}
-                      {p.balance != null ? `$${p.balance}` : "—"}
+                      {p.envJunkUrl
+                        ? " · env is URL junk (ignored)"
+                        : p.envConfigured
+                          ? " · env leftover (not used for buy)"
+                          : ""}{" "}
+                      · balance {p.balance != null ? `$${p.balance}` : "—"}
                       {p.live === true
                         ? ` · live prices OK (${p.livePriceRows ?? 0} rows)`
                         : p.live === false
@@ -718,11 +723,13 @@ export default function AdminPage() {
                     </div>
                     {p.enabled && !p.hasApiKey ? (
                       <div className="text-xs text-amber-400 mt-1">
-                        {type === "5sim"
-                          ? "Save the API key from the 5SIM account you topped up (not an env leftover). Live prices can show from the public catalog while buy still needs your wallet key."
-                          : p.envConfigured
-                            ? "Save the API key from the provider account you topped up (env leftovers are not used for buy)."
-                            : "Enabled but no API key on this server slot — paste the key once and click Save key (Enable alone does not store a key)."}
+                        {type === "5sim" && p.envJunkUrl
+                          ? "Vercel FIVESIM env is a URL/docs paste, not a profile API key — it cannot buy. Paste the API key from the same 5sim.net account that has the deposit into Save key below."
+                          : type === "5sim"
+                            ? "No API key on this Admin slot. Live prices can show from the public catalog; buy needs the profile API key from the 5SIM account you topped up — Save key below."
+                            : p.envConfigured
+                              ? "Save the API key from the provider account you topped up (env leftovers are not used for buy)."
+                              : "Enabled but no API key on this server slot — paste the key once and click Save key (Enable alone does not store a key)."}
                       </div>
                     ) : null}
                     {p.enabled && p.hasApiKey && !(Number(p.balance) > 0) ? (

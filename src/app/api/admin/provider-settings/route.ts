@@ -115,9 +115,12 @@ export async function GET(req: NextRequest) {
       const balance =
         bal?.balance ??
         (hasRealKey && lastBal != null && Number.isFinite(lastBal) ? lastBal : null);
-      const envOnly =
-        !hasRealKey &&
-        Boolean(envKeyForType(typeOk)?.trim() || bal?.envConfigured);
+      const envRaw = envKeyForType(typeOk)?.trim() || "";
+      const envUsable = Boolean(sanitizeApiKeyForType(typeOk, envRaw));
+      const envJunkUrl =
+        !hasRealKey && Boolean(envRaw) && !envUsable;
+      // Only flag a *usable* env leftover — URL/junk in Vercel is not a wallet key
+      const envOnly = !hasRealKey && envUsable;
       // buy ready = Enabled + Admin key + positive wallet on THAT key (never env-only)
       const buyReady =
         s.enabled && hasRealKey && balance != null && Number(balance) > 0;
@@ -147,6 +150,7 @@ export async function GET(req: NextRequest) {
             : maskKey(null),
         balance,
         envConfigured: envOnly,
+        envJunkUrl,
         buyReady,
         buyBlockedReason,
         // Safe flags only — never echo token
