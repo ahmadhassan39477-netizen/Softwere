@@ -254,17 +254,19 @@ export async function PATCH(req: NextRequest) {
       }
       return jsonError("Invalid API key — paste the provider token only, not a URL.", 400);
     }
-    // Verify keys before saving (never log the pasted value)
+    // Verify keys before saving (never log the pasted value).
+    // 5SIM: hard-reject only auth failures — network blips must not block Save key persist.
     if (nextApiKey && typeForSanitize === "5sim") {
       const probe = await probeFiveSimApiKey(nextApiKey);
-      if (!probe.ok) {
+      if (!probe.ok && /rejected this key/i.test(probe.error ?? "")) {
         return jsonError(
           probe.error ??
             "5SIM rejected this key. Copy the API key from the same 5sim.net account you topped up.",
           400,
         );
       }
-      probedFiveSimBalance = probe.balance;
+      if (probe.ok) probedFiveSimBalance = probe.balance;
+      // else: still persist the token; balance fills on next Admin refresh
     }
     if (nextApiKey && typeForSanitize === "sms-man") {
       const probe = await probeSmsManToken(nextApiKey);
