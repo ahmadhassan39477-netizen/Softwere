@@ -14,13 +14,19 @@ const GUEST_API = "https://5sim.net/v1/guest";
 
 export function createFiveSimAdapter(apiKey: string): SmsAdapter {
   async function api(base: string, path: string, init?: RequestInit) {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "TempEmpire/1.0 (+https://www.tempempire.store)",
+      ...(init?.headers as Record<string, string> | undefined),
+    };
+    // Guest catalog is public — do not send a fake Bearer (e.g. "guest")
+    const isGuest = base.includes("/guest");
+    if (!isGuest && apiKey && apiKey !== "guest") {
+      headers.Authorization = `Bearer ${apiKey}`;
+    }
     const res = await fetch(`${base}${path}`, {
       ...init,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
       cache: "no-store",
     });
     const text = await res.text();
@@ -95,7 +101,11 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
       }
     },
 
-    /** Live product qty/price for one ISO country when FIVESIM_API_KEY is set. */
+    /**
+     * Live product qty/price for one ISO country.
+     * Uses public guest /products (stock ≠ wallet balance). Deposit on 5sim.net
+     * only adds credit for buy — it does not change Qty here.
+     */
     async getPrices(countryCode?: string): Promise<ProviderPriceRow[]> {
       const iso = (countryCode ?? "US").toUpperCase();
       const country = FIVESIM_COUNTRY[iso];
@@ -104,14 +114,22 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
         const { ok, json } = await api(GUEST_API, `/products/${country}/any`);
         if (!ok || !json || typeof json !== "object") return [];
         const slugByProduct = new Map(
-          Object.entries(FIVESIM_PRODUCT).map(([slug, product]) => [product, slug]),
+          Object.entries(FIVESIM_PRODUCT).map(([slug, product]) => [
+            product.toLowerCase(),
+            slug,
+          ]),
         );
         const rows: ProviderPriceRow[] = [];
         for (const [product, info] of Object.entries(
-          json as Record<string, { Qty?: number; Price?: number }>,
+          json as Record<
+            string,
+            { Qty?: number; Price?: number; Category?: string }
+          >,
         )) {
-          const slug = slugByProduct.get(product);
+          const slug = slugByProduct.get(product.toLowerCase());
           if (!slug) continue;
+          const category = String(info?.Category ?? "activation").toLowerCase();
+          if (category && category !== "activation") continue;
           const qty = Number(info?.Qty ?? 0);
           const price = Number(info?.Price ?? 0);
           rows.push({

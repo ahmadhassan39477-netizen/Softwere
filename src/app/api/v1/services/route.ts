@@ -127,10 +127,12 @@ async function fillFiveSimGuestIfNeeded(
       const rows = await Promise.race([
         adapter.getPrices(countryCode),
         new Promise<Awaited<ReturnType<NonNullable<typeof adapter.getPrices>>>>((resolve) =>
-          setTimeout(() => resolve([]), 2500),
+          setTimeout(() => resolve([]), 8000),
         ),
       ]);
-      const bySlug = new Map(rows.map((r) => [r.serviceSlug, r]));
+      const bySlug = new Map(
+        rows.filter((r) => r.wholesale > 0).map((r) => [r.serviceSlug, r]),
+      );
       liveBySlot.set(slotNum, { ...entry, bySlug });
     } catch {
       /* ignore */

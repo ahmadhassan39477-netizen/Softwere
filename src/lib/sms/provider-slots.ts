@@ -340,6 +340,30 @@ export async function ensureProviderSlots(): Promise<void> {
     });
   }
 
+  // One-time: Server 1 typed 5SIM with a saved key but Disabled → Primary buy skipped
+  const reenableS1Flag = "sms_reenable_keyed_5sim_s1_v1";
+  const reenableS1Done = await prisma.setting.findUnique({ where: { key: reenableS1Flag } });
+  if (!reenableS1Done || reenableS1Done.value !== "1") {
+    const s1 = await prisma.providerSetting.findUnique({ where: { key: "server-1" } });
+    if (
+      s1 &&
+      s1.providerType === "5sim" &&
+      Boolean(s1.apiKey?.trim()) &&
+      !looksLikeApiDocsUrl(s1.apiKey) &&
+      !s1.enabled
+    ) {
+      await prisma.providerSetting.update({
+        where: { key: "server-1" },
+        data: { enabled: true, markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
+      });
+    }
+    await prisma.setting.upsert({
+      where: { key: reenableS1Flag },
+      create: { key: reenableS1Flag, value: "1" },
+      update: { value: "1" },
+    });
+  }
+
   void LEGACY_KEY_SOURCES;
 }
 

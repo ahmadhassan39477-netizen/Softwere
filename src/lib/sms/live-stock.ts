@@ -9,6 +9,8 @@ export type SlotLiveStock = {
 };
 
 const PRICE_TIMEOUT_MS = 3500;
+/** 5SIM guest products can be large JSON on cold paths from Vercel. */
+const FIVESIM_PRICE_TIMEOUT_MS = 8_000;
 /** Grizzly/SA getPrices can be slow on cold paths. */
 const GRIZZLY_PRICE_TIMEOUT_MS = 8_000;
 /** SMS-Man needs applications + get-prices; allow more headroom on Vercel. */
@@ -20,7 +22,12 @@ async function pricesForSlot(
 ): Promise<Map<string, ProviderPriceRow>> {
   const out = new Map<string, ProviderPriceRow>();
   try {
-    const adapter = buildAdapterForSlot(slot);
+    let adapter = buildAdapterForSlot(slot);
+    // 5SIM stock is public guest catalog — still overlay when Admin key missing
+    if (!adapter?.getPrices && slot.providerType === "5sim") {
+      const { createFiveSimAdapter } = await import("./adapters/fivesim");
+      adapter = createFiveSimAdapter("guest");
+    }
     if (!adapter?.getPrices) return out;
 
     const timeoutMs =
@@ -28,14 +35,31 @@ async function pricesForSlot(
         ? SMS_MAN_PRICE_TIMEOUT_MS
         : slot.providerType === "grizzlysms" || slot.providerType === "sms-activate"
           ? GRIZZLY_PRICE_TIMEOUT_MS
-          : PRICE_TIMEOUT_MS;
+          : slot.providerType === "5sim"
+            ? FIVESIM_PRICE_TIMEOUT_MS
+            : PRICE_TIMEOUT_MS;
 
-    const rows = await Promise.race([
+    let rows = await Promise.race([
       adapter.getPrices(countryCode),
       new Promise<ProviderPriceRow[]>((resolve) =>
         setTimeout(() => resolve([]), timeoutMs),
       ),
     ]);
+
+    // If keyed adapter returned empty (timeout/error), retry public guest once
+    if (rows.length === 0 && slot.providerType === "5sim") {
+      const { createFiveSimAdapter } = await import("./adapters/fivesim");
+      const guest = createFiveSimAdapter("guest");
+      if (guest.getPrices) {
+        rows = await Promise.race([
+          guest.getPrices(countryCode),
+          new Promise<ProviderPriceRow[]>((resolve) =>
+            setTimeout(() => resolve([]), FIVESIM_PRICE_TIMEOUT_MS),
+          ),
+        ]);
+      }
+    }
+
     for (const r of rows) {
       if (!r.serviceSlug) continue;
       if (!(r.wholesale > 0)) continue;

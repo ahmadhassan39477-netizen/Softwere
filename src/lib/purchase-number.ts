@@ -102,11 +102,20 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   } catch (e) {
     if (e instanceof AllProvidersFailedError) {
       const missingKeys = e.attempts.some((a) => a.error.includes("MISSING_KEYS"));
+      const balanceFail = e.attempts.some((a) =>
+        /NO_BALANCE|balance/i.test(a.error),
+      );
+      const stockFail = e.attempts.some((a) =>
+        /NO_NUMBERS|NO_STOCK|UNSUPPORTED|no free|not enough/i.test(a.error),
+      );
+      // Do not tell customers "no stock" when the wholesale wallet is empty
       const message = missingKeys
         ? "NO_STOCK_AVAILABLE — wholesale API keys not configured. Paste keys in Admin → Server 1/2/3 (or env SMS_ACTIVATE_API_KEY / FIVESIM_API_KEY / GRIZZLY_SMS_API_KEY / SMS_MAN_API_KEY)."
-        : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
+        : balanceFail && !stockFail
+          ? "PROVIDER_NO_BALANCE — the Server pool’s wholesale wallet is empty. Top up that provider on its own website (deposit there buys credit, not numbers), then retry. Shop stock can still show qty from the public catalog."
+          : "NO_STOCK_AVAILABLE — no numbers on Server 1/2/3 right now. Try Auto or another country.";
       throw Object.assign(new Error(message), {
-        status: 409,
+        status: balanceFail && !stockFail && !missingKeys ? 402 : 409,
         attempts: e.attempts,
       });
     }

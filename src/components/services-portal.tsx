@@ -301,28 +301,30 @@ export function ServicesPortal() {
     queryFn: () => api<{ countries: Country[]; total?: number }>("/api/v1/countries"),
   });
 
-  // Fast catalog first (live=0). Keep previous country visible while the next loads.
+  // Always load live=1 stock overlay (Primary/Backup/Extra). live=0 seed must not
+  // overwrite live rows on focus/refetch — that looked like "Server 1 has no stock".
   const servicesQuery = useQuery({
     queryKey: ["services", countryCode],
     enabled: authStatus === "authenticated" && Boolean(countryCode),
-    staleTime: 2 * 60_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: true,
     queryFn: () =>
       api<{ services: Service[]; country: Country; liveStock?: boolean }>(
-        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=0`,
+        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=1`,
       ),
   });
 
-  // Prefetch default + neighbors; soft-refresh 5SIM after first paint
+  // Prefetch popular countries with the same live overlay
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     const prefetch = (code: string) => {
       void qc.prefetchQuery({
         queryKey: ["services", code],
-        staleTime: 2 * 60_000,
+        staleTime: 60_000,
         queryFn: () =>
-          api<{ services: Service[]; country: Country }>(
-            `/api/v1/services?country=${encodeURIComponent(code)}&live=0`,
+          api<{ services: Service[]; country: Country; liveStock?: boolean }>(
+            `/api/v1/services?country=${encodeURIComponent(code)}&live=1`,
           ),
       });
     };
@@ -330,23 +332,6 @@ export function ServicesPortal() {
     prefetch("GB");
     prefetch("NG");
   }, [authStatus, qc]);
-
-  useEffect(() => {
-    if (authStatus !== "authenticated" || !countryCode) return;
-    let cancelled = false;
-    const t = window.setTimeout(() => {
-      void api<{ services: Service[]; country: Country; liveStock?: boolean }>(
-        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=1`,
-      ).then((data) => {
-        if (cancelled || !data?.services) return;
-        qc.setQueryData(["services", countryCode], data);
-      });
-    }, 80);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [authStatus, countryCode, qc]);
 
   const historyQuery = useQuery({
     queryKey: ["orders-history"],
@@ -635,10 +620,10 @@ export function ServicesPortal() {
   function prefetchCountry(code: string) {
     void qc.prefetchQuery({
       queryKey: ["services", code],
-      staleTime: 2 * 60_000,
+      staleTime: 60_000,
       queryFn: () =>
-        api<{ services: Service[]; country: Country }>(
-          `/api/v1/services?country=${encodeURIComponent(code)}&live=0`,
+        api<{ services: Service[]; country: Country; liveStock?: boolean }>(
+          `/api/v1/services?country=${encodeURIComponent(code)}&live=1`,
         ),
     });
   }
