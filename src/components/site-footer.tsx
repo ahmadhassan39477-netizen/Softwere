@@ -13,6 +13,7 @@ const PRODUCT = [
   { href: REGISTER_SERVICES, label: "Services" },
   { href: REGISTER_USA, label: "US numbers" },
   { href: REGISTER_UK, label: "UK numbers" },
+  { href: "/guides/whatsapp-temporary-number", label: "WhatsApp guide" },
   { href: "/temp-mail", label: "Temp Mail Plus" },
   { href: "/vpn", label: "VPN & Proxy" },
 ] as const;

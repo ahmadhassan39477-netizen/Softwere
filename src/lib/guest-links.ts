@@ -10,7 +10,9 @@ export const REGISTER_SERVICES = registerHref(DEFAULT_POST_AUTH);
 export const REGISTER_USA = registerHref("/services?country=US");
 export const REGISTER_UK = registerHref("/services?country=GB");
 export const REGISTER_CANADA = registerHref("/services?country=CA");
+export const REGISTER_INDIA = registerHref("/services?country=IN");
 export const REGISTER_FACEBOOK = registerHref("/services?service=facebook");
+export const REGISTER_WHATSAPP = registerHref("/services?service=whatsapp");
 /** Footer Deposit still goes through signup; after auth they land on Services. */
 export const REGISTER_DEPOSIT = registerHref("/services");
 export const REGISTER_MAIL = registerHref("/temp-mail");

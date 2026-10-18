@@ -61,6 +61,11 @@ export const PAGE_META = {
     description:
       "Sign up before buying. Add credit on WhatsApp from Deposit after you sign in. Use numbers for legitimate checks only. Refund if SMS never arrives.",
   },
+  whatsappGuide: {
+    title: "How to Get Temporary Number for WhatsApp | Temp Empire",
+    description:
+      "How to get a temporary phone number for WhatsApp OTP. US (+1) and India (+91) temp numbers, virtual number for WhatsApp — private inbox, not a shared wall.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [
