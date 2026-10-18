@@ -5,16 +5,17 @@ import type { ProviderPriceRow } from "./types";
 export type SlotLiveStock = {
   slot: 1 | 2 | 3;
   providerType: string;
+  enabled: boolean;
+  hasKey: boolean;
   bySlug: Map<string, ProviderPriceRow>;
+  /** Plain customer/admin hint — never brands or env names */
+  status: "live" | "empty" | "disabled" | "no_key" | "error";
 };
 
-const PRICE_TIMEOUT_MS = 3500;
-/** 5SIM guest products can be large JSON on cold paths from Vercel. */
-const FIVESIM_PRICE_TIMEOUT_MS = 8_000;
-/** Grizzly/SA getPrices can be slow on cold paths. */
-const GRIZZLY_PRICE_TIMEOUT_MS = 8_000;
-/** SMS-Man needs applications + get-prices; allow more headroom on Vercel. */
-const SMS_MAN_PRICE_TIMEOUT_MS = 12_000;
+/** Hard cap so one slow wholesale never 504s the whole /services response. */
+const OVERALL_BUDGET_MS = 4_000;
+const SLOT_TIMEOUT_MS = 2_500;
+const FIVESIM_SLOT_TIMEOUT_MS = 3_000;
 
 async function pricesForSlot(
   slot: SlotRow,
@@ -22,8 +23,8 @@ async function pricesForSlot(
 ): Promise<Map<string, ProviderPriceRow>> {
   const out = new Map<string, ProviderPriceRow>();
   try {
+    // 5SIM guest catalog is public — still overlay when Disabled / key missing / URL junk
     let adapter = buildAdapterForSlot(slot);
-    // 5SIM stock is public guest catalog — still overlay when Admin key missing
     if (!adapter?.getPrices && slot.providerType === "5sim") {
       const { createFiveSimAdapter } = await import("./adapters/fivesim");
       adapter = createFiveSimAdapter("guest");
@@ -31,13 +32,7 @@ async function pricesForSlot(
     if (!adapter?.getPrices) return out;
 
     const timeoutMs =
-      slot.providerType === "sms-man"
-        ? SMS_MAN_PRICE_TIMEOUT_MS
-        : slot.providerType === "grizzlysms" || slot.providerType === "sms-activate"
-          ? GRIZZLY_PRICE_TIMEOUT_MS
-          : slot.providerType === "5sim"
-            ? FIVESIM_PRICE_TIMEOUT_MS
-            : PRICE_TIMEOUT_MS;
+      slot.providerType === "5sim" ? FIVESIM_SLOT_TIMEOUT_MS : SLOT_TIMEOUT_MS;
 
     let rows = await Promise.race([
       adapter.getPrices(countryCode),
@@ -46,15 +41,15 @@ async function pricesForSlot(
       ),
     ]);
 
-    // If keyed adapter returned empty (timeout/error), retry public guest once
-    if (rows.length === 0 && slot.providerType === "5sim") {
+    // Keyed 5SIM empty → one short guest retry (still inside slot timeout budget)
+    if (rows.length === 0 && slot.providerType === "5sim" && adapter.key === "5sim") {
       const { createFiveSimAdapter } = await import("./adapters/fivesim");
       const guest = createFiveSimAdapter("guest");
       if (guest.getPrices) {
         rows = await Promise.race([
           guest.getPrices(countryCode),
           new Promise<ProviderPriceRow[]>((resolve) =>
-            setTimeout(() => resolve([]), FIVESIM_PRICE_TIMEOUT_MS),
+            setTimeout(() => resolve([]), Math.min(2_000, timeoutMs)),
           ),
         ]);
       }
@@ -66,7 +61,6 @@ async function pricesForSlot(
       out.set(r.serviceSlug, r);
     }
   } catch (err) {
-    // Never log API keys / tokens — message only
     console.error(
       `[live-stock] slot ${slot.priority} ${slot.providerType}`,
       err instanceof Error ? err.message.slice(0, 120) : "error",
@@ -75,10 +69,20 @@ async function pricesForSlot(
   return out;
 }
 
+function emptyEntry(slot: SlotRow, status: SlotLiveStock["status"]): SlotLiveStock {
+  return {
+    slot: slot.priority as 1 | 2 | 3,
+    providerType: slot.providerType,
+    enabled: slot.enabled,
+    hasKey: Boolean(slot.apiKey?.trim()),
+    bySlug: new Map(),
+    status,
+  };
+}
+
 /**
  * Live wholesale rows per Admin Server slot (1|2|3).
- * Uses Admin ProviderSetting keys via buildAdapterForSlot — never logs secrets.
- * Each slot is fetched independently so 5SIM / Grizzly / SMS-Man prices stay distinct.
+ * Each slot is isolated: one failure/timeout must not empty the others or 504 /services.
  */
 export async function fetchLiveStockBySlot(
   countryCode: string,
@@ -86,24 +90,53 @@ export async function fetchLiveStockBySlot(
   const result = new Map<number, SlotLiveStock>();
   try {
     const slots = await loadProviderSlots();
-    await Promise.all(
+    // Pre-seed so partial timeout still returns all three tabs
+    for (const slot of slots) {
+      const status: SlotLiveStock["status"] = !slot.enabled
+        ? "disabled"
+        : !slot.apiKey?.trim() && slot.providerType !== "5sim"
+          ? "no_key"
+          : "empty";
+      result.set(slot.priority, emptyEntry(slot, status));
+    }
+
+    const work = Promise.all(
       slots.map(async (slot) => {
-        if (!slot.enabled) {
+        // Disabled non-5SIM: leave empty (no wholesale call)
+        if (!slot.enabled && slot.providerType !== "5sim") {
+          return;
+        }
+        try {
+          const bySlug = await pricesForSlot(slot, countryCode);
+          const status: SlotLiveStock["status"] =
+            bySlug.size > 0
+              ? "live"
+              : !slot.enabled
+                ? "disabled"
+                : !slot.apiKey?.trim()
+                  ? "no_key"
+                  : "empty";
           result.set(slot.priority, {
             slot: slot.priority as 1 | 2 | 3,
             providerType: slot.providerType,
-            bySlug: new Map(),
+            enabled: slot.enabled,
+            hasKey: Boolean(slot.apiKey?.trim()),
+            bySlug,
+            status,
           });
-          return;
+        } catch {
+          result.set(
+            slot.priority,
+            emptyEntry(slot, "error"),
+          );
         }
-        const bySlug = await pricesForSlot(slot, countryCode);
-        result.set(slot.priority, {
-          slot: slot.priority as 1 | 2 | 3,
-          providerType: slot.providerType,
-          bySlug,
-        });
       }),
     );
+
+    await Promise.race([
+      work,
+      new Promise<void>((resolve) => setTimeout(resolve, OVERALL_BUDGET_MS)),
+    ]);
   } catch (err) {
     console.error(
       "[live-stock] slots",
@@ -125,7 +158,6 @@ export async function fetchFiveSimLiveStock(
       return entry.bySlug;
     }
   }
-  // Fall back to first non-empty slot map
   for (const entry of bySlot.values()) {
     if (entry.bySlug.size > 0) return entry.bySlug;
   }

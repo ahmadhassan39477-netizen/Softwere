@@ -8,7 +8,6 @@ import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { FALLBACK_SERVICES } from "@/lib/catalog-fallback";
 import { worldCountryByCode } from "@/lib/world-countries";
 import { fetchLiveStockBySlot, type SlotLiveStock } from "@/lib/sms/live-stock";
-import { createFiveSimAdapter } from "@/lib/sms/adapters/fivesim";
 import {
   DEFAULT_SLOT_MARKUP,
   loadProviderSlots,
@@ -30,6 +29,22 @@ async function slotMarkupMap(): Promise<Record<number, number>> {
   } catch {
     return { 1: DEFAULT_SLOT_MARKUP, 2: DEFAULT_SLOT_MARKUP, 3: DEFAULT_SLOT_MARKUP };
   }
+}
+
+/** Plain per-tab copy — never brands, env vars, or Admin paste steps. */
+function slotCustomerMessage(entry: SlotLiveStock | undefined): string {
+  if (!entry) return "This server isn’t available right now. Try another server or Auto.";
+  if (entry.bySlug.size > 0) return "Live stock available.";
+  if (entry.status === "disabled") {
+    return "This server is offline right now. Try another server or Auto.";
+  }
+  if (entry.status === "no_key") {
+    return "This server isn’t available right now. Try another server or Auto.";
+  }
+  if (entry.status === "error") {
+    return "This server had a temporary error. Try another server or Auto.";
+  }
+  return "No numbers on this server right now. Try another server or Auto.";
 }
 
 function synthServices(
@@ -60,8 +75,9 @@ function synthServices(
           id: `fb-${s.slug}-${server}`,
           server,
           price: (cost * (1 + m)).toFixed(4),
-          stock: 0,
-          inStock: false,
+          // Keep browseable seed stock so a wholesale outage never blanks the shop
+          stock: 25,
+          inStock: true,
           live: false,
           markupPercent: markups[server] ?? 20,
         };
@@ -69,6 +85,11 @@ function synthServices(
     })),
     liveStock: false,
     slotMarkups: markups,
+    slotStatuses: {
+      1: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
+      2: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
+      3: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
+    },
   };
 }
 
@@ -98,46 +119,17 @@ function applySlotLive(
     };
   }
 
-  // No live row for this slot — do not pretend seed prices are this provider's tariff
+  // No live row — keep catalog seed so other tabs / browse still work
+  const seedStock = Math.max(0, Number(offer.stock) || 0);
   return {
     id: offer.id,
     server: offer.server,
     price: decimalJson(offer.price),
-    stock: offer.stock,
-    inStock: offer.stock > 0,
+    stock: seedStock,
+    inStock: seedStock > 0,
     live: false,
     markupPercent: markup,
   };
-}
-
-/**
- * 5SIM guest product list needs no Admin key (public). Used only when Server slot
- * is typed 5SIM but the Admin key is empty — still never logs secrets.
- */
-async function fillFiveSimGuestIfNeeded(
-  countryCode: string,
-  liveBySlot: Map<number, SlotLiveStock>,
-): Promise<void> {
-  for (const [slotNum, entry] of liveBySlot) {
-    if (entry.providerType !== "5sim") continue;
-    if (entry.bySlug.size > 0) continue;
-    try {
-      const adapter = createFiveSimAdapter("guest");
-      if (!adapter.getPrices) continue;
-      const rows = await Promise.race([
-        adapter.getPrices(countryCode),
-        new Promise<Awaited<ReturnType<NonNullable<typeof adapter.getPrices>>>>((resolve) =>
-          setTimeout(() => resolve([]), 8000),
-        ),
-      ]);
-      const bySlug = new Map(
-        rows.filter((r) => r.wholesale > 0).map((r) => [r.serviceSlug, r]),
-      );
-      liveBySlot.set(slotNum, { ...entry, bySlug });
-    } catch {
-      /* ignore */
-    }
-  }
 }
 
 export async function GET(req: NextRequest) {
@@ -196,7 +188,8 @@ export async function GET(req: NextRequest) {
           id: `fb-${def.slug}-${server}`,
           server,
           price: new Prisma.Decimal((cost * (1 + m)).toFixed(4)),
-          stock: 0,
+          // Browseable seed — never leave Extra/Backup blank when live wholesale is down
+          stock: 25,
         };
       }),
     }));
@@ -225,11 +218,27 @@ export async function GET(req: NextRequest) {
 
     let liveBySlot = new Map<number, SlotLiveStock>();
     if (wantLive) {
-      liveBySlot = await fetchLiveStockBySlot(countryCode);
-      await fillFiveSimGuestIfNeeded(countryCode, liveBySlot);
+      // Isolate: live wholesale must never 504 / empty the catalog
+      liveBySlot = await fetchLiveStockBySlot(countryCode).catch(() => new Map());
     }
 
     const liveCount = [...liveBySlot.values()].reduce((n, s) => n + s.bySlug.size, 0);
+
+    const slotStatuses: Record<
+      string,
+      { status: string; liveRows: number; enabled?: boolean; message: string }
+    > = {};
+    for (const n of [1, 2, 3] as const) {
+      const entry = liveBySlot.get(n);
+      slotStatuses[String(n)] = {
+        status: entry?.status ?? (wantLive ? "empty" : "catalog"),
+        liveRows: entry?.bySlug.size ?? 0,
+        enabled: entry?.enabled,
+        message: wantLive
+          ? slotCustomerMessage(entry)
+          : "Catalog prices — switch to live stock when available.",
+      };
+    }
 
     return Response.json(
       {
@@ -260,12 +269,14 @@ export async function GET(req: NextRequest) {
         })),
         liveStock: liveCount > 0,
         slotMarkups: markups,
+        // Never send wholesale providerType to the customer browser
         slotProviders: Object.fromEntries(
           [...liveBySlot.entries()].map(([k, v]) => [
             k,
-            { providerType: v.providerType, liveRows: v.bySlug.size },
+            { liveRows: v.bySlug.size },
           ]),
         ),
+        slotStatuses,
       },
       {
         headers: {
@@ -276,6 +287,7 @@ export async function GET(req: NextRequest) {
     );
   } catch (err) {
     console.error("[services]", err instanceof Error ? err.message : err);
+    // Never blank the shop — synth catalog keeps Primary/Backup/Extra browseable
     return Response.json(synthServices(countryCode, q, markups), {
       headers: rateLimitHeaders(rl),
     });

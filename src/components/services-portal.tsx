@@ -311,9 +311,15 @@ export function ServicesPortal() {
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true,
     queryFn: () =>
-      api<{ services: Service[]; country: Country; liveStock?: boolean }>(
-        `/api/v1/services?country=${encodeURIComponent(countryCode)}&live=1`,
-      ),
+      api<{
+        services: Service[];
+        country: Country;
+        liveStock?: boolean;
+        slotStatuses?: Record<
+          string,
+          { status: string; liveRows: number; message: string }
+        >;
+      }>(`/api/v1/services?country=${encodeURIComponent(countryCode)}&live=1`),
   });
 
   // Prefetch popular countries with the same live overlay
@@ -987,7 +993,16 @@ export function ServicesPortal() {
               >
                 <Signal size={14} className="text-[var(--accent)] shrink-0 mt-0.5" />
                 <p>
-                  <span className="text-[var(--text)] font-medium">{pool.title} pool.</span> {pool.blurb}
+                  <span className="text-[var(--text)] font-medium">{pool.title} pool.</span>{" "}
+                  {(() => {
+                    const slotKey =
+                      server === "auto" ? null : String(server);
+                    const slotMsg = slotKey
+                      ? servicesQuery.data?.slotStatuses?.[slotKey]?.message
+                      : null;
+                    if (slotMsg) return slotMsg;
+                    return pool.blurb;
+                  })()}
                   {servicesRefreshing ? " · updating stock…" : null}
                 </p>
               </motion.div>
@@ -1151,6 +1166,17 @@ export function ServicesPortal() {
                     No services match that search.
                   </p>
                 )}
+                {!servicesLoading &&
+                  services.length > 0 &&
+                  server !== "auto" &&
+                  !services.some((svc) =>
+                    svc.offers.some((o) => o.server === server && o.inStock),
+                  ) && (
+                    <p className="col-span-full px-1 py-4 text-sm text-[var(--text-muted)] text-center">
+                      {servicesQuery.data?.slotStatuses?.[String(server)]?.message ??
+                        "No numbers on this server right now. Try another server or Auto."}
+                    </p>
+                  )}
               </div>
             </motion.section>
           )}

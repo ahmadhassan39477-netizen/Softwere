@@ -292,8 +292,9 @@ export async function ensureProviderSlots(): Promise<void> {
       update: { value: "1" },
     });
   } else {
-    // Ongoing hygiene: strip docs/HTTP junk, force 20%, recover legacy keys, and
-    // keep slots with a *valid* key Enabled (burned one-time flags left S2 Disabled).
+    // Lightweight hygiene on every request (must stay cheap — /services calls this).
+    // Strip URL junk, force 20%, and keep a *valid on-row key* Enabled.
+    // Do NOT call resolveSlotApiKey here (extra DB + writes) — recovery stays in loadProviderSlots.
     for (const slot of [1, 2, 3] as const) {
       const slotKey = slotKeyForServer(slot);
       const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
@@ -312,14 +313,6 @@ export async function ensureProviderSlots(): Promise<void> {
       if (looksLikeApiDocsUrl(row.apiKey)) {
         // Clear GET/https/product-balance pastes (e.g. 5SIM URL mistaken for token)
         patch.apiKey = null;
-      }
-      const usable = sanitizeApiKeyForType(
-        type,
-        patch.apiKey === null ? null : row.apiKey,
-      );
-      if (!usable) {
-        const recovered = await resolveSlotApiKey(type, slotKey, null);
-        if (recovered) patch.apiKey = recovered;
       }
       const keyAfter = sanitizeApiKeyForType(
         type,
