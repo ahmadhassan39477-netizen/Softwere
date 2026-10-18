@@ -98,7 +98,10 @@ export async function GET(req: NextRequest) {
       const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
       const rawDb = rawByKey.get(s.key)?.trim() ?? "";
       const usableKey = s.apiKey?.trim() ?? "";
-      const docsUrlStored = Boolean(rawDb) && isSmsManDocsUrl(rawDb);
+      const docsUrlStored = Boolean(rawDb) && looksLikeApiDocsUrl(rawDb);
+      // Never advertise a junk URL paste as a saved key
+      const hasRealKey =
+        Boolean(usableKey) && !looksLikeApiDocsUrl(usableKey);
       return {
         id: s.key,
         key: s.key,
@@ -110,10 +113,14 @@ export async function GET(req: NextRequest) {
         enabled: s.enabled,
         priority: s.priority,
         markupPercent: String(markupPct),
-        hasApiKey: Boolean(usableKey) || Boolean(bal?.hasApiKey),
-        apiKeyMasked: maskKey(usableKey || null),
+        hasApiKey: hasRealKey || Boolean(bal?.hasApiKey && !docsUrlStored),
+        apiKeyMasked: hasRealKey
+          ? maskKey(usableKey)
+          : docsUrlStored
+            ? "(URL rejected — paste API key only)"
+            : maskKey(null),
         balance: bal?.balance ?? null,
-        envConfigured: Boolean(bal?.hasApiKey && !usableKey),
+        envConfigured: Boolean(bal?.hasApiKey && !hasRealKey),
         // Safe flags only — never echo token
         tokenLooksLikeDocsUrl: docsUrlStored,
         live: liveProbe?.[s.key]?.live ?? null,
@@ -180,24 +187,43 @@ export async function PATCH(req: NextRequest) {
     nextType ??
     (isSlotProviderType(existing.providerType) ? existing.providerType : "sms-activate");
 
-  // Reject get-sms docs URLs — never store as API keys; never log the pasted value
+  // Reject docs/HTTP URL pastes — never store as API keys; never log the pasted value
   let nextApiKey: string | null | undefined = undefined;
   if (parsed.data.apiKey !== undefined) {
     const raw = parsed.data.apiKey;
-    if (raw?.trim() && (typeForSanitize === "sms-man" || isSmsManDocsUrl(raw))) {
-      if (isSmsManDocsUrl(raw) || looksLikeApiDocsUrl(raw)) {
+    if (raw?.trim() && looksLikeApiDocsUrl(raw)) {
+      if (typeForSanitize === "5sim" || /5sim\.net|product-balance|\/v1\//i.test(raw)) {
+        return jsonError(
+          "Paste only the API key from 5sim.net → Profile / Settings, not a URL (no GET, http, product-balance, or guest/products).",
+          400,
+        );
+      }
+      if (typeForSanitize === "sms-man" || isSmsManDocsUrl(raw)) {
         return jsonError(
           "That looks like an SMS-Man docs/API URL, not your profile token. Open sms-man.com → Profile → copy the API token only (no get-sms?token=… URL), then Save key.",
           400,
         );
       }
+      return jsonError(
+        "That looks like a URL or HTTP request, not an API key. Paste only the token from the provider profile/settings page.",
+        400,
+      );
     }
     nextApiKey = sanitizeApiKeyForType(typeForSanitize, raw);
     if (raw?.trim() && nextApiKey == null) {
-      return jsonError(
-        "Invalid API key — for SMS-Man paste the profile token only, not a get-sms docs URL.",
-        400,
-      );
+      if (typeForSanitize === "5sim") {
+        return jsonError(
+          "Invalid 5SIM key — paste only the API key from 5sim.net profile/settings, not a URL.",
+          400,
+        );
+      }
+      if (typeForSanitize === "sms-man") {
+        return jsonError(
+          "Invalid API key — for SMS-Man paste the profile token only, not a get-sms docs URL.",
+          400,
+        );
+      }
+      return jsonError("Invalid API key — paste the provider token only, not a URL.", 400);
     }
     // Verify SMS-Man / Grizzly keys before saving (never log the pasted value)
     if (nextApiKey && typeForSanitize === "sms-man") {
@@ -240,13 +266,12 @@ export async function PATCH(req: NextRequest) {
         ? null
         : existing.apiKey;
 
-  // Enable slot when a verified provider key is newly saved (Grizzly or SMS-Man)
+  // Saving a valid key always turns the slot on (Enable must stick with a key on file)
   let nextEnabled = parsed.data.enabled;
   if (
     nextEnabled === undefined &&
     nextApiKey !== undefined &&
-    Boolean(effectiveKeyAfter?.trim()) &&
-    (typeForSanitize === "sms-man" || typeForSanitize === "grizzlysms")
+    Boolean(effectiveKeyAfter?.trim())
   ) {
     nextEnabled = true;
   }

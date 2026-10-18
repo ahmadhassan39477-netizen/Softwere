@@ -109,13 +109,23 @@ export function defaultBaseUrlForType(type: SlotProviderType): string | null {
   return null;
 }
 
-/** True when the stored “key” is a docs/control URL, not a token. */
+/** True when the stored “key” is a docs/control URL or HTTP junk, not a token. */
 export function looksLikeApiDocsUrl(value: string | null | undefined): boolean {
   if (!value?.trim()) return false;
-  return isSmsManDocsUrl(value) || /^https?:\/\//i.test(value.trim());
+  const t = value.trim();
+  if (isSmsManDocsUrl(t)) return true;
+  if (/^https?:\/\//i.test(t)) return true;
+  // Curl / “GET https://…” / product-balance / guest products pasted as the key
+  if (/^(GET|POST|PUT|PATCH|DELETE|HEAD|CURL)\b/i.test(t)) return true;
+  if (/\bhttps?:\/\//i.test(t)) return true;
+  if (/5sim\.net|grizzlysms\.com|sms-man\.com|sms-activate\./i.test(t) && /[/?]/.test(t)) {
+    return true;
+  }
+  if (/product-balance|\/v1\/(user|guest)\//i.test(t)) return true;
+  return false;
 }
 
-/** Sanitize Admin-pasted keys: never persist get-sms docs URLs as tokens. */
+/** Sanitize Admin-pasted keys: never persist docs URLs or HTTP request lines as tokens. */
 export function sanitizeApiKeyForType(
   type: SlotProviderType,
   apiKey: string | null | undefined,
@@ -125,6 +135,8 @@ export function sanitizeApiKeyForType(
   if (!trimmed) return null;
   if (type === "sms-man" && isSmsManDocsUrl(trimmed)) return null;
   if (looksLikeApiDocsUrl(trimmed) && type !== "custom-sa") return null;
+  // Real tokens are not sentences / request lines
+  if (/\s/.test(trimmed) && type !== "custom-sa") return null;
   return trimmed;
 }
 
@@ -280,8 +292,8 @@ export async function ensureProviderSlots(): Promise<void> {
       update: { value: "1" },
     });
   } else {
-    // Ongoing hygiene: strip docs URLs, force 20% if stuck at 40, and always
-    // re-attach legacy keys onto empty server-N slots (Enable must not leave buy keyless).
+    // Ongoing hygiene: strip docs/HTTP junk, force 20%, recover legacy keys, and
+    // keep slots with a *valid* key Enabled (burned one-time flags left S2 Disabled).
     for (const slot of [1, 2, 3] as const) {
       const slotKey = slotKeyForServer(slot);
       const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
@@ -289,72 +301,38 @@ export async function ensureProviderSlots(): Promise<void> {
       const type: SlotProviderType = isSlotProviderType(row.providerType)
         ? row.providerType
         : SLOT_TYPE_DEFAULTS[slot];
-      const patch: { markupPercent?: Prisma.Decimal; apiKey?: string | null } = {};
+      const patch: {
+        markupPercent?: Prisma.Decimal;
+        apiKey?: string | null;
+        enabled?: boolean;
+      } = {};
       if (Number(row.markupPercent) === 40) {
         patch.markupPercent = new Prisma.Decimal(DEFAULT_SLOT_MARKUP);
       }
-      if (
-        (row.providerType === "sms-man" || looksLikeApiDocsUrl(row.apiKey)) &&
-        looksLikeApiDocsUrl(row.apiKey)
-      ) {
+      if (looksLikeApiDocsUrl(row.apiKey)) {
+        // Clear GET/https/product-balance pastes (e.g. 5SIM URL mistaken for token)
         patch.apiKey = null;
       }
-      if (!row.apiKey?.trim() || patch.apiKey === null) {
+      const usable = sanitizeApiKeyForType(
+        type,
+        patch.apiKey === null ? null : row.apiKey,
+      );
+      if (!usable) {
         const recovered = await resolveSlotApiKey(type, slotKey, null);
         if (recovered) patch.apiKey = recovered;
+      }
+      const keyAfter = sanitizeApiKeyForType(
+        type,
+        patch.apiKey !== undefined ? patch.apiKey : row.apiKey,
+      );
+      // Valid key on file must stay buyable — Enable was reverting / one-time flags burned
+      if (keyAfter && !row.enabled) {
+        patch.enabled = true;
       }
       if (Object.keys(patch).length > 0) {
         await prisma.providerSetting.update({ where: { key: slotKey }, data: patch });
       }
     }
-  }
-
-  // One-time: Server 2 had a saved Grizzly key but stayed Disabled → liveRows=0 and
-  // Backup kept fake seed while Primary showed live 5SIM (looked like prices "went up").
-  const reenableFlag = "sms_reenable_keyed_grizzly_s2_v1";
-  const reenableDone = await prisma.setting.findUnique({ where: { key: reenableFlag } });
-  if (!reenableDone || reenableDone.value !== "1") {
-    const s2 = await prisma.providerSetting.findUnique({ where: { key: "server-2" } });
-    if (
-      s2 &&
-      s2.providerType === "grizzlysms" &&
-      Boolean(s2.apiKey?.trim()) &&
-      !s2.enabled
-    ) {
-      await prisma.providerSetting.update({
-        where: { key: "server-2" },
-        data: { enabled: true, markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
-      });
-    }
-    await prisma.setting.upsert({
-      where: { key: reenableFlag },
-      create: { key: reenableFlag, value: "1" },
-      update: { value: "1" },
-    });
-  }
-
-  // One-time: Server 1 typed 5SIM with a saved key but Disabled → Primary buy skipped
-  const reenableS1Flag = "sms_reenable_keyed_5sim_s1_v1";
-  const reenableS1Done = await prisma.setting.findUnique({ where: { key: reenableS1Flag } });
-  if (!reenableS1Done || reenableS1Done.value !== "1") {
-    const s1 = await prisma.providerSetting.findUnique({ where: { key: "server-1" } });
-    if (
-      s1 &&
-      s1.providerType === "5sim" &&
-      Boolean(s1.apiKey?.trim()) &&
-      !looksLikeApiDocsUrl(s1.apiKey) &&
-      !s1.enabled
-    ) {
-      await prisma.providerSetting.update({
-        where: { key: "server-1" },
-        data: { enabled: true, markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP) },
-      });
-    }
-    await prisma.setting.upsert({
-      where: { key: reenableS1Flag },
-      create: { key: reenableS1Flag, value: "1" },
-      update: { value: "1" },
-    });
   }
 
   void LEGACY_KEY_SOURCES;

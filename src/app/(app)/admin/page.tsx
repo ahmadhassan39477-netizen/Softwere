@@ -204,14 +204,73 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Update failed");
-      return data;
+      return data as {
+        provider?: { key: string; enabled: boolean; hasApiKey: boolean };
+      };
     },
-    onSuccess: () => {
-      setMsg("Saved.");
-      setKeyDrafts({});
+    onMutate: async (payload) => {
+      // Optimistic Enable/Disable so the button does not snap back while probe refetch runs
+      if (typeof payload.enabled !== "boolean" || typeof payload.key !== "string") {
+        return undefined;
+      }
+      await qc.cancelQueries({ queryKey: ["admin-provider-settings"] });
+      const prev = qc.getQueryData(["admin-provider-settings"]);
+      qc.setQueryData(["admin-provider-settings"], (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const data = old as { providers?: ProviderRow[] };
+        if (!Array.isArray(data.providers)) return old;
+        return {
+          ...data,
+          providers: data.providers.map((p) =>
+            p.key === payload.key ? { ...p, enabled: payload.enabled as boolean } : p,
+          ),
+        };
+      });
+      return { prev };
+    },
+    onSuccess: (data, payload) => {
+      setMsg(
+        typeof payload.enabled === "boolean"
+          ? payload.enabled
+            ? "Enabled — stays on after refresh when a valid key is saved."
+            : "Disabled."
+          : "Saved.",
+      );
+      if (payload.apiKey !== undefined) {
+        setKeyDrafts((prev) => {
+          const next = { ...prev };
+          if (typeof payload.key === "string") delete next[payload.key];
+          return next;
+        });
+      }
+      // Keep optimistic enabled from PATCH response before slow probe=1 refetch
+      if (data.provider?.key) {
+        qc.setQueryData(["admin-provider-settings"], (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const cur = old as { providers?: ProviderRow[] };
+          if (!Array.isArray(cur.providers)) return old;
+          return {
+            ...cur,
+            providers: cur.providers.map((p) =>
+              p.key === data.provider!.key
+                ? {
+                    ...p,
+                    enabled: data.provider!.enabled,
+                    hasApiKey: data.provider!.hasApiKey || p.hasApiKey,
+                  }
+                : p,
+            ),
+          };
+        });
+      }
       qc.invalidateQueries({ queryKey: ["admin-provider-settings"] });
     },
-    onError: (e: Error) => setMsg(e.message),
+    onError: (e: Error, _payload, ctx) => {
+      if (ctx && typeof ctx === "object" && "prev" in ctx && ctx.prev !== undefined) {
+        qc.setQueryData(["admin-provider-settings"], ctx.prev);
+      }
+      setMsg(e.message);
+    },
   });
 
   const saveWa = useMutation({
@@ -609,9 +668,10 @@ export default function AdminPage() {
           Each server is a slot: pick provider type, paste API key, set margin %. Default margin
           is {settings.data?.grizzlyDefaultMarkup ?? 20}% for all servers (retail = wholesale ×
           1.20). Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man.
-          SMS-Man: log in at sms-man.com → open Profile / Account → copy only the API token
-          string. Never paste the docs “Get sms” example URL
-          (…/get-sms?token=$token&amp;request_id=…) — Admin rejects that. Customer /services
+          5SIM: 5sim.net → Profile / Settings → copy the API key only (not a GET/product-balance
+          URL). Grizzly: paste api_key from grizzlysms.com. SMS-Man: Profile token only — never a
+          get-sms docs URL. Click Save key (stores token + turns Enabled on), or toggle Enabled
+          after a key is saved — Enabled must still say Enabled after refresh. Customer /services
           never shows wholesale brand names. Keys stay in Admin — never shared in chat.
         </p>
         <div className="space-y-4">
@@ -621,7 +681,9 @@ export default function AdminPage() {
             const keyPlaceholder =
               type === "sms-man"
                 ? "Paste SMS-Man profile token (not a get-sms URL)"
-                : `Paste ${p.providerLabel ?? "provider"} API key`;
+                : type === "5sim"
+                  ? "Paste 5SIM API key from profile/settings (not a URL)"
+                  : `Paste ${p.providerLabel ?? "provider"} API key`;
             return (
               <div
                 key={p.key}
@@ -658,8 +720,15 @@ export default function AdminPage() {
                     ) : null}
                     {p.tokenLooksLikeDocsUrl ? (
                       <div className="text-xs text-amber-400 mt-1">
-                        Saved value looks like a docs URL — clear it and paste the profile
-                        token only, then Save key.
+                        Saved value looks like a URL or HTTP request — paste only the API key
+                        from the provider profile/settings (not GET, http, product-balance, or
+                        docs links), then Save key.
+                      </div>
+                    ) : null}
+                    {p.enabled && p.hasApiKey && p.live === false ? (
+                      <div className="text-xs text-amber-400 mt-1">
+                        Enabled with a key but live prices missing — check provider balance /
+                        stock, then refresh this page.
                       </div>
                     ) : null}
                     {type === "sms-man" && settings.data?.liveProbe?.[p.key] ? (
@@ -679,7 +748,11 @@ export default function AdminPage() {
                     type="button"
                     className={`btn text-xs ${p.enabled ? "btn-primary" : "btn-ghost"}`}
                     disabled={patch.isPending}
-                    onClick={() => patch.mutate({ key: p.key, enabled: !p.enabled })}
+                    aria-pressed={p.enabled}
+                    onClick={() => {
+                      const next = !p.enabled;
+                      patch.mutate({ key: p.key, enabled: next });
+                    }}
                   >
                     {p.enabled ? "Enabled" : "Disabled"}
                   </button>
