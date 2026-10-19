@@ -47,6 +47,9 @@ assert.ok(homeSrc.includes('href="/guides"'), "homepage missing hub");
 for (const g of PUBLIC_GUIDES) {
   assert.ok(homeSrc.includes(g.path), `homepage missing ${g.path}`);
 }
+const heroChips = homeSrc.match(/label: "US temp num"[\s\S]*?\]\.map\(\(b\)/)?.[0] ?? "";
+assert.ok(heroChips.includes("Temp Mail Plus") && heroChips.includes("VPN & Proxy"), "hero chips missing basics");
+assert.equal(/All guides|WhatsApp guide|Facebook guide|Disposable guide|Reseller API/.test(heroChips), false, "hero chip row still has guide chips");
 
 const pages: Record<string, string> = {
   whatsapp: readFileSync(

@@ -412,11 +412,6 @@ export default function LandingPage() {
                 { label: "US temp num", href: REGISTER_USA },
                 { label: "UK temp num", href: REGISTER_UK },
                 { label: "OTP website", href: REGISTER_SERVICES },
-                { label: "All guides", href: "/guides" },
-                { label: "WhatsApp guide", href: "/guides/whatsapp-temporary-number" },
-                { label: "Facebook guide", href: "/guides/facebook-temporary-number" },
-                { label: "Disposable guide", href: "/guides/disposable-phone-number" },
-                { label: "Reseller API", href: "/guides/reseller-api" },
                 { label: "Temp Mail Plus", href: mailHref },
                 { label: "VPN & Proxy", href: vpnHref },
               ].map((b) => (
