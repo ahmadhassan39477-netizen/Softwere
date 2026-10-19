@@ -1,6 +1,12 @@
 /** Absolute production URLs for Google logo / Organization. */
 const BASE = "https://www.tempempire.store";
 
+/** Schema-only (JSON-LD). Never render this name in visible page copy. */
+const FOUNDER = {
+  "@type": "Person" as const,
+  name: "Shabeh Ul Hassan",
+};
+
 /** Crawlable Organization + WebSite JSON-LD with absolute logo URL for Google. */
 export function SiteJsonLd() {
   const organization = {
@@ -8,6 +14,8 @@ export function SiteJsonLd() {
     "@type": "Organization",
     name: "Temp Empire",
     url: BASE,
+    founder: FOUNDER,
+    owner: FOUNDER,
     logo: {
       "@type": "ImageObject",
       url: `${BASE}/icon-192.png`,
@@ -39,6 +47,9 @@ export function SiteJsonLd() {
     publisher: {
       "@type": "Organization",
       name: "Temp Empire",
+      url: BASE,
+      founder: FOUNDER,
+      owner: FOUNDER,
       logo: {
         "@type": "ImageObject",
         url: `${BASE}/icon-192.png`,
