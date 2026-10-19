@@ -123,7 +123,11 @@ export default async function BuySeoPage({ params }: Props) {
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
               Use this {country.adjective} Facebook OTP number to receive SMS — not a public
               Facebook OTP code free list. If the Facebook OTP code is not received, eligible
-              orders refund to your wallet.
+              orders refund to your wallet.{" "}
+              <Link href="/guides/facebook-temporary-number" className="text-[var(--accent)]">
+                Read the US & UK Facebook temp number guide
+              </Link>
+              .
             </p>
           </section>
         )}

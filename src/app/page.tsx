@@ -409,6 +409,7 @@ export default function LandingPage() {
                 { label: "UK temp num", href: REGISTER_UK },
                 { label: "OTP website", href: REGISTER_SERVICES },
                 { label: "WhatsApp guide", href: "/guides/whatsapp-temporary-number" },
+                { label: "Facebook guide", href: "/guides/facebook-temporary-number" },
                 { label: "Temp Mail Plus", href: mailHref },
                 { label: "VPN & Proxy", href: vpnHref },
               ].map((b) => (
@@ -881,25 +882,43 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
         <SectionHead
           eyebrow="Guides"
-          title="How to get a temporary number for WhatsApp."
-          body="US (+1) and India (+91) WhatsApp OTP — a public guide guests can read. Buy, Services, US, and UK still go through sign up if you are logged out."
+          title="How to get a temporary number for WhatsApp and Facebook."
+          body="Public US / UK / India guides guests can read. Buy, Services, US, UK, and VPN still go through sign up if you are logged out."
         />
-        <Link
-          href="/guides/whatsapp-temporary-number"
-          className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors max-w-2xl"
-        >
-          <p className="eyebrow !mb-2">Temporary number for WhatsApp</p>
-          <h3 className="text-xl font-semibold tracking-tight">
-            Temporary phone number for WhatsApp OTP
-          </h3>
-          <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-            Five steps, US and India sections, and FAQ: how to get a temp number US, a temporary
-            number India, and a virtual number for WhatsApp without a shared inbox.
-          </p>
-          <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-            Read the guide <ArrowRight size={14} />
-          </span>
-        </Link>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/guides/whatsapp-temporary-number"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">Temporary number for WhatsApp</p>
+            <h3 className="text-xl font-semibold tracking-tight">
+              Temporary phone number for WhatsApp OTP
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Five steps, US and India sections, and FAQ: how to get a temp number US, a temporary
+              number India, and a virtual number for WhatsApp without a shared inbox.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Read the guide <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/guides/facebook-temporary-number"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">Temp number for Facebook</p>
+            <h3 className="text-xl font-semibold tracking-tight">
+              Receive Facebook SMS verification online
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              US (+1) and UK (+44) Facebook OTP, best temp number UK for OTP, and Pakistan plus
+              VPN — a private inbox, not a shared wall.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Read the guide <ArrowRight size={14} />
+            </span>
+          </Link>
+        </div>
       </section>
 
       {/* FAQ */}

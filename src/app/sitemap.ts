@@ -4,6 +4,7 @@ import {
   SEO_COUNTRIES,
   allSeoParams,
 } from "@/lib/seo-catalog";
+import { FACEBOOK_GUIDE_URL } from "@/lib/facebook-guide";
 import { WHATSAPP_GUIDE_URL } from "@/lib/whatsapp-guide";
 
 const BASE = "https://www.tempempire.store";
@@ -47,6 +48,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/mail`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     {
       url: WHATSAPP_GUIDE_URL,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+    {
+      url: FACEBOOK_GUIDE_URL,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.9,

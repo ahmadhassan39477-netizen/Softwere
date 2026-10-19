@@ -148,6 +148,14 @@ export default function WhatsAppTemporaryNumberGuidePage() {
                 UK WhatsApp hub
               </Link>
             </li>
+            <li>
+              <Link
+                href="/guides/facebook-temporary-number"
+                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+              >
+                Facebook guide
+              </Link>
+            </li>
           </ul>
           <GuideShopCtas />
         </section>

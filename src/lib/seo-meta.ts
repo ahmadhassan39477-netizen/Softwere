@@ -66,6 +66,11 @@ export const PAGE_META = {
     description:
       "How to get a temporary phone number for WhatsApp OTP. US (+1) and India (+91) temp numbers, virtual number for WhatsApp — private inbox, not a shared wall.",
   },
+  facebookGuide: {
+    title: "How to Get US UK Facebook Temp Number | Temp Empire",
+    description:
+      "How to get a US temporary phone number for Facebook. Best temp number UK for OTP, receive Facebook SMS verification online — private inbox, refund if no SMS.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [
