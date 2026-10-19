@@ -71,6 +71,11 @@ export const PAGE_META = {
     description:
       "How to get a US temporary phone number for Facebook. Best temp number UK for OTP, receive Facebook SMS verification online — private inbox, refund if no SMS.",
   },
+  disposableGuide: {
+    title: "What Is a Disposable Phone Number | Temp Mail | Temp Empire",
+    description:
+      "What is a disposable phone number? Temporary phone number plus temp mail for OTP. Keep your SIM off dating apps — virtual SMS, 20-minute refund if no SMS.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [

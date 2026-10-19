@@ -4,6 +4,7 @@ import {
   SEO_COUNTRIES,
   allSeoParams,
 } from "@/lib/seo-catalog";
+import { DISPOSABLE_GUIDE_URL } from "@/lib/disposable-guide";
 import { FACEBOOK_GUIDE_URL } from "@/lib/facebook-guide";
 import { WHATSAPP_GUIDE_URL } from "@/lib/whatsapp-guide";
 
@@ -54,6 +55,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: FACEBOOK_GUIDE_URL,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+    {
+      url: DISPOSABLE_GUIDE_URL,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.9,

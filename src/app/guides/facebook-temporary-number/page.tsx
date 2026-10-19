@@ -166,6 +166,14 @@ export default function FacebookTemporaryNumberGuidePage() {
                 WhatsApp guide
               </Link>
             </li>
+            <li>
+              <Link
+                href="/guides/disposable-phone-number"
+                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+              >
+                Disposable guide
+              </Link>
+            </li>
           </ul>
           <GuideShopCtas service="facebook" />
         </section>

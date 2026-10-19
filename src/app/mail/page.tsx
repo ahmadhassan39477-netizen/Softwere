@@ -79,7 +79,11 @@ export default function TempMailPlusPage() {
           <p>
             Public “temp num free” SMS walls share codes with everyone. Email aliases here stay on
             your account after you sign in. Pair Temp Mail Plus with Facebook OTP verification or
-            an OTP website for WhatsApp flow when you need both email and SMS.
+            an OTP website for WhatsApp flow when you need both email and SMS.{" "}
+            <Link href="/guides/disposable-phone-number" className="text-[var(--accent)]">
+              Read the disposable phone number and temp mail guide
+            </Link>
+            .
           </p>
         </div>
 
@@ -104,6 +108,9 @@ export default function TempMailPlusPage() {
           </Link>
           <Link href="/buy/uk" className="btn btn-ghost">
             UK temp num
+          </Link>
+          <Link href="/guides/disposable-phone-number" className="btn btn-ghost">
+            Disposable guide
           </Link>
         </div>
       </article>

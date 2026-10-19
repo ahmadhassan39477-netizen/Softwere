@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import {
   REGISTER_FACEBOOK,
   REGISTER_INDIA,
+  REGISTER_MAIL,
   REGISTER_SERVICES,
   REGISTER_UK,
   REGISTER_USA,
@@ -14,15 +15,27 @@ import {
 } from "@/lib/guest-links";
 
 /**
- * Buy / Services / US / UK (and India or VPN from the article body) go through
- * signup when the visitor is logged out. Signed-in shoppers open the shop.
+ * Shop CTAs go through signup when the visitor is logged out.
+ * Signed-in shoppers open the shop (or Temp Mail) directly.
  */
-export function GuideShopCtas({ service = "whatsapp" }: { service?: "whatsapp" | "facebook" }) {
+export function GuideShopCtas({
+  service = "whatsapp",
+}: {
+  service?: "whatsapp" | "facebook" | "disposable";
+}) {
   const { status } = useSession();
   const inShop = status === "authenticated";
 
   const items: { href: string; label: string; primary?: boolean }[] =
-    service === "facebook"
+    service === "disposable"
+      ? [
+          { href: inShop ? "/services" : REGISTER_SERVICES, label: "Sign up", primary: true },
+          { href: inShop ? "/services" : REGISTER_SERVICES, label: "Services" },
+          { href: inShop ? "/temp-mail" : REGISTER_MAIL, label: "Temp Mail" },
+          { href: inShop ? "/services?country=US" : REGISTER_USA, label: "US" },
+          { href: inShop ? "/services?country=GB" : REGISTER_UK, label: "UK" },
+        ]
+      : service === "facebook"
       ? [
           {
             href: inShop ? "/services?service=facebook" : REGISTER_FACEBOOK,

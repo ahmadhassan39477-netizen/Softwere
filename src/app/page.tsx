@@ -410,6 +410,7 @@ export default function LandingPage() {
                 { label: "OTP website", href: REGISTER_SERVICES },
                 { label: "WhatsApp guide", href: "/guides/whatsapp-temporary-number" },
                 { label: "Facebook guide", href: "/guides/facebook-temporary-number" },
+                { label: "Disposable guide", href: "/guides/disposable-phone-number" },
                 { label: "Temp Mail Plus", href: mailHref },
                 { label: "VPN & Proxy", href: vpnHref },
               ].map((b) => (
@@ -882,10 +883,10 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
         <SectionHead
           eyebrow="Guides"
-          title="How to get a temporary number for WhatsApp and Facebook."
-          body="Public US / UK / India guides guests can read. Buy, Services, US, UK, and VPN still go through sign up if you are logged out."
+          title="How to get a temporary number for WhatsApp, Facebook, and privacy."
+          body="Public guides guests can read. Services, Temp Mail, US, UK, and VPN still go through sign up if you are logged out."
         />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/guides/whatsapp-temporary-number"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
@@ -913,6 +914,22 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
               US (+1) and UK (+44) Facebook OTP, best temp number UK for OTP, and Pakistan plus
               VPN — a private inbox, not a shared wall.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Read the guide <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/guides/disposable-phone-number"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">Disposable phone number</p>
+            <h3 className="text-xl font-semibold tracking-tight">
+              What is a disposable phone number?
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Temporary phone number plus temp mail for OTP. Dating apps, SIM-swapping on
+              non-bank forms, and a private inbox — not a shared wall.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
               Read the guide <ArrowRight size={14} />
