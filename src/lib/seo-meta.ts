@@ -81,6 +81,11 @@ export const PAGE_META = {
     description:
       "Automate SMS OTP with Temp Empire Reseller API. Virtual phone REST, order id, SSE or poll — 20-minute auto-refund. Generate developer API keys after signup.",
   },
+  guidesHub: {
+    title: "OTP Guides | WhatsApp Facebook Temp Number | Temp Empire",
+    description:
+      "Public Temp Empire guides: WhatsApp temp number, Facebook OTP, disposable number plus temp mail, and Reseller API. Guests can read — buy after signup.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [

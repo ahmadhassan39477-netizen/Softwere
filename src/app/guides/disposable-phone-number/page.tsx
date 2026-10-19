@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GuideBreadcrumb } from "@/components/guide-breadcrumb";
+import { GuideKeepReading } from "@/components/guide-keep-reading";
 import { GuideShopCtas } from "@/components/guide-shop-ctas";
 import { PublicChrome } from "@/components/public-chrome";
+import { findPublicGuide, guideBreadcrumbJsonLd } from "@/lib/guides-catalog";
 import { faqJsonLd } from "@/lib/seo-catalog";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 import {
@@ -53,9 +56,16 @@ export default function DisposablePhoneNumberGuidePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(DISPOSABLE_GUIDE_FAQS)) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(guideBreadcrumbJsonLd(findPublicGuide("disposable"))),
+        }}
+      />
 
       <article className="mx-auto max-w-3xl">
-        <p className="eyebrow">Guide · Disposable number + temp mail</p>
+        <GuideBreadcrumb current={findPublicGuide("disposable")} />
+        <p className="eyebrow mt-6">Guide · Disposable number + temp mail</p>
         <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.035em] leading-tight">
           {DISPOSABLE_GUIDE_H1}
         </h1>
@@ -142,56 +152,14 @@ export default function DisposablePhoneNumberGuidePage() {
             Country hubs and the mail landing stay public for Google. Shop buttons below still send
             guests to register.
           </p>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            <li>
-              <Link
-                href="/buy/usa"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                US temp num hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/buy/uk"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                UK temp num hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/mail"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Temp Mail Plus
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/facebook-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Facebook guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/whatsapp-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                WhatsApp guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/reseller-api"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Reseller API guide
-              </Link>
-            </li>
-          </ul>
+          <GuideKeepReading
+            currentId="disposable"
+            extras={[
+              { href: "/buy/usa", label: "US temp num hub" },
+              { href: "/buy/uk", label: "UK temp num hub" },
+              { href: "/mail", label: "Temp Mail Plus" },
+            ]}
+          />
           <GuideShopCtas service="disposable" />
         </section>
       </article>

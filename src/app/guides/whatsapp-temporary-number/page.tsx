@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GuideBreadcrumb } from "@/components/guide-breadcrumb";
+import { GuideKeepReading } from "@/components/guide-keep-reading";
 import { GuideShopCtas } from "@/components/guide-shop-ctas";
 import { PublicChrome } from "@/components/public-chrome";
+import { findPublicGuide, guideBreadcrumbJsonLd } from "@/lib/guides-catalog";
 import { faqJsonLd } from "@/lib/seo-catalog";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 import {
@@ -53,9 +56,16 @@ export default function WhatsAppTemporaryNumberGuidePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(WHATSAPP_GUIDE_FAQS)) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(guideBreadcrumbJsonLd(findPublicGuide("whatsapp"))),
+        }}
+      />
 
       <article className="mx-auto max-w-3xl">
-        <p className="eyebrow">Guide · WhatsApp OTP</p>
+        <GuideBreadcrumb current={findPublicGuide("whatsapp")} />
+        <p className="eyebrow mt-6">Guide · WhatsApp OTP</p>
         <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.035em] leading-tight">
           {WHATSAPP_GUIDE_H1}
         </h1>
@@ -123,56 +133,14 @@ export default function WhatsAppTemporaryNumberGuidePage() {
           <p className="mt-3 text-sm text-[var(--text-muted)] leading-relaxed">
             Country hubs stay public for Google. Shop buttons below still send guests to register.
           </p>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            <li>
-              <Link
-                href="/buy/usa/whatsapp"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                US WhatsApp hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/buy/india/whatsapp"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                India WhatsApp hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/buy/uk/whatsapp"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                UK WhatsApp hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/facebook-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Facebook guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/disposable-phone-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Disposable guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/reseller-api"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Reseller API guide
-              </Link>
-            </li>
-          </ul>
+          <GuideKeepReading
+            currentId="whatsapp"
+            extras={[
+              { href: "/buy/usa/whatsapp", label: "US WhatsApp hub" },
+              { href: "/buy/india/whatsapp", label: "India WhatsApp hub" },
+              { href: "/buy/uk/whatsapp", label: "UK WhatsApp hub" },
+            ]}
+          />
           <GuideShopCtas />
         </section>
       </article>

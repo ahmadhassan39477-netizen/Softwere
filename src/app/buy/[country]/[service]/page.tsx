@@ -127,6 +127,10 @@ export default async function BuySeoPage({ params }: Props) {
               <Link href="/guides/facebook-temporary-number" className="text-[var(--accent)]">
                 Read the US & UK Facebook temp number guide
               </Link>
+              {" · "}
+              <Link href="/guides" className="text-[var(--accent)]">
+                All guides
+              </Link>
               .
             </p>
           </section>
@@ -136,7 +140,15 @@ export default async function BuySeoPage({ params }: Props) {
             <h2 className="text-xl font-semibold tracking-tight">OTP website for WhatsApp</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
               Temp Empire is a temp OTP website where you rent a {country.adjective} temp number,
-              request the WhatsApp SMS yourself, and copy the code from a private inbox.
+              request the WhatsApp SMS yourself, and copy the code from a private inbox.{" "}
+              <Link href="/guides/whatsapp-temporary-number" className="text-[var(--accent)]">
+                Read the WhatsApp temp number guide
+              </Link>
+              {" · "}
+              <Link href="/guides" className="text-[var(--accent)]">
+                All guides
+              </Link>
+              .
             </p>
           </section>
         )}
@@ -173,7 +185,15 @@ export default async function BuySeoPage({ params }: Props) {
                 href={`/buy/${country.slug}`}
                 className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
               >
-                All {country.adjective} guides
+                All {country.adjective} numbers
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/guides"
+                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+              >
+                All guides
               </Link>
             </li>
           </ul>

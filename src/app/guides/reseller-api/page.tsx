@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GuideApiCtas } from "@/components/guide-api-ctas";
+import { GuideBreadcrumb } from "@/components/guide-breadcrumb";
+import { GuideKeepReading } from "@/components/guide-keep-reading";
 import { PublicChrome } from "@/components/public-chrome";
+import { findPublicGuide, guideBreadcrumbJsonLd } from "@/lib/guides-catalog";
 import { faqJsonLd } from "@/lib/seo-catalog";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 import {
@@ -53,9 +56,16 @@ export default function ResellerApiGuidePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(RESELLER_API_GUIDE_FAQS)) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(guideBreadcrumbJsonLd(findPublicGuide("reseller-api"))),
+        }}
+      />
 
       <article className="mx-auto max-w-3xl">
-        <p className="eyebrow">Guide · Reseller API</p>
+        <GuideBreadcrumb current={findPublicGuide("reseller-api")} />
+        <p className="eyebrow mt-6">Guide · Reseller API</p>
         <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.035em] leading-tight">
           {RESELLER_API_GUIDE_H1}
         </h1>
@@ -152,32 +162,7 @@ export default function ResellerApiGuidePage() {
             Country hubs stay public for Google. API docs / generate keys still send guests to
             register.
           </p>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            <li>
-              <Link
-                href="/guides/whatsapp-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                WhatsApp guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/facebook-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Facebook guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/disposable-phone-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Disposable guide
-              </Link>
-            </li>
-          </ul>
+          <GuideKeepReading currentId="reseller-api" />
           <GuideApiCtas />
         </section>
       </article>

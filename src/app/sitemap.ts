@@ -6,6 +6,7 @@ import {
 } from "@/lib/seo-catalog";
 import { DISPOSABLE_GUIDE_URL } from "@/lib/disposable-guide";
 import { FACEBOOK_GUIDE_URL } from "@/lib/facebook-guide";
+import { GUIDES_HUB_URL } from "@/lib/guides-catalog";
 import { RESELLER_API_GUIDE_URL } from "@/lib/reseller-api-guide";
 import { WHATSAPP_GUIDE_URL } from "@/lib/whatsapp-guide";
 
@@ -48,6 +49,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/register`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.55 },
     { url: `${BASE}/services`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
     { url: `${BASE}/mail`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    {
+      url: GUIDES_HUB_URL,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.92,
+    },
     {
       url: WHATSAPP_GUIDE_URL,
       lastModified: new Date(),

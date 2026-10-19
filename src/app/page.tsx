@@ -412,6 +412,7 @@ export default function LandingPage() {
                 { label: "US temp num", href: REGISTER_USA },
                 { label: "UK temp num", href: REGISTER_UK },
                 { label: "OTP website", href: REGISTER_SERVICES },
+                { label: "All guides", href: "/guides" },
                 { label: "WhatsApp guide", href: "/guides/whatsapp-temporary-number" },
                 { label: "Facebook guide", href: "/guides/facebook-temporary-number" },
                 { label: "Disposable guide", href: "/guides/disposable-phone-number" },
@@ -890,8 +891,13 @@ export default function LandingPage() {
         <SectionHead
           eyebrow="Guides"
           title="How to get a temporary number, and how to call the Reseller API."
-          body="Public guides guests can read. Buy, Services, Temp Mail, US, UK, VPN, and API docs still go through sign up if you are logged out."
+          body="Four public guides guests can read — WhatsApp, Facebook, disposable numbers, and the Reseller API. Buy, Services, Temp Mail, US, UK, VPN, and API docs still go through sign up if you are logged out."
         />
+        <p className="mb-6">
+          <Link href="/guides" className="text-sm text-[var(--accent)] inline-flex items-center gap-1">
+            Browse all guides <ArrowRight size={14} />
+          </Link>
+        </p>
         <div className="grid gap-4 md:grid-cols-2">
           <Link
             href="/guides/whatsapp-temporary-number"

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GuideBreadcrumb } from "@/components/guide-breadcrumb";
+import { GuideKeepReading } from "@/components/guide-keep-reading";
 import { GuideShopCtas } from "@/components/guide-shop-ctas";
 import { PublicChrome } from "@/components/public-chrome";
+import { findPublicGuide, guideBreadcrumbJsonLd } from "@/lib/guides-catalog";
 import { faqJsonLd } from "@/lib/seo-catalog";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 import {
@@ -53,9 +56,16 @@ export default function FacebookTemporaryNumberGuidePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(FACEBOOK_GUIDE_FAQS)) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(guideBreadcrumbJsonLd(findPublicGuide("facebook"))),
+        }}
+      />
 
       <article className="mx-auto max-w-3xl">
-        <p className="eyebrow">Guide · Facebook OTP</p>
+        <GuideBreadcrumb current={findPublicGuide("facebook")} />
+        <p className="eyebrow mt-6">Guide · Facebook OTP</p>
         <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.035em] leading-tight">
           {FACEBOOK_GUIDE_H1}
         </h1>
@@ -141,48 +151,13 @@ export default function FacebookTemporaryNumberGuidePage() {
           <p className="mt-3 text-sm text-[var(--text-muted)] leading-relaxed">
             Country hubs stay public for Google. Shop buttons below still send guests to register.
           </p>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            <li>
-              <Link
-                href="/buy/usa/facebook"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                US Facebook hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/buy/uk/facebook"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                UK Facebook hub
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/whatsapp-temporary-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                WhatsApp guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/disposable-phone-number"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Disposable guide
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/guides/reseller-api"
-                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
-              >
-                Reseller API guide
-              </Link>
-            </li>
-          </ul>
+          <GuideKeepReading
+            currentId="facebook"
+            extras={[
+              { href: "/buy/usa/facebook", label: "US Facebook hub" },
+              { href: "/buy/uk/facebook", label: "UK Facebook hub" },
+            ]}
+          />
           <GuideShopCtas service="facebook" />
         </section>
       </article>

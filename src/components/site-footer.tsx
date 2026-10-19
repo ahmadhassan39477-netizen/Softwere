@@ -13,6 +13,7 @@ const PRODUCT = [
   { href: REGISTER_SERVICES, label: "Services" },
   { href: REGISTER_USA, label: "US numbers" },
   { href: REGISTER_UK, label: "UK numbers" },
+  { href: "/guides", label: "All guides" },
   { href: "/guides/whatsapp-temporary-number", label: "WhatsApp guide" },
   { href: "/guides/facebook-temporary-number", label: "Facebook guide" },
   { href: "/guides/disposable-phone-number", label: "Disposable guide" },

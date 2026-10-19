@@ -115,6 +115,21 @@ export default async function BuyCountryHubPage({ params }: Props) {
               </li>
             ))}
           </ul>
+          <p className="mt-6 text-sm text-[var(--text-muted)] leading-relaxed">
+            Read the{" "}
+            <Link href="/guides/whatsapp-temporary-number" className="text-[var(--accent)]">
+              WhatsApp temp number guide
+            </Link>
+            , the{" "}
+            <Link href="/guides/facebook-temporary-number" className="text-[var(--accent)]">
+              Facebook temp number guide
+            </Link>
+            , or{" "}
+            <Link href="/guides" className="text-[var(--accent)]">
+              all guides
+            </Link>
+            .
+          </p>
         </section>
 
         <section className="mt-12">
