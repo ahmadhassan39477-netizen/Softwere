@@ -317,12 +317,33 @@ export function ServicesPortal() {
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
   const activeOrderRef = useRef<HTMLDivElement | null>(null);
+  /** One smooth scroll per order on Buy — never on poll/refetch/catalog picks */
+  const scrolledBuyIdsRef = useRef<Set<string>>(new Set());
+  /** One smooth scroll per order when OTP first arrives */
+  const scrolledOtpIdsRef = useRef<Set<string>>(new Set());
   // Mobile wizard: hide country list after pick so user focuses on numbers
   const [mobileStep, setMobileStep] = useState<MobileStep>("country");
   const active = liveOrders[0] ?? null;
   const waitingLive = liveOrders.some((o) =>
     ["ACTIVE", "PENDING", "WAITING"].includes(o.status) && !o.otpCode,
   );
+
+  /** Single smooth scroll to a live card — no scrollTo(0), no multi-tick thrash */
+  function smoothScrollToLiveOrder(orderId: string, block: ScrollLogicalPosition = "start") {
+    if (typeof window === "undefined") return;
+    const run = () => {
+      const el =
+        document.getElementById(`live-order-${orderId}`) ??
+        (activeOrderRef.current?.id === `live-order-${orderId}`
+          ? activeOrderRef.current
+          : null);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block });
+      if (el instanceof HTMLElement) el.focus({ preventScroll: true });
+    };
+    // One paint frame so the card exists; do not schedule repeat scrolls
+    window.requestAnimationFrame(run);
+  }
 
   // Full world list once — search is local (never refetch 224 countries per keystroke)
   const countriesQuery = useQuery({
@@ -451,20 +472,11 @@ export function ServicesPortal() {
       // Soft refresh history only — do not blank the services catalog
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
-      const scrollToPanel = () => {
-        const el =
-          activeOrderRef.current ??
-          document.getElementById(`live-order-${order.id}`);
-        if (!el) return;
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (el instanceof HTMLElement) el.focus({ preventScroll: true });
-      };
-      window.requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        scrollToPanel();
-        window.setTimeout(scrollToPanel, 120);
-        window.setTimeout(scrollToPanel, 360);
-      });
+      // Buy success → one smooth scroll only (never on later poll/history sync)
+      if (!scrolledBuyIdsRef.current.has(order.id)) {
+        scrolledBuyIdsRef.current.add(order.id);
+        smoothScrollToLiveOrder(order.id, "start");
+      }
     },
     onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
   });
@@ -477,6 +489,8 @@ export function ServicesPortal() {
       }),
     onSuccess: async (_data, orderId) => {
       setLiveOrders((prev) => prev.filter((o) => o.id !== orderId));
+      scrolledBuyIdsRef.current.delete(orderId);
+      scrolledOtpIdsRef.current.delete(orderId);
       await update();
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -490,7 +504,10 @@ export function ServicesPortal() {
         `/api/v1/otp/${orderId}`,
       ).then((data) => ({ orderId, ...data })),
     onSuccess: (data) => {
+      let firstOtp = false;
       setLiveOrders((prev) => {
+        const before = prev.find((o) => o.id === data.orderId);
+        if (data.code && !before?.otpCode) firstOtp = true;
         const next = prev.map((o) =>
           o.id === data.orderId
             ? {
@@ -507,6 +524,10 @@ export function ServicesPortal() {
       if (data.code) {
         copyText(data.code);
         setCopied("otp");
+      }
+      if (firstOtp && data.code && !scrolledOtpIdsRef.current.has(data.orderId)) {
+        scrolledOtpIdsRef.current.add(data.orderId);
+        smoothScrollToLiveOrder(data.orderId, "nearest");
       }
       if (["REFUNDED", "CANCELLED", "EXPIRED"].includes(data.status)) {
         setLiveOrders((prev) => prev.filter((o) => o.id !== data.orderId));
@@ -537,7 +558,10 @@ export function ServicesPortal() {
         code?: string | null;
         message?: string | null;
       }) => {
+        let firstOtp = false;
         setLiveOrders((prev) => {
+          const before = prev.find((o) => o.id === order.id);
+          if (data.code && !before?.otpCode) firstOtp = true;
           const mapped = prev.map((o) =>
             o.id === order.id
               ? {
@@ -558,6 +582,11 @@ export function ServicesPortal() {
           setCopied("otp");
           update();
           qc.invalidateQueries({ queryKey: ["orders-history"] });
+        }
+        // First SMS only — do not re-scroll on later SSE/poll ticks
+        if (firstOtp && data.code && !scrolledOtpIdsRef.current.has(order.id)) {
+          scrolledOtpIdsRef.current.add(order.id);
+          smoothScrollToLiveOrder(order.id, "nearest");
         }
       };
 
@@ -681,7 +710,13 @@ export function ServicesPortal() {
     setCountryCode(code);
     setServiceQ("");
     setMobileStep("services");
-    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+    // If a live OTP card is already on screen, do not yank to top — user may be
+    // picking country/server/service for a second purchase further down the catalog.
+    if (
+      typeof window !== "undefined" &&
+      window.innerWidth < 1024 &&
+      liveOrders.length === 0
+    ) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
@@ -709,9 +744,10 @@ export function ServicesPortal() {
     );
   }
 
-  // Catalog must stay mounted while a live OTP card is showing (no full-page blank)
+  // Keep services catalog mounted with a live card; do not force-remount countries
+  // on mobile (that layout thrash yanked scroll while choosing a second number).
   const hasLivePanel = liveOrders.length > 0;
-  const showCountries = isDesktop || mobileStep === "country" || hasLivePanel;
+  const showCountries = isDesktop || mobileStep === "country";
   const showServices =
     isDesktop || mobileStep === "services" || mobileStep === "order" || hasLivePanel;
   const showOrder = isDesktop || mobileStep === "order" || (mobileStep === "services" && !!active);
