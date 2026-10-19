@@ -76,6 +76,11 @@ export const PAGE_META = {
     description:
       "What is a disposable phone number? Temporary phone number plus temp mail for OTP. Keep your SIM off dating apps — virtual SMS, 20-minute refund if no SMS.",
   },
+  resellerApiGuide: {
+    title: "How to Automate SMS OTP with Reseller API | Temp Empire",
+    description:
+      "Automate SMS OTP with Temp Empire Reseller API. Virtual phone REST, order id, SSE or poll — 20-minute auto-refund. Generate developer API keys after signup.",
+  },
 } as const satisfies Record<string, PageMeta>;
 
 export const HOME_KEYWORDS = [
@@ -97,6 +102,8 @@ export const HOME_KEYWORDS = [
   "otp website for whatsapp",
   "temp otp website",
   "temp mail plus",
+  "SMS OTP API",
+  "reseller REST API",
 ] as const;
 
 export function absoluteTitle(title: string) {

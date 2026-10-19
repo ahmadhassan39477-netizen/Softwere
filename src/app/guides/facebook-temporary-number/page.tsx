@@ -174,6 +174,14 @@ export default function FacebookTemporaryNumberGuidePage() {
                 Disposable guide
               </Link>
             </li>
+            <li>
+              <Link
+                href="/guides/reseller-api"
+                className="inline-flex rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
+              >
+                Reseller API guide
+              </Link>
+            </li>
           </ul>
           <GuideShopCtas service="facebook" />
         </section>

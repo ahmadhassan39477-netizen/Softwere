@@ -77,6 +77,10 @@ const faqs = [
     a: "Yes — VPN & Proxy sits on the same account as OTP and Temp Mail Plus. We do not show a fake connected tunnel. Plans go live when a provider is saved in Admin.",
   },
   {
+    q: "Do you have a Reseller API for SMS OTP?",
+    a: "Yes. Read the public Reseller API guide as a guest. After signup, generate developer API keys and call /api/v1. Incoming OTP uses SSE or polling — there are no OTP webhooks.",
+  },
+  {
     q: "How do I pay?",
     a: "Sign up, then message us on WhatsApp from the Deposit page. After we confirm payment, buy a temp number from Services.",
   },
@@ -411,6 +415,7 @@ export default function LandingPage() {
                 { label: "WhatsApp guide", href: "/guides/whatsapp-temporary-number" },
                 { label: "Facebook guide", href: "/guides/facebook-temporary-number" },
                 { label: "Disposable guide", href: "/guides/disposable-phone-number" },
+                { label: "Reseller API", href: "/guides/reseller-api" },
                 { label: "Temp Mail Plus", href: mailHref },
                 { label: "VPN & Proxy", href: vpnHref },
               ].map((b) => (
@@ -751,15 +756,16 @@ export default function LandingPage() {
             Automate purchases with a single API key.
           </h2>
           <p className="mt-3 max-w-md text-[var(--text-muted)] text-sm leading-relaxed">
-            Reseller REST for countries, services, purchase, OTP, cancel, and balance — including SSE
-            and polling patterns documented on the API page.
+            Reseller REST for countries, services, purchase, OTP, cancel, and balance — SSE or
+            polling, no OTP webhooks. Read the public guide first; API docs / generate keys still
+            need an account.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href={REGISTER_API} className="btn btn-primary">
-              Read API docs <ArrowRight size={16} />
+            <Link href="/guides/reseller-api" className="btn btn-primary">
+              Reseller API guide <ArrowRight size={16} />
             </Link>
-            <Link href={REGISTER_SERVICES} className="btn btn-ghost">
-              Create account
+            <Link href={REGISTER_API} className="btn btn-ghost">
+              API docs / generate keys
             </Link>
           </div>
         </motion.div>
@@ -883,10 +889,10 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
         <SectionHead
           eyebrow="Guides"
-          title="How to get a temporary number for WhatsApp, Facebook, and privacy."
-          body="Public guides guests can read. Services, Temp Mail, US, UK, and VPN still go through sign up if you are logged out."
+          title="How to get a temporary number, and how to call the Reseller API."
+          body="Public guides guests can read. Buy, Services, Temp Mail, US, UK, VPN, and API docs still go through sign up if you are logged out."
         />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Link
             href="/guides/whatsapp-temporary-number"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
@@ -930,6 +936,22 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
               Temporary phone number plus temp mail for OTP. Dating apps, SIM-swapping on
               non-bank forms, and a private inbox — not a shared wall.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
+              Read the guide <ArrowRight size={14} />
+            </span>
+          </Link>
+          <Link
+            href="/guides/reseller-api"
+            className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
+          >
+            <p className="eyebrow !mb-2">SMS OTP API</p>
+            <h3 className="text-xl font-semibold tracking-tight">
+              Automate SMS verification with the Reseller API
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
+              Catalog, purchase, SSE or poll for OTP, 20-minute auto-refund. Guests can read;
+              API docs / generate keys still go through sign up.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
               Read the guide <ArrowRight size={14} />

@@ -15,6 +15,7 @@ const cases: Array<[string, string | null, string]> = [
   ["mail becomes services", "/temp-mail", "/services"],
   ["vpn becomes services", "/vpn", "/services"],
   ["public mail becomes services", "/mail", "/services"],
+  ["api docs stays api-docs", "/api-docs", "/api-docs"],
 ];
 
 let failed = 0;
@@ -52,6 +53,10 @@ if (guestRegisterCallback("/vpn") !== "/services") {
 }
 if (guestRegisterCallback("/mail") !== "/services") {
   console.error("FAIL guest /mail → services");
+  failed += 1;
+}
+if (guestRegisterCallback("/api-docs") !== "/api-docs") {
+  console.error("FAIL guest /api-docs stays /api-docs");
   failed += 1;
 }
 

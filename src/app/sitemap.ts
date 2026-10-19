@@ -6,6 +6,7 @@ import {
 } from "@/lib/seo-catalog";
 import { DISPOSABLE_GUIDE_URL } from "@/lib/disposable-guide";
 import { FACEBOOK_GUIDE_URL } from "@/lib/facebook-guide";
+import { RESELLER_API_GUIDE_URL } from "@/lib/reseller-api-guide";
 import { WHATSAPP_GUIDE_URL } from "@/lib/whatsapp-guide";
 
 const BASE = "https://www.tempempire.store";
@@ -61,6 +62,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: DISPOSABLE_GUIDE_URL,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    },
+    {
+      url: RESELLER_API_GUIDE_URL,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.9,

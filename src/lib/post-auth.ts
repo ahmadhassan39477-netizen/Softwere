@@ -12,13 +12,19 @@ function isServicesPath(path: string): boolean {
   return pathname === "/services" || pathname.startsWith("/services/");
 }
 
+function isApiDocsPath(path: string): boolean {
+  const pathname = path.split("?")[0];
+  return pathname === "/api-docs" || pathname.startsWith("/api-docs/");
+}
+
 /**
  * Credentials login, register, and Auth.js redirects.
  * Keep /services and /services?… — never send a fresh session to Deposit.
+ * Reseller API CTA may land on /api-docs after signup.
  */
 export function postAuthDestination(raw: string | null | undefined): string {
   const next = sanitizeCallback(raw);
-  if (isServicesPath(next)) return next;
+  if (isServicesPath(next) || isApiDocsPath(next)) return next;
   return DEFAULT_POST_AUTH;
 }
 
@@ -28,5 +34,6 @@ export function guestRegisterCallback(pathname: string, search = ""): string {
   if (pathname === "/deposit" || pathname.startsWith("/deposit/")) return DEFAULT_POST_AUTH;
   if (!pathname || pathname === "/") return DEFAULT_POST_AUTH;
   if (isServicesPath(pathname)) return `${pathname}${query}`;
+  if (isApiDocsPath(pathname)) return `/api-docs${query}`;
   return DEFAULT_POST_AUTH;
 }
