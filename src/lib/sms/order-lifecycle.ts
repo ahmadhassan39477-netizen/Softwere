@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { creditWallet } from "@/lib/wallet";
+import { creditOrderRefund } from "@/lib/wallet";
 import { dismissOrderFromServices } from "@/lib/services-panel";
 import { smsAggregator } from "./aggregator";
 
@@ -97,56 +97,28 @@ async function expireAndRefund(
     price: Prisma.Decimal;
     providerKey: string;
     providerOrderId: string | null;
-    phoneNumber: string | null;
     expiresAt: Date;
-    refundedAt: Date | null;
+    phoneNumber: string | null;
   },
   reason = "expired_no_otp",
 ) {
-  // Idempotent: skip if already refunded
-  const fresh = await prisma.order.findUnique({ where: { id: order.id } });
-  if (!fresh || ["REFUNDED", "RECEIVED", "CANCELLED"].includes(fresh.status)) {
-    return {
-      id: fresh?.id ?? order.id,
-      status: fresh?.status ?? "REFUNDED",
-      code: fresh?.otpCode ?? null,
-      message: fresh?.otpMessage ?? null,
-      expiresAt: fresh?.expiresAt ?? order.expiresAt,
-      phoneNumber: fresh?.phoneNumber ?? order.phoneNumber,
-    };
-  }
-
   if (order.providerOrderId) {
     await smsAggregator
       .cancel(order.providerKey, order.providerOrderId)
       .catch(() => undefined);
   }
 
-  if (!fresh.refundedAt) {
-    await creditWallet(order.userId, order.price, {
-      type: "REFUND",
-      method: "system",
-      externalId: order.id,
-      meta: JSON.stringify({ reason, orderId: order.id }),
-    });
-  }
-
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      status: "REFUNDED",
-      refundedAt: fresh.refundedAt ?? new Date(),
-      cancelledAt: fresh.cancelledAt ?? new Date(),
-    },
-  });
+  // Atomic claim + exact order.price credit (at most once)
+  const result = await creditOrderRefund(order.id, order.userId, { reason });
+  const updated = result.order;
 
   return {
-    id: updated.id,
-    status: updated.status,
-    code: null,
-    message: null,
-    expiresAt: updated.expiresAt,
-    phoneNumber: updated.phoneNumber,
+    id: updated?.id ?? order.id,
+    status: updated?.status ?? "REFUNDED",
+    code: updated?.otpCode ?? null,
+    message: updated?.otpMessage ?? null,
+    expiresAt: updated?.expiresAt ?? order.expiresAt,
+    phoneNumber: updated?.phoneNumber ?? order.phoneNumber,
   };
 }
 
@@ -154,6 +126,7 @@ async function expireAndRefund(
  * Cancel from /services panel:
  * - Waiting (no OTP): refund within the wait window (min 20 minutes)
  * - OTP already received: dismiss from /services only (no refund) so the card goes away
+ * - Already refunded: idempotent no-op (no second credit)
  */
 export async function cancelOrder(orderId: string, userId: string, opts?: { force?: boolean }) {
   const order = await prisma.order.findFirst({
@@ -164,6 +137,12 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
   // OTP already in hand — dismiss panel only (keep RECEIVED in Account history)
   if (order.status === "RECEIVED" || order.otpCode) {
     await dismissOrderFromServices(userId, order.id);
+    return order;
+  }
+
+  // Already refunded (manual or auto) — do not credit again
+  if (order.status === "REFUNDED" || order.refundedAt) {
+    await dismissOrderFromServices(userId, order.id).catch(() => undefined);
     return order;
   }
 
@@ -189,19 +168,16 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
     await smsAggregator.cancel(order.providerKey, order.providerOrderId).catch(() => undefined);
   }
 
-  await creditWallet(userId, order.price, {
-    type: "REFUND",
-    method: "system",
-    externalId: order.id,
-    meta: JSON.stringify({ reason: "manual_cancel", orderId: order.id }),
+  const result = await creditOrderRefund(order.id, userId, {
+    reason: "manual_cancel",
   });
 
   await dismissOrderFromServices(userId, order.id).catch(() => undefined);
 
-  return prisma.order.update({
-    where: { id: order.id },
-    data: { status: "REFUNDED", cancelledAt: new Date(), refundedAt: new Date() },
-  });
+  if (!result.order) {
+    throw Object.assign(new Error("Order not found"), { status: 404 });
+  }
+  return result.order;
 }
 
 /** Cron helper: poll all ACTIVE orders past due or needing SMS check. */
