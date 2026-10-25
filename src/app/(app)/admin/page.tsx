@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 type ProviderRow = {
   key: string;
@@ -70,6 +70,8 @@ export default function AdminPage() {
   const [creditEmail, setCreditEmail] = useState("");
   const [creditAmount, setCreditAmount] = useState("10");
   const [creditNote, setCreditNote] = useState("");
+  const [walletDirection, setWalletDirection] = useState<"credit" | "debit">("credit");
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [vpnKey, setVpnKey] = useState("");
   const [vpnSecret, setVpnSecret] = useState("");
   const [vpnEnabled, setVpnEnabled] = useState(true);
@@ -158,7 +160,50 @@ export default function AdminPage() {
     queryFn: async () => {
       const res = await fetch("/api/admin/users");
       if (!res.ok) throw new Error("Forbidden");
-      return res.json();
+      return res.json() as Promise<{
+        users: Array<{
+          id: string;
+          email: string;
+          role: string;
+          balance: string;
+          orderCount: number;
+          otpRequested: number;
+          otpSuccessful: number;
+        }>;
+      }>;
+    },
+  });
+
+  const userDetail = useQuery({
+    queryKey: ["admin-user-detail", expandedUserId],
+    enabled:
+      status === "authenticated" &&
+      session?.user?.role === "ADMIN" &&
+      Boolean(expandedUserId),
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/admin/users?userId=${encodeURIComponent(expandedUserId!)}`,
+      );
+      if (!res.ok) throw new Error("Failed to load user orders");
+      return res.json() as Promise<{
+        user: {
+          id: string;
+          email: string;
+          balance: string;
+          otpRequested: number;
+          otpSuccessful: number;
+        };
+        orders: Array<{
+          id: string;
+          status: string;
+          hasOtp: boolean;
+          phoneMasked: string | null;
+          price: string;
+          createdAt: string;
+          country: { code: string; flag: string; name: string };
+          service: { name: string; slug: string };
+        }>;
+      }>;
     },
   });
 
@@ -412,18 +457,47 @@ export default function AdminPage() {
         body: JSON.stringify({
           email: creditEmail.trim(),
           amount: Number(creditAmount),
-          note: creditNote.trim() || "WhatsApp payment confirmed",
+          direction: walletDirection,
+          note:
+            creditNote.trim() ||
+            (walletDirection === "debit"
+              ? "Admin balance cut"
+              : "WhatsApp payment confirmed"),
+          idempotencyKey:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${creditEmail.trim()}`,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Credit failed");
-      return data;
+      if (!res.ok) throw new Error(data.error ?? "Wallet adjust failed");
+      return data as {
+        direction: string;
+        user: { email: string; balance: string };
+        credited?: string;
+        debited?: string;
+        clamped?: boolean;
+        idempotent?: boolean;
+      };
     },
     onSuccess: (data) => {
-      setMsg(`Credited $${data.credited} to ${data.user.email}. New balance $${data.user.balance}`);
+      if (data.direction === "debit") {
+        setMsg(
+          `Debited $${data.debited} from ${data.user.email}. New balance $${data.user.balance}${
+            data.clamped ? " (clamped at $0)" : ""
+          }`,
+        );
+      } else {
+        setMsg(
+          `Credited $${data.credited} to ${data.user.email}. New balance $${data.user.balance}`,
+        );
+      }
       setCreditNote("");
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       qc.invalidateQueries({ queryKey: ["admin-stats"] });
+      if (expandedUserId) {
+        qc.invalidateQueries({ queryKey: ["admin-user-detail", expandedUserId] });
+      }
     },
     onError: (e: Error) => setMsg(e.message),
   });
@@ -667,10 +741,28 @@ export default function AdminPage() {
       </div>
 
       <div className="panel p-5 space-y-4">
-        <h2 className="font-semibold">Top up wallet (after WhatsApp payment)</h2>
+        <h2 className="font-semibold">Wallet credit / debit</h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Only credit after you confirm the customer paid you. No automatic fake money.
+          Credit after WhatsApp payment. Debit to cut mistaken top-ups (balance floors at $0;
+          ADJUSTMENT ledger row with your note).
         </p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["credit", "Credit (deposit)"],
+              ["debit", "Debit (cut balance)"],
+            ] as const
+          ).map(([dir, label]) => (
+            <button
+              key={dir}
+              type="button"
+              className={`btn text-sm ${walletDirection === dir ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setWalletDirection(dir)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-xs text-[var(--text-muted)]">Customer email</label>
@@ -683,7 +775,7 @@ export default function AdminPage() {
               list="admin-user-emails"
             />
             <datalist id="admin-user-emails">
-              {(users.data?.users ?? []).map((u: { email: string }) => (
+              {(users.data?.users ?? []).map((u) => (
                 <option key={u.email} value={u.email} />
               ))}
             </datalist>
@@ -706,16 +798,26 @@ export default function AdminPage() {
             className="input mt-1"
             value={creditNote}
             onChange={(e) => setCreditNote(e.target.value)}
-            placeholder="WhatsApp payment confirmed"
+            placeholder={
+              walletDirection === "debit"
+                ? "Mistake top-up / correction"
+                : "WhatsApp payment confirmed"
+            }
           />
         </div>
         <button
           type="button"
-          className="btn btn-primary"
+          className={walletDirection === "debit" ? "btn btn-danger" : "btn btn-primary"}
           disabled={credit.isPending || !creditEmail.trim() || Number(creditAmount) <= 0}
           onClick={() => credit.mutate()}
         >
-          {credit.isPending ? "Crediting…" : "Credit wallet"}
+          {credit.isPending
+            ? walletDirection === "debit"
+              ? "Debiting…"
+              : "Crediting…"
+            : walletDirection === "debit"
+              ? "Debit wallet"
+              : "Credit wallet"}
         </button>
       </div>
 
@@ -1018,42 +1120,141 @@ export default function AdminPage() {
 
       <div className="panel overflow-x-auto">
         <h2 className="font-semibold p-4 pb-0">Users</h2>
+        <p className="px-4 pt-1 text-xs text-[var(--text-muted)]">
+          OTP requested = all buys · Successful = RECEIVED / got code. Expand a row for order
+          history.
+        </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--text-muted)] border-b border-[var(--border)]">
               <th className="p-3">Email</th>
               <th className="p-3">Role</th>
               <th className="p-3">Balance</th>
-              <th className="p-3">Orders</th>
+              <th className="p-3">OTP req</th>
+              <th className="p-3">OTP ok</th>
               <th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
-            {(users.data?.users ?? []).map(
-              (u: {
-                id: string;
-                email: string;
-                role: string;
-                balance: string;
-                orderCount: number;
-              }) => (
-                <tr key={u.id} className="border-b border-[var(--border)]">
+            {(users.data?.users ?? []).map((u) => (
+              <Fragment key={u.id}>
+                <tr className="border-b border-[var(--border)]">
                   <td className="p-3">{u.email}</td>
                   <td className="p-3">{u.role}</td>
                   <td className="p-3 font-mono">${u.balance}</td>
-                  <td className="p-3">{u.orderCount}</td>
+                  <td className="p-3 font-mono">{u.otpRequested ?? u.orderCount}</td>
+                  <td className="p-3 font-mono">{u.otpSuccessful ?? 0}</td>
                   <td className="p-3">
-                    <button
-                      type="button"
-                      className="btn btn-ghost text-xs"
-                      onClick={() => setCreditEmail(u.email)}
-                    >
-                      Top up
-                    </button>
+                    <div className="flex flex-wrap gap-1.5 justify-end">
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-xs"
+                        onClick={() =>
+                          setExpandedUserId((prev) => (prev === u.id ? null : u.id))
+                        }
+                      >
+                        {expandedUserId === u.id ? "Hide" : "Orders"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-xs"
+                        onClick={() => {
+                          setCreditEmail(u.email);
+                          setWalletDirection("credit");
+                        }}
+                      >
+                        Top up
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-xs"
+                        onClick={() => {
+                          setCreditEmail(u.email);
+                          setWalletDirection("debit");
+                        }}
+                      >
+                        Cut
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ),
-            )}
+                {expandedUserId === u.id && (
+                  <tr className="border-b border-[var(--border)] bg-[var(--bg-elevated)]">
+                    <td colSpan={6} className="p-4">
+                      {userDetail.isLoading && (
+                        <p className="text-sm text-[var(--text-muted)]">Loading orders…</p>
+                      )}
+                      {userDetail.data && (
+                        <div className="space-y-3">
+                          <p className="text-sm">
+                            <span className="font-medium">{userDetail.data.user.email}</span>
+                            {" · "}
+                            Requested{" "}
+                            <span className="font-mono">
+                              {userDetail.data.user.otpRequested}
+                            </span>
+                            {" · "}
+                            Successful{" "}
+                            <span className="font-mono">
+                              {userDetail.data.user.otpSuccessful}
+                            </span>
+                            {" · "}
+                            Balance{" "}
+                            <span className="font-mono">
+                              ${userDetail.data.user.balance}
+                            </span>
+                          </p>
+                          {userDetail.data.orders.length === 0 ? (
+                            <p className="text-sm text-[var(--text-muted)]">No orders yet.</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-[var(--text-muted)]">
+                                    <th className="py-1 pr-2">When</th>
+                                    <th className="py-1 pr-2">Service</th>
+                                    <th className="py-1 pr-2">Country</th>
+                                    <th className="py-1 pr-2">Status</th>
+                                    <th className="py-1 pr-2">Phone</th>
+                                    <th className="py-1">Price</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {userDetail.data.orders.map((o) => (
+                                    <tr key={o.id} className="border-t border-[var(--border)]">
+                                      <td className="py-1.5 pr-2 whitespace-nowrap">
+                                        {new Date(o.createdAt).toLocaleString()}
+                                      </td>
+                                      <td className="py-1.5 pr-2">{o.service.name}</td>
+                                      <td className="py-1.5 pr-2">
+                                        {o.country.flag} {o.country.code}
+                                      </td>
+                                      <td className="py-1.5 pr-2 font-mono">
+                                        {o.status}
+                                        {o.hasOtp ? " · OTP" : ""}
+                                      </td>
+                                      <td className="py-1.5 pr-2 font-mono">
+                                        {o.phoneMasked ?? "—"}
+                                      </td>
+                                      <td className="py-1.5 font-mono">${o.price}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {userDetail.isError && (
+                        <p className="text-sm text-[var(--danger)]">
+                          {(userDetail.error as Error)?.message ?? "Could not load orders"}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>

@@ -69,6 +69,84 @@ export async function creditWallet(
   });
 }
 
+/**
+ * Admin debit / ADJUSTMENT: reduce balance, floor at 0 (never negative).
+ * Idempotent when externalId is provided and a COMPLETED row already exists.
+ */
+export async function adjustWalletDebit(
+  userId: string,
+  amount: Prisma.Decimal | string | number,
+  meta: { type?: string; method?: string; externalId?: string; meta?: string },
+) {
+  const requested = new Prisma.Decimal(amount);
+  if (requested.lte(0)) throw new Error("Amount must be positive");
+
+  return prisma.$transaction(async (tx) => {
+    if (meta.externalId) {
+      const prior = await tx.transaction.findFirst({
+        where: {
+          userId,
+          externalId: meta.externalId,
+          status: "COMPLETED",
+        },
+      });
+      if (prior) {
+        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        return {
+          balanceAfter: new Prisma.Decimal(user.balance),
+          transaction: prior,
+          debited: new Prisma.Decimal(0),
+          requested,
+          idempotent: true as const,
+          clamped: false,
+        };
+      }
+    }
+
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    const before = new Prisma.Decimal(user.balance);
+    const debited = Prisma.Decimal.min(requested, before);
+    const balanceAfter = before.minus(debited);
+    const clamped = debited.lt(requested);
+
+    if (debited.lte(0)) {
+      return {
+        balanceAfter: before,
+        transaction: null,
+        debited,
+        requested,
+        idempotent: false as const,
+        clamped: true,
+      };
+    }
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { balance: balanceAfter },
+    });
+    const txn = await tx.transaction.create({
+      data: {
+        userId,
+        type: meta.type ?? "ADJUSTMENT",
+        amount: debited.negated(),
+        balanceAfter,
+        method: meta.method ?? "admin",
+        status: "COMPLETED",
+        externalId: meta.externalId,
+        meta: meta.meta,
+      },
+    });
+    return {
+      balanceAfter,
+      transaction: txn,
+      debited,
+      requested,
+      idempotent: false as const,
+      clamped,
+    };
+  });
+}
+
 const REFUNDABLE_STATUSES = ["ACTIVE", "PENDING", "WAITING"] as const;
 
 /**
