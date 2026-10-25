@@ -138,10 +138,10 @@ export async function auditAndCorrectWallet(opts: {
   }
 
   const depositTotal = deposits.reduce((a, t) => a.plus(d(t.amount)), new Prisma.Decimal(0));
-  const adjustmentTotal = adjustments.reduce(
-    (a, t) => a.plus(d(t.amount)),
-    new Prisma.Decimal(0),
-  );
+  // Exclude this audit's own ADJUSTMENT from "truth" expected so re-runs stay stable
+  const adjustmentTotal = adjustments
+    .filter((t) => t.externalId !== WALLET_AUDIT_EXTERNAL_ID)
+    .reduce((a, t) => a.plus(d(t.amount)), new Prisma.Decimal(0));
   const otherTotal = other.reduce((a, t) => a.plus(d(t.amount)), new Prisma.Decimal(0));
   const chargesTotal = purchases.reduce(
     (a, t) => a.plus(d(t.amount).abs()),
