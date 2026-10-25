@@ -22,6 +22,16 @@ export type PurchaseNumberInput = {
   server?: number | "auto";
 };
 
+/** Clear customer copy: need exact retail that would be debited vs wallet. */
+export function insufficientBalanceMessage(
+  need: Prisma.Decimal | string | number,
+  wallet: Prisma.Decimal | string | number,
+): string {
+  const n = new Prisma.Decimal(need).toFixed(4);
+  const w = new Prisma.Decimal(wallet).toFixed(4);
+  return `Insufficient balance: need $${n}, wallet $${w}`;
+}
+
 /**
  * Reserve a number: provider buy first, then debit + order in one DB transaction.
  * Wallet is charged only after a successful provider purchase.
@@ -90,11 +100,17 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   );
   const userMarkup =
     user.markupOverride != null ? Number(user.markupOverride) : globalMarkup;
-  // offer.price already includes seed markup; keep as retail
-  const price = new Prisma.Decimal(offer.price);
-  if (new Prisma.Decimal(user.balance).lt(price)) {
-    throw Object.assign(new Error("Insufficient balance"), { status: 402 });
+  // Seed/catalog offer.price is often higher than live retail (wholesale × markup).
+  // Do NOT gate on that stale floor (~$0.30+) — it falsely blocks cheap live buys.
+  // Soft empty-wallet check only; authoritative gate is chargePrice after provider buy.
+  const walletNow = new Prisma.Decimal(user.balance);
+  if (!walletNow.isFinite() || walletNow.lt("0.01")) {
+    throw Object.assign(
+      new Error(insufficientBalanceMessage("0.01", walletNow)),
+      { status: 402 },
+    );
   }
+  const price = new Prisma.Decimal(offer.price);
 
   const ttlSetting = await prisma.setting.findUnique({ where: { key: "order_ttl_minutes" } });
   const ttlMin = resolveOrderTtlMinutes(ttlSetting?.value);
@@ -153,7 +169,7 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     purchase.serverSlot ?? serverNumberForProvider(purchase.providerKey);
   const wholesale = new Prisma.Decimal(purchase.wholesaleCost || offer.costPrice || 0);
 
-  // retail = wholesale × (1 + slotMarkup/100); all servers default 20%
+  // Exact retail debit = live wholesale × (1 + slotMarkup/100); fallback to catalog offer.
   const slotMarkup = purchase.markupPercent ?? userMarkup ?? 20;
   let chargePrice = price;
   if (Number(wholesale) > 0) {
@@ -162,18 +178,25 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     );
     chargePrice = fromWholesale;
   }
-  if (new Prisma.Decimal(user.balance).lt(chargePrice)) {
+  // Re-read wallet — session/UI may be stale after refund/prior buy
+  const freshBalance = (
+    await prisma.user.findUniqueOrThrow({ where: { id: input.userId } })
+  ).balance;
+  if (new Prisma.Decimal(freshBalance).lt(chargePrice)) {
     await smsAggregator
       .cancel(purchase.providerKey, purchase.providerOrderId)
       .catch(() => undefined);
-    throw Object.assign(new Error("Insufficient balance"), { status: 402 });
+    throw Object.assign(
+      new Error(insufficientBalanceMessage(chargePrice, freshBalance)),
+      { status: 402 },
+    );
   }
 
   try {
     const order = await prisma.$transaction(async (tx) => {
       const fresh = await tx.user.findUniqueOrThrow({ where: { id: input.userId } });
       if (new Prisma.Decimal(fresh.balance).lt(chargePrice)) {
-        throw new Error("Insufficient balance");
+        throw new Error(insufficientBalanceMessage(chargePrice, fresh.balance));
       }
       const balanceAfter = new Prisma.Decimal(fresh.balance).minus(chargePrice);
       await tx.user.update({

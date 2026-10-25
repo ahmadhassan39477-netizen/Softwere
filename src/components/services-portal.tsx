@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   Signal,
   Wallet,
-  AlertTriangle,
 } from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
@@ -316,6 +315,8 @@ export function ServicesPortal() {
   const [liveOrders, setLiveOrders] = useState<ActiveOrder[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
+  /** In-flight Buy lock — prevents double-submit / multi-button flash */
+  const [buyingKey, setBuyingKey] = useState<string | null>(null);
   const activeOrderRef = useRef<HTMLDivElement | null>(null);
   /** One smooth scroll per order on Buy — never on poll/refetch/catalog picks */
   const scrolledBuyIdsRef = useRef<Set<string>>(new Set());
@@ -457,19 +458,28 @@ export function ServicesPortal() {
       countryCode: string;
       serviceSlug: string;
       server: 1 | 2 | 3 | "auto";
+      _buyKey: string;
     }) =>
       api<{ order: ActiveOrder }>("/api/orders/buy", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          countryCode: payload.countryCode,
+          serviceSlug: payload.serviceSlug,
+          server: payload.server,
+        }),
       }),
+    onMutate: (payload) => {
+      setError("");
+      setBuyingKey(payload._buyKey);
+    },
     onSuccess: async (data) => {
       setError("");
       const order = { ...data.order, otpCode: data.order.otpCode ?? null };
       setLiveOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
       // Keep catalog on the "services" step so countries/services do not unmount
       setMobileStep("services");
+      // Soft wallet refresh — do not touch services query (avoids catalog remount flash)
       await update();
-      // Soft refresh history only — do not blank the services catalog
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       // Buy success → one smooth scroll only (never on later poll/history sync)
@@ -479,6 +489,9 @@ export function ServicesPortal() {
       }
     },
     onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
+    onSettled: () => {
+      setBuyingKey(null);
+    },
   });
 
   const cancel = useMutation({
@@ -670,18 +683,9 @@ export function ServicesPortal() {
     allCountries.find((c) => c.code === countryCode) ?? servicesQuery.data?.country;
 
   const balance = Number(session?.user?.balance ?? 0);
-  const walletLow = !Number.isFinite(balance) || balance < 0.01;
-  const minServicePrice = useMemo(() => {
-    let min = Infinity;
-    for (const s of allServices) {
-      for (const o of s.offers) {
-        const p = Number(o.price);
-        if (Number.isFinite(p) && p < min) min = p;
-      }
-    }
-    return Number.isFinite(min) ? min : 0.35;
-  }, [allServices]);
-  const needsDeposit = walletLow || balance < minServicePrice;
+  /** Empty wallet only — never gate on catalog min / hardcoded ~$0.30–$0.35 floor. */
+  const walletEmpty = !Number.isFinite(balance) || balance < 0.01;
+  const buyInFlight = buyingKey != null || purchase.isPending;
 
   const servicesLoading =
     servicesQuery.isLoading || (servicesQuery.isFetching && allServices.length === 0);
@@ -721,8 +725,18 @@ export function ServicesPortal() {
     }
   }
 
+  /** Gate: wallet >= exact retail of the selected offer (same figure shown as Price). */
   function canAfford(price: string) {
-    return balance + 1e-9 >= Number(price);
+    const p = Number(price);
+    if (!Number.isFinite(p) || p < 0) return false;
+    return balance + 1e-9 >= p;
+  }
+
+  function shortfallLabel(price: string) {
+    const p = Number(price);
+    const need = Number.isFinite(p) ? p.toFixed(4) : price;
+    const have = Number.isFinite(balance) ? balance.toFixed(4) : "0.0000";
+    return `Need $${need} · wallet $${have}`;
   }
 
   if (authStatus === "unauthenticated") {
@@ -823,7 +837,7 @@ export function ServicesPortal() {
         </div>
       )}
 
-      {needsDeposit && authStatus === "authenticated" && (
+      {walletEmpty && authStatus === "authenticated" && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -838,14 +852,14 @@ export function ServicesPortal() {
               </span>
               <div>
                 <p className="text-base font-semibold tracking-tight">
-                  {walletLow ? "Wallet is empty — deposit to buy" : "Balance too low to buy"}
+                  Wallet is empty — deposit to buy
                 </p>
                 <p className="mt-0.5 text-sm text-[var(--text-muted)]">
                   Current balance{" "}
                   <span className="mono-data font-semibold text-[var(--danger)]">
                     ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
                   </span>
-                  . Message us on WhatsApp from Deposit.
+                  . Message us on WhatsApp from Deposit after you sign in.
                 </p>
               </div>
             </div>
@@ -1087,45 +1101,6 @@ export function ServicesPortal() {
                 </p>
               </motion.div>
 
-              {needsDeposit && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                  className="low-balance-banner relative z-[1] mb-4 px-4 py-4"
-                  role="alert"
-                >
-                  <div className="relative z-[1] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--danger)_22%,transparent)] text-[var(--danger)]">
-                        <AlertTriangle size={20} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold tracking-tight text-[var(--text)]">
-                          Insufficient balance
-                        </p>
-                        <p className="mt-0.5 text-sm text-[var(--text-muted)] leading-snug">
-                          Wallet{" "}
-                          <span className="mono-data text-[var(--danger)] font-semibold">
-                            ${Number.isFinite(balance) ? balance.toFixed(4) : "0.0000"}
-                          </span>
-                          {walletLow
-                            ? " — add credits before you can buy a number."
-                            : ` — numbers start around $${minServicePrice.toFixed(2)}. Top up to continue.`}
-                        </p>
-                      </div>
-                    </div>
-                    <Link
-                      href="/deposit"
-                      className="btn btn-primary relative z-[1] inline-flex min-h-12 shrink-0 items-center justify-center gap-2 px-5"
-                    >
-                      <Wallet size={16} />
-                      Message us on WhatsApp
-                    </Link>
-                  </div>
-                </motion.div>
-              )}
-
               <CatalogSearch
                 className="mb-4"
                 label="Find a service"
@@ -1139,108 +1114,102 @@ export function ServicesPortal() {
                   Array.from({ length: 6 }).map((_, i) => (
                     <div key={`sk-${i}`} className="svc-skeleton min-h-[10.5rem]" />
                   ))}
-                <AnimatePresence mode="popLayout">
-                  {!servicesLoading &&
-                    services.map((svc, idx) => {
-                      const offer =
-                        server === "auto"
-                          ? // Auto shows the cheapest in-stock pool (not always Server 1)
-                            [...svc.offers]
-                              .filter((o) => o.inStock)
-                              .sort((a, b) => Number(a.price) - Number(b.price))[0] ??
-                            svc.offers[0]
-                          : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
-                      if (!offer) return null;
-                      const inStock =
-                        server === "auto"
-                          ? svc.offers.some((o) => o.inStock)
-                          : offer.inStock;
-                      const stockLabel =
-                        server === "auto"
-                          ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
-                          : offer.stock;
-                      const affordable = canAfford(offer.price);
-                      return (
-                        <motion.div
-                          key={svc.id}
-                          layout
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: 0.35,
-                            ease: easeOut,
-                            delay: Math.min(idx, 8) * 0.03,
-                          }}
-                          whileHover={{ y: -3 }}
-                          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <ServiceLogo slug={svc.slug} name={svc.name} />
-                              <div className="min-w-0">
-                                <div className="font-semibold tracking-tight truncate">{svc.name}</div>
-                                <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                                  {svc.category ?? "General"}
-                                </div>
+                {!servicesLoading &&
+                  services.map((svc) => {
+                    const offer =
+                      server === "auto"
+                        ? // Auto shows the cheapest in-stock pool (not always Server 1)
+                          [...svc.offers]
+                            .filter((o) => o.inStock)
+                            .sort((a, b) => Number(a.price) - Number(b.price))[0] ??
+                          svc.offers[0]
+                        : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
+                    if (!offer) return null;
+                    const inStock =
+                      server === "auto"
+                        ? svc.offers.some((o) => o.inStock)
+                        : offer.inStock;
+                    const stockLabel =
+                      server === "auto"
+                        ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
+                        : offer.stock;
+                    const affordable = canAfford(offer.price);
+                    const buyKey = `${svc.slug}:${String(server)}`;
+                    const thisBuying = buyingKey === buyKey;
+                    return (
+                      <div
+                        key={svc.id}
+                        className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 flex flex-col gap-3 hover:border-[var(--hairline)] transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <ServiceLogo slug={svc.slug} name={svc.name} />
+                            <div className="min-w-0">
+                              <div className="font-semibold tracking-tight truncate">{svc.name}</div>
+                              <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                {svc.category ?? "General"}
                               </div>
-                            </div>
-                            <span
-                              className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}
-                            >
-                              {inStock ? `${stockLabel} left` : "Sold out"}
-                            </span>
-                          </div>
-                          <div className="flex items-end justify-between gap-2">
-                            <div>
-                              <div className="text-[11px] text-[var(--text-muted)]">Price</div>
-                              <div className="mono-data text-[var(--accent)] text-lg">
-                                ${offer.price}
-                              </div>
-                            </div>
-                            <div className="text-right text-[11px] text-[var(--text-muted)]">
-                              <div className="inline-flex items-center gap-1">
-                                <Clock size={12} /> 20 min window
-                              </div>
-                              <div className="mt-0.5">{pool.label}</div>
                             </div>
                           </div>
-                          {!inStock ? (
-                            <button type="button" className="btn btn-ghost w-full" disabled>
-                              Sold out
-                            </button>
-                          ) : !affordable ? (
-                            <div className="space-y-2">
-                              <Link
-                                href="/deposit"
-                                className="btn btn-primary w-full inline-flex items-center justify-center gap-2 min-h-12"
-                              >
-                                <Wallet size={15} />
-                                Deposit to buy · ${offer.price}
-                              </Link>
-                              <p className="text-center text-[11px] text-[var(--danger)] font-medium">
-                                Need ${offer.price} · wallet ${balance.toFixed(4)}
-                              </p>
+                          <span
+                            className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}
+                          >
+                            {inStock ? `${stockLabel} left` : "Sold out"}
+                          </span>
+                        </div>
+                        <div className="flex items-end justify-between gap-2">
+                          <div>
+                            <div className="text-[11px] text-[var(--text-muted)]">Price</div>
+                            <div className="mono-data text-[var(--accent)] text-lg">
+                              ${offer.price}
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-primary w-full"
-                              disabled={purchase.isPending || !session}
-                              onClick={() =>
-                                purchase.mutate({
-                                  countryCode,
-                                  serviceSlug: svc.slug,
-                                  server,
-                                })
-                              }
+                          </div>
+                          <div className="text-right text-[11px] text-[var(--text-muted)]">
+                            <div className="inline-flex items-center gap-1">
+                              <Clock size={12} /> 20 min window
+                            </div>
+                            <div className="mt-0.5">{pool.label}</div>
+                          </div>
+                        </div>
+                        {!inStock ? (
+                          <button type="button" className="btn btn-ghost w-full" disabled>
+                            Sold out
+                          </button>
+                        ) : !affordable ? (
+                          <div className="space-y-2">
+                            <Link
+                              href="/deposit"
+                              className="btn btn-primary w-full inline-flex items-center justify-center gap-2 min-h-12"
                             >
-                              {purchase.isPending ? "Buying…" : "Buy number"}
-                            </button>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                </AnimatePresence>
+                              <Wallet size={15} />
+                              Deposit to buy · ${offer.price}
+                            </Link>
+                            <p className="text-center text-[11px] text-[var(--danger)] font-medium">
+                              {shortfallLabel(offer.price)}
+                            </p>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary w-full min-h-11"
+                            disabled={buyInFlight || !session}
+                            aria-busy={thisBuying}
+                            onClick={() => {
+                              if (buyInFlight || !session) return;
+                              purchase.mutate({
+                                countryCode,
+                                serviceSlug: svc.slug,
+                                server,
+                                _buyKey: buyKey,
+                              });
+                            }}
+                          >
+                            {thisBuying ? "Buying…" : "Buy number"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 {!servicesLoading && services.length === 0 && (
                   <p className="col-span-full px-1 py-6 text-sm text-[var(--text-muted)] text-center">
                     No services match that search.

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, jsonError } from "@/lib/api-auth";
-import { creditWallet } from "@/lib/wallet";
+import { adjustWalletDebit, creditWallet } from "@/lib/wallet";
 import { decimalJson } from "@/lib/money";
 
 const schema = z.object({
@@ -10,11 +10,17 @@ const schema = z.object({
   email: z.string().email().optional(),
   amount: z.number().positive().max(50000),
   note: z.string().max(500).optional(),
+  /** credit = deposit (default); debit = cut/reduce balance (ADJUSTMENT, floor 0) */
+  direction: z.enum(["credit", "debit"]).default("credit"),
+  /** Optional idempotency key for debit/credit retries */
+  idempotencyKey: z.string().min(4).max(120).optional(),
 });
 
 /**
- * Admin-only: top up a customer's wallet after WhatsApp payment is confirmed offline.
- * No automatic / fake credits — owner must click this.
+ * Admin-only wallet adjust:
+ * - direction=credit: top up after WhatsApp payment (unchanged default).
+ * - direction=debit: cut mistaken funds; balance never goes negative (clamped to 0).
+ * Auditable ledger row includes admin id + note. Does not remove wallet-audit-correct.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -36,17 +42,81 @@ export async function POST(req: NextRequest) {
 
   if (!target) return jsonError("User not found", 404);
 
+  const direction = parsed.data.direction;
+  const note =
+    parsed.data.note ??
+    (direction === "debit" ? "Admin balance cut" : "WhatsApp payment confirmed");
+  const externalId = parsed.data.idempotencyKey
+    ? `admin-wallet:${direction}:${parsed.data.idempotencyKey}`
+    : undefined;
+
+  if (direction === "debit") {
+    const result = await adjustWalletDebit(target.id, parsed.data.amount, {
+      type: "ADJUSTMENT",
+      method: "admin_debit",
+      externalId,
+      meta: JSON.stringify({
+        byAdmin: admin.id,
+        adminEmail: admin.email,
+        note,
+        requested: parsed.data.amount,
+        direction: "debit",
+      }),
+    });
+
+    return Response.json({
+      direction: "debit",
+      user: {
+        id: target.id,
+        email: target.email,
+        balance: decimalJson(result.balanceAfter),
+      },
+      transactionId: result.transaction?.id ?? null,
+      requested: parsed.data.amount.toFixed(4),
+      debited: decimalJson(result.debited),
+      credited: undefined,
+      clamped: result.clamped,
+      idempotent: result.idempotent,
+      note,
+    });
+  }
+
+  if (externalId) {
+    const prior = await prisma.transaction.findFirst({
+      where: { userId: target.id, externalId, status: "COMPLETED" },
+    });
+    if (prior) {
+      const fresh = await prisma.user.findUniqueOrThrow({ where: { id: target.id } });
+      return Response.json({
+        direction: "credit",
+        user: {
+          id: target.id,
+          email: target.email,
+          balance: decimalJson(fresh.balance),
+        },
+        transactionId: prior.id,
+        credited: decimalJson(prior.amount),
+        idempotent: true,
+        note,
+      });
+    }
+  }
+
   const { balanceAfter, transaction } = await creditWallet(target.id, parsed.data.amount, {
     type: "DEPOSIT",
     method: "whatsapp_manual",
     status: "COMPLETED",
+    externalId,
     meta: JSON.stringify({
       byAdmin: admin.id,
-      note: parsed.data.note ?? "WhatsApp payment confirmed",
+      adminEmail: admin.email,
+      note,
+      direction: "credit",
     }),
   });
 
   return Response.json({
+    direction: "credit",
     user: {
       id: target.id,
       email: target.email,
@@ -54,5 +124,7 @@ export async function POST(req: NextRequest) {
     },
     transactionId: transaction.id,
     credited: parsed.data.amount.toFixed(4),
+    idempotent: false,
+    note,
   });
 }
