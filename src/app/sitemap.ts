@@ -47,7 +47,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/support`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.35 },
     { url: `${BASE}/register`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.55 },
-    { url: `${BASE}/services`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
+    // /services stays signup-gated (middleware 307) — omit from sitemap to cut discover-not-indexed noise
     { url: `${BASE}/mail`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     {
       url: GUIDES_HUB_URL,
