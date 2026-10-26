@@ -35,7 +35,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { TrustFacts } from "@/components/trust-facts";
 import {
   REGISTER_API,
-  REGISTER_CANADA,
   REGISTER_FACEBOOK,
   REGISTER_SERVICES,
   REGISTER_UK,
@@ -105,7 +104,8 @@ function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string;
 function PlusOfferCards() {
   const { status } = useSession();
   const signedIn = status === "authenticated";
-  const mailHref = shopHref(signedIn, "/temp-mail");
+  // Guests read the public /mail landing; inbox stays at /temp-mail after signup
+  const mailHref = signedIn ? "/temp-mail" : "/mail";
   const vpnHref = shopHref(signedIn, "/vpn");
 
   const offers = [
@@ -235,7 +235,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export default function LandingPage() {
   const { status } = useSession();
   const signedIn = status === "authenticated";
-  const mailHref = shopHref(signedIn, "/temp-mail");
+  // Guests read the public /mail landing; inbox stays at /temp-mail after signup
+  const mailHref = signedIn ? "/temp-mail" : "/mail";
   const vpnHref = shopHref(signedIn, "/vpn");
   const { theme, toggle } = useTheme();
   const heroRef = useRef<HTMLElement>(null);
@@ -776,35 +777,35 @@ export default function LandingPage() {
         />
         <div className="grid gap-4 md:grid-cols-3">
           <Link
-            href={REGISTER_USA}
+            href="/buy/usa"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇺🇸 United States</p>
             <h3 className="text-xl font-semibold tracking-tight">US temp num (+1)</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              Temp num USA for Facebook OTP, WhatsApp OTP, and receive SMS online — buy after
-              signup and a WhatsApp deposit.
+              Temp num USA for Facebook OTP, WhatsApp OTP, and receive SMS online — public hub,
+              then signup and a WhatsApp deposit to buy.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              USA number guides <ArrowRight size={14} />
+              US temp numbers <ArrowRight size={14} />
             </span>
           </Link>
           <Link
-            href={REGISTER_UK}
+            href="/buy/uk"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇬🇧 United Kingdom</p>
             <h3 className="text-xl font-semibold tracking-tight">UK temp num (+44)</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              UK temp number for WhatsApp OTP, Facebook OTP verification, and SMS online — guides
-              then live buy after signup.
+              UK temp number for WhatsApp OTP, Facebook OTP verification, and SMS online — public
+              hub, then live buy after signup.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              UK number guides <ArrowRight size={14} />
+              UK temp numbers <ArrowRight size={14} />
             </span>
           </Link>
           <Link
-            href={REGISTER_CANADA}
+            href="/buy/canada"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <p className="eyebrow !mb-2">🇨🇦 Canada</p>
@@ -814,7 +815,7 @@ export default function LandingPage() {
               private inbox as US and UK.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              Canada number guides <ArrowRight size={14} />
+              Canada temp numbers <ArrowRight size={14} />
             </span>
           </Link>
         </div>
