@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { BrandWordmark } from "@/components/brand-mark";
+import { REGISTER_MAIL } from "@/lib/guest-links";
 import { absoluteTitle, PAGE_META } from "@/lib/seo-meta";
 
 export const metadata: Metadata = {
@@ -48,7 +49,7 @@ export default function TempMailPlusPage() {
           <BrandWordmark compact priority />
         </Link>
         <Link
-          href="/temp-mail"
+          href={REGISTER_MAIL}
           className="btn btn-primary shrink-0 whitespace-nowrap text-sm px-3 min-h-10"
         >
           Sign up
@@ -68,8 +69,12 @@ export default function TempMailPlusPage() {
             temp num Canada.
           </p>
           <p>
-            Create an account (you land on Services), open Temp Mail Plus, generate a free
-            address, and wait for real messages. Wallet credit is not required for email.
+            This page is the public Temp Mail Plus landing — guests can read it. Generating
+            an address and opening the live inbox still needs an account. Create one (you land
+            on Services), open Temp Mail Plus, generate a free address, and wait for real
+            messages. Wallet credit is not required for email. We do not offer no-signup mail.
+          </p>
+          <p>
             Use it for signups where you would rather not publish your real address —
             alongside a private temp number when an app also wants SMS.
           </p>
@@ -85,6 +90,15 @@ export default function TempMailPlusPage() {
             </Link>
             .
           </p>
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] pt-2">
+            How Temp Mail Plus works after signup
+          </h2>
+          <ol className="list-decimal pl-5 space-y-2">
+            <li>Sign up on Temp Empire (this landing stays readable without an account).</li>
+            <li>Open Temp Mail Plus from the app menu — that inbox route is gated.</li>
+            <li>Generate a disposable address, copy it into the form that asked for email.</li>
+            <li>Refresh the inbox when mail arrives; pair with a US or UK temp num if SMS is required too.</li>
+          </ol>
         </div>
 
         <section className="mt-12">
@@ -100,7 +114,7 @@ export default function TempMailPlusPage() {
         </section>
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Link href="/temp-mail" className="btn btn-primary">
+          <Link href={REGISTER_MAIL} className="btn btn-primary">
             Sign up to open Temp Mail
           </Link>
           <Link href="/buy/usa" className="btn btn-ghost">

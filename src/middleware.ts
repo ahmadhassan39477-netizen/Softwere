@@ -20,7 +20,7 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/settings",
   "/temp-mail",
-  "/mail",
+  // /mail is the public Temp Mail Plus SEO landing; gate the inbox at /temp-mail only
   "/vpn",
   "/admin",
   "/api-docs",
