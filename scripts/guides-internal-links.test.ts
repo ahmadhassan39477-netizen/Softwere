@@ -35,6 +35,12 @@ assert.ok(sitemapSrc.includes("WHATSAPP_GUIDE_URL"));
 assert.ok(sitemapSrc.includes("FACEBOOK_GUIDE_URL"));
 assert.ok(sitemapSrc.includes("DISPOSABLE_GUIDE_URL"));
 assert.ok(sitemapSrc.includes("RESELLER_API_GUIDE_URL"));
+assert.ok(sitemapSrc.includes('`${BASE}/mail`'), "sitemap missing public /mail");
+assert.equal(
+  /url:\s*`\$\{BASE\}\/services`/.test(sitemapSrc),
+  false,
+  "signup-gated /services must not be in sitemap",
+);
 
 const footerSrc = readFileSync(new URL("../src/components/site-footer.tsx", import.meta.url), "utf8");
 assert.ok(footerSrc.includes('href: "/guides"'), "footer missing hub");
