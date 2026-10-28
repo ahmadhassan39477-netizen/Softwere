@@ -83,7 +83,6 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       if (!service || !country) throw new ProviderNoStockError("UNSUPPORTED_ROUTE");
 
       const params: Record<string, string> = { action: "getNumber", service, country };
-      const { isPlausibleOtpWholesale } = await import("../otp-price-guards");
       if (
         input.maxPrice != null &&
         Number(input.maxPrice) > 0 &&
@@ -241,7 +240,7 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
             const slug = ctx.slugByCode.get(String(code).toLowerCase());
             if (!slug || !info || typeof info !== "object") continue;
             const cost = cellWholesale(info);
-            if (!(cost > 0)) continue;
+            if (!(cost > 0) || !isPlausibleOtpWholesale(cost)) continue;
             const count = Number(info.count ?? 0);
             rows.push({
               countryCode: iso,

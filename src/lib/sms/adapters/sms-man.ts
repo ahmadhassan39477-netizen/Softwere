@@ -7,6 +7,7 @@ import {
   SmsAdapter,
   SmsStatus,
 } from "../types";
+import { isPlausibleOtpWholesale } from "../otp-price-guards";
 import { SA_COUNTRY, SA_SERVICE } from "../service-map";
 
 const CONTROL_BASE = "https://api.sms-man.com/control";
@@ -414,6 +415,7 @@ export function createSmsManAdapter(token: string): SmsAdapter {
           const cost = Number(info.cost ?? 0);
           const count = Number(info.count ?? 0);
           if (!Number.isFinite(cost) || cost <= 0) continue;
+          if (!isPlausibleOtpWholesale(cost)) continue;
           rows.push({
             countryCode: iso,
             serviceSlug: slug,

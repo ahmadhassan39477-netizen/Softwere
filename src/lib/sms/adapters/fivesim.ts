@@ -257,6 +257,7 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
           if (category && category !== "activation") continue;
           const qty = Number(info?.Qty ?? 0);
           const price = Number(info?.Price ?? 0);
+          if (!isPlausibleOtpWholesale(price)) continue;
           rows.push({
             countryCode: iso,
             serviceSlug: slug,

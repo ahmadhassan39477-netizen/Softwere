@@ -149,7 +149,15 @@ assert.ok(Math.abs(wholesaleFromRetail(0.0312) - 0.026) < 0.0001);
 assert.ok(qualityScore({ attempts: 26, successes: 25 }) > 0.9);
 
 // Regression: SMSBower/V3 provider-id map must NOT become Tier $1015 USD
+// (all services / countries — not Facebook-only)
 {
+  const multiSlug = new Map([
+    ["fb", "facebook"],
+    ["wa", "whatsapp"],
+    ["ig", "instagram"],
+    ["tg", "telegram"],
+  ]);
+  const multiCtx = { countryCode: "GB", countryId: "16", slugByCode: multiSlug };
   const rows = extractSaMultiOffers(
     {
       "16": {
@@ -158,19 +166,35 @@ assert.ok(qualityScore({ attempts: 26, successes: 25 }) > 0.9);
           "2260": { cost: 0.22, count: 12, name: "NetB", rate: 70 },
           "2266": { cost: 0.25, count: 5, name: "NetC", rate: 60 },
         },
+        wa: { "8821": { cost: 0.08, count: 100, name: "WA1", rate: 91 } },
+        ig: { "4401": { cost: 0.11, count: 55, name: "IG1", rate: 77 } },
+        tg: { "9902": { cost: 0.05, count: 200, name: "TG1", rate: 88 } },
       },
     },
-    ctx(),
+    multiCtx,
   );
-  assert.equal(rows.length, 3);
+  assert.equal(rows.length, 6);
   assert.deepEqual(
-    rows.map((r) => r.wholesale).sort((a, b) => a - b),
-    [0.15, 0.22, 0.25],
+    [...new Set(rows.map((r) => r.serviceSlug))].sort(),
+    ["facebook", "instagram", "telegram", "whatsapp"],
   );
+  assert.ok(rows.every((r) => r.wholesale < 1));
   assert.ok(rows.every((r) => !String(r.networkLabel ?? "").startsWith("Tier $")));
   assert.equal(rows.find((r) => r.operator === "1015")?.networkLabel, "NetA");
   // 1015*1.2=1218 was the live bug; cost*1.2 stays cents–dollars
   assert.ok(rows.every((r) => isPlausibleMarkedUpOtp(r.wholesale, 20)));
+  // US country node must parse the same way
+  const usRows = extractSaMultiOffers(
+    {
+      "12": {
+        wa: { "1015": { cost: 0.09, count: 30, name: "US-WA" } },
+        fb: { "2260": { cost: 0.04, count: 80, name: "US-FB" } },
+      },
+    },
+    { countryCode: "US", countryId: "12", slugByCode: multiSlug },
+  );
+  assert.equal(usRows.length, 2);
+  assert.ok(usRows.every((r) => isPlausibleMarkedUpOtp(r.wholesale, 20)));
 }
 
 // True USD price buckets still work
