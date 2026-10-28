@@ -23,6 +23,7 @@ import {
 } from "@/lib/sms/provider-slots";
 import { isSmsManDocsUrl, probeSmsManToken } from "@/lib/sms/adapters/sms-man";
 import { probeGrizzlyApiKey } from "@/lib/sms/adapters/grizzlysms";
+import { probeSmsBowerApiKey } from "@/lib/sms/adapters/smsbower";
 import { probeFiveSimApiKey } from "@/lib/sms/adapters/fivesim";
 import { fetchLiveStockBySlot } from "@/lib/sms/live-stock";
 
@@ -169,7 +170,7 @@ const patchSchema = z.object({
   markupPercent: z.number().min(0).max(500).optional(),
   priority: z.number().int().min(1).max(10).optional(),
   providerType: z
-    .enum(["sms-activate", "5sim", "grizzlysms", "sms-man", "custom-sa"])
+    .enum(["sms-activate", "5sim", "grizzlysms", "smsbower", "sms-man", "custom-sa"])
     .optional(),
   baseUrl: z.string().nullable().optional(),
   globalMarkupPercent: z.number().min(0).max(500).optional(),
@@ -202,7 +203,7 @@ export async function PATCH(req: NextRequest) {
   if (key === "sms-activate") key = slotKeyForServer(1);
   if (key === "5sim") key = slotKeyForServer(1);
   if (key === "grizzlysms") key = slotKeyForServer(2);
-  if (key === "sms-man") key = slotKeyForServer(3);
+  if (key === "smsbower" || key === "sms-man") key = slotKeyForServer(3);
 
   const existing = await prisma.providerSetting.findUnique({ where: { key } });
   if (!existing) return jsonError("Unknown server slot", 404);
@@ -292,14 +293,25 @@ export async function PATCH(req: NextRequest) {
         );
       }
     }
+    if (nextApiKey && typeForSanitize === "smsbower") {
+      const probe = await probeSmsBowerApiKey(nextApiKey, existing.baseUrl);
+      if (!probe.ok) {
+        return jsonError(
+          probe.error ??
+            "SMSBower rejected this API key. Paste the full api_key from your SMSBower account (Admin only — never chat).",
+          400,
+        );
+      }
+    }
   }
 
-  // Switching onto SMS-Man clears a previous provider's key (e.g. Grizzly) so it
-  // is never sent to api.sms-man.com/control. Do not force-enable without a token.
+  // Switching onto SMSBower / SMS-Man clears a previous provider's key so it
+  // is never sent to the wrong wholesale host. Do not force-enable without a token.
   let clearKeyOnTypeFlip = false;
   if (
-    nextType === "sms-man" &&
-    existing.providerType !== "sms-man" &&
+    nextType &&
+    (nextType === "smsbower" || nextType === "sms-man") &&
+    existing.providerType !== nextType &&
     nextApiKey === undefined
   ) {
     clearKeyOnTypeFlip = true;

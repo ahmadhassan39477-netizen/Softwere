@@ -3,6 +3,7 @@ export type ProviderKey =
   | "5sim"
   | "grizzlysms"
   | "sms-man"
+  | "smsbower"
   | "mock";
 
 export type BuyInput = {

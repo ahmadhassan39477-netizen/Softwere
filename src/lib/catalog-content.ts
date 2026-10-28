@@ -12,31 +12,32 @@ export const CATALOG_SERVICES = [
   { name: "Binance", slug: "binance", category: "Crypto", from: "0.74", note: "Exchange SMS codes" },
 ] as const;
 
-/** Customer-facing labels only — never name wholesale sites (SMS-Activate, 5SIM, Grizzly, SMS-Man). */
+/** Customer-facing labels only — never name wholesale sites. */
 export const SERVER_POOLS = [
   {
     id: "auto" as const,
     label: "Auto",
-    title: "Smart failover",
-    blurb: "Tries Server 1 → 2 → 3 automatically until a number is issued.",
+    title: "Best success first",
+    blurb:
+      "Ranks Primary, Backup, and Extra by OTP success quality; price only breaks ties.",
   },
   {
     id: 1 as const,
     label: "Server 1",
     title: "Primary",
-    blurb: "Best first pick when stock is available.",
+    blurb: "Primary pool — pick when you want this server only.",
   },
   {
     id: 2 as const,
     label: "Server 2",
     title: "Backup",
-    blurb: "Used next when Server 1 has no numbers.",
+    blurb: "Backup pool — pick when you want this server only.",
   },
   {
     id: 3 as const,
     label: "Server 3",
     title: "Extra",
-    blurb: "Last resort in Auto mode.",
+    blurb: "Extra pool — competes in Auto by success quality, not last resort.",
   },
 ] as const;
 

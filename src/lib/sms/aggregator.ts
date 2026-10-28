@@ -11,6 +11,7 @@ import {
 import { createSmsActivateAdapter } from "./adapters/sms-activate";
 import { createFiveSimAdapter } from "./adapters/fivesim";
 import { createGrizzlySmsAdapter } from "./adapters/grizzlysms";
+import { createSmsBowerAdapter } from "./adapters/smsbower";
 import { createSmsManAdapter, isSmsManDocsUrl } from "./adapters/sms-man";
 import { createSaCompatibleAdapter } from "./adapters/sa-compatible";
 import { mockAdapter } from "./adapters/mock";
@@ -24,6 +25,8 @@ import {
   type SlotProviderType,
   type SlotRow,
 } from "./provider-slots";
+import { loadSuccessStatMap, lookupQuality, priceBucket } from "./offer-success";
+import type { ProviderPriceRow } from "./types";
 
 function mocksAllowed() {
   return process.env.USE_MOCK_PROVIDERS === "true";
@@ -47,6 +50,9 @@ export function buildAdapterForSlot(slot: SlotRow): SmsAdapter | null {
   if (type === "5sim") return createFiveSimAdapter(keyValue);
   if (type === "grizzlysms") {
     return createGrizzlySmsAdapter(keyValue, slot.baseUrl);
+  }
+  if (type === "smsbower") {
+    return createSmsBowerAdapter(keyValue, slot.baseUrl);
   }
   if (type === "sms-man") {
     // Never treat get-sms docs URL as a token
@@ -79,6 +85,7 @@ export function buildAdapter(
   if (key === "sms-activate") return createSmsActivateAdapter(keyValue);
   if (key === "5sim") return createFiveSimAdapter(keyValue);
   if (key === "grizzlysms") return createGrizzlySmsAdapter(keyValue);
+  if (key === "smsbower") return createSmsBowerAdapter(keyValue);
   if (key === "sms-man") {
     if (isSmsManDocsUrl(keyValue)) return null;
     return createSmsManAdapter(keyValue);
@@ -86,11 +93,45 @@ export function buildAdapter(
   return null;
 }
 
+/** Best quality among a slot's live offers for a service (price as secondary). */
+function bestOfferScore(
+  rows: ProviderPriceRow[] | undefined,
+  server: number,
+  stats: Awaited<ReturnType<typeof loadSuccessStatMap>>,
+): { quality: number; wholesale: number } | null {
+  if (!rows?.length) return null;
+  const inStock = rows.filter((r) => r.available !== false && (r.stock ?? 1) > 0);
+  const pool = inStock.length > 0 ? inStock : rows;
+  let best: { quality: number; wholesale: number } | null = null;
+  for (const r of pool) {
+    if (!(r.wholesale > 0)) continue;
+    const q = lookupQuality(
+      stats,
+      {
+        server,
+        countryCode: r.countryCode,
+        serviceSlug: r.serviceSlug,
+        operator: (r.operator ?? "").toLowerCase(),
+        priceBucket: priceBucket(r.wholesale),
+      },
+      r.providerRate,
+    );
+    if (
+      !best ||
+      q.quality > best.quality ||
+      (q.quality === best.quality && r.wholesale < best.wholesale)
+    ) {
+      best = { quality: q.quality, wholesale: r.wholesale };
+    }
+  }
+  return best;
+}
+
 /**
  * Resolve ordered slot adapters for buy.
  * - Skips empty/disabled slots (no crash on missing 5SIM).
  * - If Server 2 empty and Server 3 is still Grizzly with a key, fill Server 2 from S3.
- *   (S3 default is now SMS-Man — do not copy SMS-Man tokens onto S2.)
+ *   (S3 default is SMSBower — do not copy SMSBower/SMS-Man tokens onto S2.)
  */
 export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
   const byPriority = new Map(slots.map((s) => [s.priority, s]));
@@ -176,22 +217,26 @@ export class SmsAggregator {
       ]);
     }
 
-    // Auto: try cheapest live retail first (not always Server 1 → 2 → 3)
+    // Auto: quality-first across Primary/Backup/Extra (Laplace OfferSuccessStat);
+    // wholesale price is tie-break only — not a cheapest-first price war.
     // Dynamic import avoids circular dep with live-stock → buildAdapterForSlot
     if (input.server === "auto" || input.server === undefined) {
       try {
         const { fetchLiveStockBySlot } = await import("./live-stock");
-        const live = await fetchLiveStockBySlot(input.countryCode);
+        const [live, stats] = await Promise.all([
+          fetchLiveStockBySlot(input.countryCode),
+          loadSuccessStatMap(),
+        ]);
         const slug = input.serviceSlug.toLowerCase();
         adapters = [...adapters].sort((a, b) => {
-          const wa = live.get(a.slot)?.bySlug.get(slug)?.wholesale;
-          const wb = live.get(b.slot)?.bySlug.get(slug)?.wholesale;
-          if (wa == null && wb == null) return a.slot - b.slot;
-          if (wa == null || !(wa > 0)) return 1;
-          if (wb == null || !(wb > 0)) return -1;
-          const ra = wa * (1 + a.markupPercent / 100);
-          const rb = wb * (1 + b.markupPercent / 100);
-          return ra - rb;
+          const sa = bestOfferScore(live.get(a.slot)?.offersBySlug.get(slug), a.slot, stats);
+          const sb = bestOfferScore(live.get(b.slot)?.offersBySlug.get(slug), b.slot, stats);
+          if (!sa && !sb) return a.slot - b.slot;
+          if (!sa) return 1;
+          if (!sb) return -1;
+          if (sb.quality !== sa.quality) return sb.quality - sa.quality;
+          if (sa.wholesale !== sb.wholesale) return sa.wholesale - sb.wholesale;
+          return a.slot - b.slot;
         });
       } catch {
         /* keep slot order */
@@ -318,7 +363,7 @@ export const smsAggregator = new SmsAggregator();
 export function serverNumberForProvider(key: ProviderKey): number {
   if (key === "5sim") return 1;
   if (key === "grizzlysms") return 2;
-  if (key === "sms-man") return 3;
+  if (key === "smsbower" || key === "sms-man") return 3;
   if (key === "sms-activate") return 1;
   return 1;
 }
