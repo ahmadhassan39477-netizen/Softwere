@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isPlausibleOtpWholesale } from "./otp-price-guards";
 import type { ProviderPriceRow } from "./types";
 
 type Numish = number | string | { toString(): string } | null | undefined;
@@ -250,31 +251,33 @@ export async function rebuildOfferSuccessStatsFromOrders(): Promise<{
   return { rows: values.length, ordersScanned: orders.length };
 }
 
-/** Sort live wholesale rows: quality desc, then price asc. */
+/** Sort live wholesale rows: quality desc, then price asc. Drops absurd USD. */
 export function rankProviderRows(
   rows: ProviderPriceRow[],
   server: number,
   stats: Map<string, SuccessStatRow>,
 ): Array<ProviderPriceRow & { quality: number; successAttempts: number; successHits: number }> {
-  const scored = rows.map((r) => {
-    const q = lookupQuality(
-      stats,
-      {
-        server,
-        countryCode: r.countryCode,
-        serviceSlug: r.serviceSlug,
-        operator: (r.operator ?? "").toLowerCase(),
-        priceBucket: priceBucket(r.wholesale),
-      },
-      r.providerRate,
-    );
-    return {
-      ...r,
-      quality: q.quality,
-      successAttempts: q.attempts,
-      successHits: q.successes,
-    };
-  });
+  const scored = rows
+    .filter((r) => isPlausibleOtpWholesale(r.wholesale))
+    .map((r) => {
+      const q = lookupQuality(
+        stats,
+        {
+          server,
+          countryCode: r.countryCode,
+          serviceSlug: r.serviceSlug,
+          operator: (r.operator ?? "").toLowerCase(),
+          priceBucket: priceBucket(r.wholesale),
+        },
+        r.providerRate,
+      );
+      return {
+        ...r,
+        quality: q.quality,
+        successAttempts: q.attempts,
+        successHits: q.successes,
+      };
+    });
   scored.sort((a, b) => {
     if (b.quality !== a.quality) return b.quality - a.quality;
     return a.wholesale - b.wholesale;

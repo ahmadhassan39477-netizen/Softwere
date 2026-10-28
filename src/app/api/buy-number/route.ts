@@ -12,7 +12,7 @@ const schema = z.object({
   server: z.number().int().min(1).max(3).default(1),
   operator: z.string().min(1).max(64).optional(),
   networkLabel: z.string().min(1).max(80).optional(),
-  maxPrice: z.number().positive().max(500).optional(),
+  maxPrice: z.number().positive().max(50).optional(),
 });
 
 /**

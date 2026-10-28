@@ -11,7 +11,7 @@ const schema = z.object({
   server: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal("auto")]).default("auto"),
   operator: z.string().min(1).max(64).optional(),
   networkLabel: z.string().min(1).max(80).optional(),
-  maxPrice: z.number().positive().max(500).optional(),
+  maxPrice: z.number().positive().max(50).optional(),
 });
 
 export async function POST(req: NextRequest) {

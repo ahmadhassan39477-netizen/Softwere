@@ -1,3 +1,4 @@
+import { isPlausibleOtpWholesale } from "./otp-price-guards";
 import type { ProviderPriceRow } from "./types";
 
 type PriceCell = {
@@ -28,6 +29,47 @@ function isPriceCell(v: unknown): v is PriceCell {
 
 function isNumericPriceKey(k: string): boolean {
   return /^\d+(\.\d+)?$/.test(k) && Number(k) > 0;
+}
+
+/** Value looks like a provider/activation cell (has USD cost), not a bare count bucket. */
+function valueHasUsdCost(info: unknown): boolean {
+  if (!info || typeof info !== "object" || Array.isArray(info)) return false;
+  const o = info as Record<string, unknown>;
+  if (!("cost" in o || "price" in o || "wholesale" in o)) return false;
+  const n = Number(o.cost ?? o.price ?? o.wholesale ?? 0);
+  return Number.isFinite(n) && n > 0;
+}
+
+/** Provider metadata without relying on cost alone (SMSBower/V3 id maps). */
+function valueLooksLikeProvider(info: unknown): boolean {
+  if (!info || typeof info !== "object" || Array.isArray(info)) return false;
+  if (valueHasUsdCost(info)) return true;
+  const o = info as Record<string, unknown>;
+  return (
+    typeof o.name === "string" ||
+    typeof o.operator === "string" ||
+    "rate" in o ||
+    "delivery_percent" in o ||
+    "deliveryPercent" in o ||
+    "id" in o ||
+    "providerId" in o ||
+    "provider_id" in o
+  );
+}
+
+/**
+ * True price-bucket map: keys are USD prices, values are stock counts
+ * (number or {count}) — NOT provider-id → {cost,count} maps.
+ * SMSBower getPricesV3 often returns {"1015":{cost:0.15,count:40}} where
+ * 1015 is a provider id; treating that key as USD caused Tier $1015 / $1218 retail.
+ */
+function isTruePriceBucketMap(obj: Record<string, unknown>): boolean {
+  const keys = Object.keys(obj);
+  if (keys.length === 0 || !keys.every(isNumericPriceKey)) return false;
+  if (Object.values(obj).some(valueLooksLikeProvider)) return false;
+  // Reject absurd keys that cannot be OTP USD (provider ids / stock mis-keys)
+  if (keys.some((k) => !isPlausibleOtpWholesale(Number(k)))) return false;
+  return true;
 }
 
 /**
@@ -88,6 +130,8 @@ export function extractSaMultiOffers(json: unknown, ctx: MultiCtx): ProviderPric
   }) => {
     if (!(partial.wholesale > 0)) return;
     if (!(partial.stock > 0)) return;
+    // Drop provider-id / RUB / stock-as-price disasters before Auto ranking
+    if (!isPlausibleOtpWholesale(partial.wholesale)) return;
     const offerKey = [
       partial.serviceSlug,
       partial.operator ?? "",
@@ -151,37 +195,41 @@ export function extractSaMultiOffers(json: unknown, ctx: MultiCtx): ProviderPric
       return;
     }
 
-    // Price-bucket map: numeric keys
+    // All-numeric keys: either USD price buckets OR provider-id → {cost,count}
     const keys = Object.keys(obj);
     if (keys.length > 0 && keys.every(isNumericPriceKey)) {
-      for (const [priceKey, info] of Object.entries(obj)) {
-        const wholesale = Number(priceKey);
-        let stock = 0;
-        if (typeof info === "number") stock = info;
-        else if (isPriceCell(info)) stock = cellCount(info);
-        else if (info && typeof info === "object" && "count" in (info as object)) {
-          stock = Number((info as { count?: number }).count ?? 0);
+      if (isTruePriceBucketMap(obj)) {
+        for (const [priceKey, info] of Object.entries(obj)) {
+          const wholesale = Number(priceKey);
+          let stock = 0;
+          if (typeof info === "number") stock = info;
+          else if (isPriceCell(info)) stock = cellCount(info);
+          else if (info && typeof info === "object" && "count" in (info as object)) {
+            stock = Number((info as { count?: number }).count ?? 0);
+          }
+          push({
+            serviceSlug: slug,
+            wholesale,
+            stock,
+            networkLabel: `Tier $${wholesale.toFixed(2)}`,
+            operator: `tier:${wholesale.toFixed(2)}`,
+            maxPrice: wholesale,
+          });
         }
-        push({
-          serviceSlug: slug,
-          wholesale,
-          stock,
-          networkLabel: `Tier $${wholesale.toFixed(2)}`,
-          operator: `tier:${wholesale.toFixed(2)}`,
-          maxPrice: wholesale,
-        });
+        return;
       }
-      return;
+      // Provider id map (SMSBower / getPricesV3): use cell.cost, never the id as USD
+      let providerHits = 0;
+      for (const [key, info] of Object.entries(obj)) {
+        if (walkProviderLike(slug, info, key)) providerHits += 1;
+      }
+      if (providerHits > 0) return;
     }
 
-    // Provider id map: { "12": { cost, count, name?, rate? }, ... }
+    // Mixed / named provider map: { "12": { cost, count, name?, rate? }, ... }
     let providerHits = 0;
     for (const [key, info] of Object.entries(obj)) {
       if (key === "cost" || key === "price" || key === "count" || key === "physicalCount") continue;
-      if (isNumericPriceKey(key) && isPriceCell(info)) {
-        // already handled by bucket branch; skip
-        continue;
-      }
       if (walkProviderLike(slug, info, key)) providerHits += 1;
     }
     if (providerHits === 0 && isPriceCell(obj)) {

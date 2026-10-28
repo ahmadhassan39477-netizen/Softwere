@@ -1,4 +1,5 @@
 import { buildAdapterForSlot } from "./aggregator";
+import { isPlausibleOtpWholesale } from "./otp-price-guards";
 import { loadProviderSlots, type SlotRow } from "./provider-slots";
 import type { ProviderPriceRow } from "./types";
 
@@ -28,6 +29,8 @@ function indexRows(rows: ProviderPriceRow[]): {
   for (const r of rows) {
     if (!r.serviceSlug) continue;
     if (!(r.wholesale > 0)) continue;
+    // Defense in depth: drop absurd wholesale (provider-id / wrong units)
+    if (!isPlausibleOtpWholesale(r.wholesale)) continue;
     const list = offersBySlug.get(r.serviceSlug) ?? [];
     list.push(r);
     offersBySlug.set(r.serviceSlug, list);
