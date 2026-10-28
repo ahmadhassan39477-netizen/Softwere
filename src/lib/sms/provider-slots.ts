@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ProviderKey } from "./types";
 import { isSmsManDocsUrl } from "./adapters/sms-man";
+import { isStaleSmsBowerBaseUrl } from "./adapters/smsbower";
 
 /** Admin Server 1/2/3 slot keys. */
 export const SLOT_KEYS = ["server-1", "server-2", "server-3"] as const;
@@ -344,6 +345,7 @@ export async function ensureProviderSlots(): Promise<void> {
       const patch: {
         markupPercent?: Prisma.Decimal;
         apiKey?: string | null;
+        baseUrl?: string | null;
         enabled?: boolean;
       } = {};
       if (Number(row.markupPercent) === 40) {
@@ -352,6 +354,10 @@ export async function ensureProviderSlots(): Promise<void> {
       if (looksLikeApiDocsUrl(row.apiKey)) {
         // Clear GET/https/product-balance pastes (e.g. 5SIM URL mistaken for token)
         patch.apiKey = null;
+      }
+      // SMSBower slots must not keep leftover SMS-Man get-sms docs as baseUrl
+      if (type === "smsbower" && isStaleSmsBowerBaseUrl(row.baseUrl)) {
+        patch.baseUrl = null;
       }
       const keyAfter = sanitizeApiKeyForType(
         type,
