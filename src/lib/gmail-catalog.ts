@@ -102,6 +102,33 @@ function displayNameFor(
   return slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
+/** Local/dev catalog when wholesale mail is not attached (never on production keys). */
+function mockGmailOffers(): GmailOfferRow[] {
+  const samples: Array<{ slug: string; name: string; wholesale: number; stock: number; quality: number }> = [
+    { slug: "instagram", name: "Instagram", wholesale: 0.12, stock: 48, quality: 0.72 },
+    { slug: "telegram", name: "Telegram", wholesale: 0.09, stock: 62, quality: 0.68 },
+    { slug: "discord", name: "Discord", wholesale: 0.08, stock: 35, quality: 0.61 },
+    { slug: "facebook", name: "Facebook", wholesale: 0.11, stock: 41, quality: 0.58 },
+    { slug: "tiktok", name: "TikTok", wholesale: 0.14, stock: 22, quality: 0.55 },
+    { slug: "twitter", name: "Twitter / X", wholesale: 0.13, stock: 19, quality: 0.52 },
+    { slug: "google", name: "Google", wholesale: 0.16, stock: 27, quality: 0.49 },
+    { slug: "openai", name: "OpenAI / ChatGPT", wholesale: 0.22, stock: 11, quality: 0.47 },
+  ];
+  return samples.map((s) => ({
+    serviceSlug: s.slug,
+    serviceCode: s.slug,
+    serviceName: s.name,
+    domain: GMAIL_DOMAIN,
+    wholesale: s.wholesale,
+    retail: retailFromGmailWholesale(s.wholesale),
+    stock: s.stock,
+    quality: s.quality,
+    successAttempts: 0,
+    successHits: 0,
+    maxPrice: s.wholesale,
+  }));
+}
+
 /**
  * Live Gmail (@gmail.com) offers ranked by OTP-success quality (mail route).
  * Multi-offer = multiple services; same quality ranking rules as SMS Auto.
@@ -114,6 +141,15 @@ export async function listGmailOffers(): Promise<{
 }> {
   const creds = await loadSmsBowerMailCreds();
   if (!creds.ready) {
+    if (process.env.USE_MOCK_PROVIDERS === "true") {
+      const offers = mockGmailOffers();
+      return {
+        ready: true,
+        reason: "mock",
+        markupPercent: GMAIL_MARKUP_PERCENT,
+        offers,
+      };
+    }
     return {
       ready: false,
       reason: creds.reason,

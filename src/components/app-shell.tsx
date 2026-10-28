@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutGrid,
@@ -26,13 +26,19 @@ import { BrandWordmark } from "@/components/brand-mark";
 import { cn } from "@/lib/utils";
 
 const DESKTOP_NAV = [
-  { href: "/services", label: "Services", icon: LayoutGrid },
-  { href: "/temp-mail", label: "Temp Mail", icon: Mail },
-  { href: "/vpn", label: "VPN & Proxy", icon: Globe },
-  { href: "/deposit", label: "Deposit", icon: Wallet },
-  { href: "/orders", label: "Orders", icon: History },
-  { href: "/account", label: "Account", icon: UserRound },
-  { href: "/api-docs", label: "API Docs", icon: BookOpen },
+  { href: "/services", label: "Services", icon: LayoutGrid, match: "/services" },
+  {
+    href: "/services#gmails",
+    label: "Gmails",
+    icon: Mail,
+    match: "/services#gmails",
+  },
+  { href: "/temp-mail", label: "Temp Mail", icon: Mail, match: "/temp-mail" },
+  { href: "/vpn", label: "VPN & Proxy", icon: Globe, match: "/vpn" },
+  { href: "/deposit", label: "Deposit", icon: Wallet, match: "/deposit" },
+  { href: "/orders", label: "Orders", icon: History, match: "/orders" },
+  { href: "/account", label: "Account", icon: UserRound, match: "/account" },
+  { href: "/api-docs", label: "API Docs", icon: BookOpen, match: "/api-docs" },
 ];
 
 /** Mobile bottom tabs — native-app pattern */
@@ -60,10 +66,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const { theme, toggle } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const sync = () => setHash(window.location.hash.toLowerCase());
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [pathname]);
 
   const balance = session?.user?.balance ?? "0.0000";
   const isAdmin = session?.user?.role === "ADMIN";
   const mobileTabs = isAdmin ? [...MOBILE_TABS, MOBILE_ADMIN_TAB] : [...MOBILE_TABS];
+
+  function navActive(item: (typeof DESKTOP_NAV)[number]) {
+    if (item.match === "/services#gmails") {
+      return pathname.startsWith("/services") && hash === "#gmails";
+    }
+    if (item.match === "/services") {
+      return pathname.startsWith("/services") && hash !== "#gmails";
+    }
+    return pathname.startsWith(item.match);
+  }
 
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
@@ -80,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </p>
           {DESKTOP_NAV.map((item, i) => {
             const Icon = item.icon;
-            const active = pathname.startsWith(item.href);
+            const active = navActive(item);
             return (
               <motion.div
                 key={item.href}
@@ -97,6 +121,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       ? "nav-active"
                       : "text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-[var(--text)]",
                   )}
+                  onClick={() => {
+                    if (item.match === "/services#gmails") {
+                      window.setTimeout(() => setHash("#gmails"), 0);
+                      return;
+                    }
+                    if (item.match === "/services" && window.location.hash) {
+                      const url = `${window.location.pathname}${window.location.search}`;
+                      window.history.replaceState(null, "", url);
+                      window.dispatchEvent(new HashChangeEvent("hashchange"));
+                      setHash("");
+                    }
+                  }}
                 >
                   {active && (
                     <motion.span
