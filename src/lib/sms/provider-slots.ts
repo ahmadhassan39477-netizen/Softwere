@@ -12,6 +12,7 @@ export type SlotProviderType =
   | "5sim"
   | "grizzlysms"
   | "sms-man"
+  | "smsbower"
   | "custom-sa";
 
 /** Uniform retail markup for every server: retail = wholesale × 1.20 */
@@ -28,18 +29,20 @@ export const PROVIDER_TYPE_OPTIONS: {
   { value: "sms-activate", label: "SMS-Activate", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "5sim", label: "5SIM", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: DEFAULT_SLOT_MARKUP },
+  { value: "smsbower", label: "SMSBower", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "sms-man", label: "SMS-Man", defaultMarkup: DEFAULT_SLOT_MARKUP },
   { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: DEFAULT_SLOT_MARKUP },
 ];
 
-/** Desired Admin defaults: S1=5SIM, S2=Grizzly, S3=SMS-Man. */
+/** Desired Admin defaults: S1=5SIM, S2=Grizzly, S3=SMSBower (Extra). */
 export const SLOT_TYPE_DEFAULTS: Record<1 | 2 | 3, SlotProviderType> = {
   1: "5sim",
   2: "grizzlysms",
-  3: "sms-man",
+  3: "smsbower",
 };
 
-const DEFAULTS_FLAG = "sms_slots_defaults_v4";
+/** One-time S3 → SMSBower flip (preserves real tokens; clears wrong-type keys). */
+const DEFAULTS_FLAG = "sms_slots_defaults_v5";
 
 export function slotKeyForServer(server: 1 | 2 | 3): SlotKey {
   return `server-${server}` as SlotKey;
@@ -81,6 +84,12 @@ export function envKeyForType(type: SlotProviderType): string | undefined {
       process.env.GRIZZLYSMS_API_KEY?.trim()
     );
   }
+  if (type === "smsbower") {
+    const t = process.env.SMSBOWER_API_KEY?.trim();
+    // Never treat a chat-masked fragment (literal *) as a usable key
+    if (t && t.includes("*")) return undefined;
+    return t;
+  }
   if (type === "sms-man") {
     const t = process.env.SMS_MAN_API_KEY?.trim() || process.env.SMSMAN_API_KEY?.trim();
     if (t && isSmsManDocsUrl(t)) return undefined;
@@ -102,6 +111,12 @@ export function defaultBaseUrlForType(type: SlotProviderType): string | null {
       "https://api.grizzlysms.com/stubs/handler_api.php"
     );
   }
+  if (type === "smsbower") {
+    return (
+      process.env.SMSBOWER_BASE_URL?.trim() ||
+      "https://smsbower.page/stubs/handler_api.php"
+    );
+  }
   if (type === "sms-man") {
     return "https://api.sms-man.com/control/";
   }
@@ -118,7 +133,10 @@ export function looksLikeApiDocsUrl(value: string | null | undefined): boolean {
   // Curl / “GET https://…” / product-balance / guest products pasted as the key
   if (/^(GET|POST|PUT|PATCH|DELETE|HEAD|CURL)\b/i.test(t)) return true;
   if (/\bhttps?:\/\//i.test(t)) return true;
-  if (/5sim\.net|grizzlysms\.com|sms-man\.com|sms-activate\./i.test(t) && /[/?]/.test(t)) {
+  if (
+    /5sim\.net|grizzlysms\.com|sms-man\.com|sms-activate\.|smsbower\./i.test(t) &&
+    /[/?]/.test(t)
+  ) {
     return true;
   }
   if (/product-balance|\/v1\/(user|guest)\//i.test(t)) return true;
@@ -134,6 +152,8 @@ export function sanitizeApiKeyForType(
   const trimmed = apiKey.trim();
   if (!trimmed) return null;
   if (type === "sms-man" && isSmsManDocsUrl(trimmed)) return null;
+  // Chat-masked fragments (literal *) are never usable tokens
+  if (trimmed.includes("*")) return null;
   if (looksLikeApiDocsUrl(trimmed) && type !== "custom-sa") return null;
   // Real tokens are not sentences / request lines
   if (/\s/.test(trimmed) && type !== "custom-sa") return null;
@@ -145,13 +165,14 @@ const LEGACY_KEY_SOURCES: { oldKey: string; slot: 1 | 2 | 3 }[] = [
   { oldKey: "5sim", slot: 1 },
   { oldKey: "sms-activate", slot: 1 },
   { oldKey: "grizzlysms", slot: 2 },
+  { oldKey: "smsbower", slot: 3 },
   { oldKey: "sms-man", slot: 3 },
 ];
 
 /**
  * Ensure server-1/2/3 slots exist.
- * Defaults: S1=5SIM, S2=Grizzly, S3=SMS-Man; all margins 20%.
- * Preserves real API keys; clears mistaken docs URLs on SMS-Man.
+ * Defaults: S1=5SIM, S2=Grizzly, S3=SMSBower; all margins 20%.
+ * Preserves real API keys; clears mistaken docs URLs / wrong-type tokens.
  */
 export async function ensureProviderSlots(): Promise<void> {
   const markupDefault = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? DEFAULT_SLOT_MARKUP);
@@ -172,6 +193,9 @@ export async function ensureProviderSlots(): Promise<void> {
       } else if (type === "sms-activate") {
         const row = await prisma.providerSetting.findUnique({ where: { key: "sms-activate" } });
         apiKey = row?.apiKey ?? null;
+      } else if (type === "smsbower") {
+        const row = await prisma.providerSetting.findUnique({ where: { key: "smsbower" } });
+        apiKey = sanitizeApiKeyForType("smsbower", row?.apiKey);
       } else if (type === "sms-man") {
         const row = await prisma.providerSetting.findUnique({ where: { key: "sms-man" } });
         apiKey = sanitizeApiKeyForType("sms-man", row?.apiKey);
@@ -184,7 +208,7 @@ export async function ensureProviderSlots(): Promise<void> {
           providerType: type,
           baseUrl: null,
           apiKey,
-          enabled: true,
+          enabled: Boolean(apiKey) || slot !== 3,
           priority: slot,
           markupPercent: new Prisma.Decimal(markupDefault || DEFAULT_SLOT_MARKUP),
         },
@@ -192,7 +216,7 @@ export async function ensureProviderSlots(): Promise<void> {
     }
   }
 
-  // One-time apply of v4 defaults (S3=SMS-Man + 20%) without wiping real tokens
+  // One-time apply of v5 defaults (S3=SMSBower + 20%) without wiping real SMSBower tokens
   const flag = await prisma.setting.findUnique({ where: { key: DEFAULTS_FLAG } });
   if (!flag || flag.value !== "1") {
     // Before flipping S3 type, move a real Grizzly key from S3 → S2 if S2 empty
@@ -221,19 +245,20 @@ export async function ensureProviderSlots(): Promise<void> {
       if (!row) continue;
       const nextType = SLOT_TYPE_DEFAULTS[slot];
       let nextKey = row.apiKey;
-      // Clear docs URLs mistakenly stored as SMS-Man (or any) tokens
-      if (nextType === "sms-man" && looksLikeApiDocsUrl(nextKey)) {
+      // Clear docs URLs / masked fragments
+      if (looksLikeApiDocsUrl(nextKey) || nextKey?.includes("*")) {
         nextKey = null;
       }
-      // Do not keep a Grizzly key on the SMS-Man slot after the type flip
+      // Wrong-type keys must not ride along when flipping S3 onto SMSBower
       if (
-        nextType === "sms-man" &&
-        row.providerType === "grizzlysms" &&
+        nextType === "smsbower" &&
+        row.providerType !== "smsbower" &&
+        row.providerType !== "custom-sa" &&
         nextKey?.trim()
       ) {
+        // Keep only if already a genuine SMSBower legacy row key; else clear
         nextKey = null;
       }
-      // Do not force-enable Server 3 without an SMS-Man token
       const patch: {
         providerType: SlotProviderType;
         name: string;
@@ -246,8 +271,9 @@ export async function ensureProviderSlots(): Promise<void> {
         markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
       };
       if (nextKey !== row.apiKey) patch.apiKey = nextKey;
-      if (nextType === "sms-man" && !nextKey?.trim()) {
-        // leave enabled as-is (user may have Disabled); never flip on without token
+      // Never force-enable Server 3 without an SMSBower token
+      if (nextType === "smsbower" && !nextKey?.trim()) {
+        // leave enabled as-is
       }
       await prisma.providerSetting.update({
         where: { key: slotKey },
@@ -275,15 +301,28 @@ export async function ensureProviderSlots(): Promise<void> {
       });
     }
 
-    // Prefer SMS-Man legacy key on S3 when empty (never a docs URL)
+    // Prefer SMSBower legacy ProviderSetting / ProviderConfig on S3 when empty
     const s3 = await prisma.providerSetting.findUnique({ where: { key: "server-3" } });
-    const legacyM = await prisma.providerSetting.findUnique({ where: { key: "sms-man" } });
-    const manKey = sanitizeApiKeyForType("sms-man", legacyM?.apiKey);
-    if (s3 && !s3.apiKey?.trim() && manKey) {
+    const legacyB = await prisma.providerSetting.findUnique({ where: { key: "smsbower" } });
+    const bowerKey = sanitizeApiKeyForType("smsbower", legacyB?.apiKey);
+    if (s3 && !s3.apiKey?.trim() && bowerKey) {
       await prisma.providerSetting.update({
         where: { key: "server-3" },
-        data: { apiKey: manKey },
+        data: { apiKey: bowerKey, providerType: "smsbower", enabled: true },
       });
+    } else if (s3 && !s3.apiKey?.trim()) {
+      try {
+        const cfg = await prisma.providerConfig.findUnique({ where: { key: "smsbower" } });
+        const fromCfg = sanitizeApiKeyForType("smsbower", cfg?.apiKey);
+        if (fromCfg) {
+          await prisma.providerSetting.update({
+            where: { key: "server-3" },
+            data: { apiKey: fromCfg, providerType: "smsbower", enabled: true },
+          });
+        }
+      } catch {
+        /* ignore */
+      }
     }
 
     await prisma.setting.upsert({
@@ -346,6 +385,7 @@ export type SlotRow = {
 function legacySettingKeysForType(type: SlotProviderType): string[] {
   if (type === "5sim") return ["5sim"];
   if (type === "grizzlysms") return ["grizzlysms"];
+  if (type === "smsbower") return ["smsbower"];
   if (type === "sms-man") return ["sms-man"];
   if (type === "sms-activate" || type === "custom-sa") return ["sms-activate"];
   return [];

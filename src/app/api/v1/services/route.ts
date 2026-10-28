@@ -94,7 +94,7 @@ function synthServices(
     liveStock: false,
     slotMarkups: markups,
     rankingRule:
-      "Offers sort by historical OTP success (server × country × service × network × price band), then by price. Only real wholesale rows are listed.",
+      "Auto ranks Primary/Backup/Extra by historical OTP success (server × country × service × network × price band); price is tie-break only. Only real wholesale rows are listed.",
     slotStatuses: {
       1: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
       2: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
@@ -358,7 +358,7 @@ export async function GET(req: NextRequest) {
         liveStock: liveCount > 0,
         slotMarkups: markups,
         rankingRule:
-          "Best historical OTP success first (server × country × service × network × wholesale price band; Laplace-smoothed). Tie-break: lower price. Provider delivery rate used only when shop history is empty. Only real wholesale offers — never invented stock.",
+          "Auto ranks Primary/Backup/Extra by historical OTP success (server × country × service × network × wholesale price band; Laplace-smoothed). Tie-break: lower price — not cheapest-first. Provider delivery rate used only when shop history is empty. Only real wholesale offers — never invented stock.",
         // Never send wholesale providerType to the customer browser
         slotProviders: Object.fromEntries(
           [...liveBySlot.entries()].map(([k, v]) => [

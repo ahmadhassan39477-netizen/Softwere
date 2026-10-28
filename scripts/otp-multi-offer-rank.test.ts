@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { extractSaMultiOffers } from "../src/lib/sms/sa-multi-prices";
 import {
+  lookupQuality,
   priceBucket,
   qualityScore,
   rankProviderRows,
@@ -141,5 +142,87 @@ function ctx(country = "16") {
 assert.equal(priceBucket(0.072), "0.07");
 assert.ok(Math.abs(wholesaleFromRetail(0.0312) - 0.026) < 0.0001);
 assert.ok(qualityScore({ attempts: 26, successes: 25 }) > 0.9);
+
+// Cross-server Auto: quality beats cheaper weak offer (S2 US high success vs S1 GB cheap weak)
+{
+  const stats = new Map();
+  const s2Us = {
+    server: 2,
+    countryCode: "US",
+    serviceSlug: "facebook",
+    operator: "",
+    priceBucket: "0.03",
+    attempts: 35,
+    successes: 28,
+    quality: qualityScore({ attempts: 35, successes: 28 }),
+  };
+  const s1Gb = {
+    server: 1,
+    countryCode: "GB",
+    serviceSlug: "facebook",
+    operator: "",
+    priceBucket: "0.15",
+    attempts: 17,
+    successes: 3,
+    quality: qualityScore({ attempts: 17, successes: 3 }),
+  };
+  const s3Us = {
+    server: 3,
+    countryCode: "US",
+    serviceSlug: "facebook",
+    operator: "",
+    priceBucket: "0.04",
+    attempts: 4,
+    successes: 1,
+    quality: qualityScore({ attempts: 4, successes: 1 }),
+  };
+  stats.set(successKey(s2Us), s2Us);
+  stats.set(successKey(s1Gb), s1Gb);
+  stats.set(successKey(s3Us), s3Us);
+
+  type Scored = { server: number; wholesale: number; quality: number };
+  const candidates: Scored[] = [
+    {
+      server: 1,
+      wholesale: 0.15,
+      quality: lookupQuality(stats, {
+        server: 1,
+        countryCode: "GB",
+        serviceSlug: "facebook",
+        operator: "",
+        priceBucket: "0.15",
+      }).quality,
+    },
+    {
+      server: 2,
+      wholesale: 0.03,
+      quality: lookupQuality(stats, {
+        server: 2,
+        countryCode: "US",
+        serviceSlug: "facebook",
+        operator: "",
+        priceBucket: "0.03",
+      }).quality,
+    },
+    {
+      server: 3,
+      wholesale: 0.02,
+      quality: lookupQuality(stats, {
+        server: 3,
+        countryCode: "US",
+        serviceSlug: "facebook",
+        operator: "",
+        priceBucket: "0.04",
+      }).quality,
+    },
+  ];
+  candidates.sort((a, b) => {
+    if (b.quality !== a.quality) return b.quality - a.quality;
+    return a.wholesale - b.wholesale;
+  });
+  // Cheapest is S3 ($0.02) but S2 quality wins Auto
+  assert.equal(candidates[0]!.server, 2);
+  assert.ok(candidates[0]!.quality > candidates[1]!.quality);
+}
 
 console.log("otp-multi-offer-rank.test.ts: ok");

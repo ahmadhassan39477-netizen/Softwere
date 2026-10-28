@@ -270,17 +270,68 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Server 3: report only (do not invent SMS-Man tokens)
+  // Server 3 (SMSBower Extra): recover legacy smsbower key only — never invent
   {
     const slotKey = slotKeyForServer(3);
     const row = await prisma.providerSetting.findUnique({ where: { key: slotKey } });
-    const existing = sanitizeApiKeyForType("sms-man", row?.apiKey);
-    results[slotKey] = {
-      repaired: false,
-      masked: existing ? maskKey(existing) : undefined,
-      enabled: row?.enabled,
-      note: existing ? "Server 3 already keyed" : "Server 3 has no SMS-Man key (ok)",
-    };
+    const typeOk =
+      row?.providerType === "smsbower" || row?.providerType === "sms-man"
+        ? (row.providerType as "smsbower" | "sms-man")
+        : "smsbower";
+    const existing = sanitizeApiKeyForType(typeOk, row?.apiKey);
+    if (existing) {
+      results[slotKey] = {
+        repaired: false,
+        masked: maskKey(existing),
+        enabled: row?.enabled,
+        note: "Server 3 already keyed",
+      };
+    } else {
+      let recovered: string | null = null;
+      let source = "";
+      for (const legacyKey of ["smsbower"] as const) {
+        const legacy = await prisma.providerSetting.findUnique({
+          where: { key: legacyKey },
+        });
+        recovered = sanitizeApiKeyForType("smsbower", legacy?.apiKey);
+        if (recovered) {
+          source = `providerSetting:${legacyKey}`;
+          break;
+        }
+      }
+      if (!recovered) {
+        try {
+          const cfg = await prisma.providerConfig.findUnique({ where: { key: "smsbower" } });
+          recovered = sanitizeApiKeyForType("smsbower", cfg?.apiKey);
+          if (recovered) source = "providerConfig:smsbower";
+        } catch {
+          /* ignore */
+        }
+      }
+      if (recovered) {
+        await prisma.providerSetting.update({
+          where: { key: slotKey },
+          data: {
+            apiKey: recovered,
+            providerType: "smsbower",
+            enabled: true,
+            markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+          },
+        });
+        results[slotKey] = {
+          repaired: true,
+          source,
+          masked: maskKey(recovered),
+          enabled: true,
+        };
+      } else {
+        results[slotKey] = {
+          repaired: false,
+          enabled: row?.enabled,
+          note: "Server 3 has no SMSBower key — paste full api_key in Admin (never chat)",
+        };
+      }
+    }
     void probeSmsManToken;
   }
 

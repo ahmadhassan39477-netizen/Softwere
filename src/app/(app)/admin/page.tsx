@@ -34,6 +34,7 @@ const ADMIN_PROVIDER_TYPES: ProviderTypeOption[] = [
   { value: "sms-activate", label: "SMS-Activate", defaultMarkup: 20 },
   { value: "5sim", label: "5SIM", defaultMarkup: 20 },
   { value: "grizzlysms", label: "Grizzly SMS", defaultMarkup: 20 },
+  { value: "smsbower", label: "SMSBower", defaultMarkup: 20 },
   { value: "sms-man", label: "SMS-Man", defaultMarkup: 20 },
   { value: "custom-sa", label: "Custom (SMS-Activate API)", defaultMarkup: 20 },
 ];
@@ -44,8 +45,15 @@ function mergeProviderTypes(fromApi?: ProviderTypeOption[]): ProviderTypeOption[
   for (const t of fromApi ?? []) {
     if (!byValue.has(t.value)) byValue.set(t.value, t);
   }
-  // Keep SMS-Man immediately after Grizzly in the dropdown
-  const order = ["sms-activate", "5sim", "grizzlysms", "sms-man", "custom-sa"];
+  // SMSBower (Server 3 Extra default) after Grizzly; SMS-Man kept as optional
+  const order = [
+    "sms-activate",
+    "5sim",
+    "grizzlysms",
+    "smsbower",
+    "sms-man",
+    "custom-sa",
+  ];
   const ordered: ProviderTypeOption[] = [];
   for (const v of order) {
     const hit = byValue.get(v);
@@ -861,10 +869,11 @@ export default function AdminPage() {
           <div>
             <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
             <p className="text-xs text-[var(--text-muted)]">
-              Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMS-Man. Margin{" "}
+              Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMSBower (Extra). Margin{" "}
               {settings.data?.grizzlyDefaultMarkup ?? 20}% (retail = wholesale × 1.20). A saved
               key stays after refresh; URL/docs pastes are rejected. Customer /services never
-              shows wholesale brand names. Keys stay in Admin — never in chat.
+              shows wholesale brand names. Keys stay in Admin — never in chat. Paste the full
+              SMSBower api_key on Server 3 (not a handler URL, not a chat-masked fragment).
             </p>
           </div>
           <button
@@ -881,11 +890,13 @@ export default function AdminPage() {
             const types = mergeProviderTypes(settings.data?.providerTypes);
             const type = p.providerType ?? "sms-activate";
             const keyPlaceholder =
-              type === "sms-man"
-                ? "Paste SMS-Man profile token (not a get-sms URL)"
-                : type === "5sim"
-                  ? "Paste 5SIM API key from profile/settings (not a URL)"
-                  : `Paste ${p.providerLabel ?? "provider"} API key`;
+              type === "smsbower"
+                ? "Paste full SMSBower api_key (not handler URL / not chat-masked *)"
+                : type === "sms-man"
+                  ? "Paste SMS-Man profile token (not a get-sms URL)"
+                  : type === "5sim"
+                    ? "Paste 5SIM API key from profile/settings (not a URL)"
+                    : `Paste ${p.providerLabel ?? "provider"} API key`;
             return (
               <div
                 key={p.key}
