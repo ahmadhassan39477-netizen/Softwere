@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { extractSaMultiOffers } from "../src/lib/sms/sa-multi-prices";
 import {
+  isPlausibleMarkedUpOtp,
+  isPlausibleOtpWholesale,
+  MAX_PLAUSIBLE_OTP_RETAIL_USD,
+} from "../src/lib/sms/otp-price-guards";
+import {
   lookupQuality,
   priceBucket,
   qualityScore,
@@ -142,6 +147,97 @@ function ctx(country = "16") {
 assert.equal(priceBucket(0.072), "0.07");
 assert.ok(Math.abs(wholesaleFromRetail(0.0312) - 0.026) < 0.0001);
 assert.ok(qualityScore({ attempts: 26, successes: 25 }) > 0.9);
+
+// Regression: SMSBower/V3 provider-id map must NOT become Tier $1015 USD
+{
+  const rows = extractSaMultiOffers(
+    {
+      "16": {
+        fb: {
+          "1015": { cost: 0.15, count: 40, name: "NetA", rate: 80 },
+          "2260": { cost: 0.22, count: 12, name: "NetB", rate: 70 },
+          "2266": { cost: 0.25, count: 5, name: "NetC", rate: 60 },
+        },
+      },
+    },
+    ctx(),
+  );
+  assert.equal(rows.length, 3);
+  assert.deepEqual(
+    rows.map((r) => r.wholesale).sort((a, b) => a - b),
+    [0.15, 0.22, 0.25],
+  );
+  assert.ok(rows.every((r) => !String(r.networkLabel ?? "").startsWith("Tier $")));
+  assert.equal(rows.find((r) => r.operator === "1015")?.networkLabel, "NetA");
+  // 1015*1.2=1218 was the live bug; cost*1.2 stays cents–dollars
+  assert.ok(rows.every((r) => isPlausibleMarkedUpOtp(r.wholesale, 20)));
+}
+
+// True USD price buckets still work
+{
+  const rows = extractSaMultiOffers(
+    {
+      "16": {
+        fb: {
+          "0.05": { count: 10 },
+          "1.20": { count: 3 },
+        },
+      },
+    },
+    ctx(),
+  );
+  assert.equal(rows.length, 2);
+  assert.ok(rows.every((r) => r.operator?.startsWith("tier:")));
+}
+
+// Absurd keys alone (provider ids without cost) must not become USD tiers
+{
+  const rows = extractSaMultiOffers(
+    {
+      "16": {
+        fb: {
+          "1015": { count: 40 },
+          "2260": { count: 12 },
+        },
+      },
+    },
+    ctx(),
+  );
+  assert.equal(rows.length, 0);
+}
+
+assert.equal(isPlausibleOtpWholesale(1015), false);
+assert.equal(isPlausibleOtpWholesale(0.15), true);
+assert.equal(isPlausibleMarkedUpOtp(1015, 20), false);
+assert.ok(MAX_PLAUSIBLE_OTP_RETAIL_USD <= 50);
+
+// Ranking drops absurd wholesale even if a row slipped through
+{
+  const ranked = rankProviderRows(
+    [
+      {
+        countryCode: "GB",
+        serviceSlug: "facebook",
+        wholesale: 1015,
+        available: true,
+        stock: 5,
+        operator: "tier:1015.00",
+      },
+      {
+        countryCode: "GB",
+        serviceSlug: "facebook",
+        wholesale: 0.15,
+        available: true,
+        stock: 5,
+        operator: "1015",
+      },
+    ],
+    3,
+    new Map(),
+  );
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0]!.wholesale, 0.15);
+}
 
 // Cross-server Auto: quality beats cheaper weak offer (S2 US high success vs S1 GB cheap weak)
 {

@@ -18,6 +18,7 @@ import {
   MAX_OFFERS_PER_SERVICE,
   rankProviderRows,
 } from "@/lib/sms/offer-success";
+import { isPlausibleMarkedUpOtp } from "@/lib/sms/otp-price-guards";
 import type { ProviderPriceRow } from "@/lib/sms/types";
 
 async function slotMarkupMap(): Promise<Record<number, number>> {
@@ -132,7 +133,8 @@ function liveRowToOffer(
   },
   markup: number,
   index: number,
-): ApiOffer {
+): ApiOffer | null {
+  if (!isPlausibleMarkedUpOtp(row.wholesale, markup)) return null;
   const retail = retailFromWholesale(row.wholesale, markup);
   const stock = row.stock ?? (row.available ? 1 : 0);
   const op = row.operator ?? "";
@@ -191,7 +193,8 @@ function expandOffersForService(
         MAX_OFFERS_PER_SERVICE,
       );
       ranked.forEach((row, i) => {
-        out.push(liveRowToOffer(seed.id, seed.server, slug, row, markup, i));
+        const offer = liveRowToOffer(seed.id, seed.server, slug, row, markup, i);
+        if (offer) out.push(offer);
       });
       continue;
     }

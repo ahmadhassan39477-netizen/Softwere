@@ -25,6 +25,7 @@ import {
   type SlotProviderType,
   type SlotRow,
 } from "./provider-slots";
+import { isPlausibleOtpWholesale } from "./otp-price-guards";
 import { loadSuccessStatMap, lookupQuality, priceBucket } from "./offer-success";
 import type { ProviderPriceRow } from "./types";
 
@@ -105,6 +106,7 @@ function bestOfferScore(
   let best: { quality: number; wholesale: number } | null = null;
   for (const r of pool) {
     if (!(r.wholesale > 0)) continue;
+    if (!isPlausibleOtpWholesale(r.wholesale)) continue;
     const q = lookupQuality(
       stats,
       {

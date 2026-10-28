@@ -7,6 +7,7 @@ import {
   SmsAdapter,
   SmsStatus,
 } from "../types";
+import { isPlausibleOtpWholesale } from "../otp-price-guards";
 import { FIVESIM_COUNTRY, FIVESIM_PRODUCT } from "../service-map";
 import { extractOtpCode } from "../sa-status";
 
@@ -219,6 +220,8 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
                 const cost = Number(cell.cost ?? 0);
                 const count = Number(cell.count ?? 0);
                 if (!(cost > 0) || !(count > 0)) continue;
+                // Same USD sanity as SA multi-offer (never treat junk as wholesale)
+                if (!isPlausibleOtpWholesale(cost)) continue;
                 const rate = Number(cell.rate);
                 rows.push({
                   countryCode: iso,

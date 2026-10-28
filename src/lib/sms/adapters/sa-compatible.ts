@@ -14,6 +14,7 @@ import {
   parseSaGetStatusText,
   parseSaGetStatusV2Json,
 } from "../sa-status";
+import { isPlausibleOtpWholesale } from "../otp-price-guards";
 import { extractSaMultiOffers, extractSaServicePriceMap } from "../sa-multi-prices";
 
 export type SaCompatibleOptions = {
@@ -82,7 +83,12 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       if (!service || !country) throw new ProviderNoStockError("UNSUPPORTED_ROUTE");
 
       const params: Record<string, string> = { action: "getNumber", service, country };
-      if (input.maxPrice != null && Number(input.maxPrice) > 0) {
+      const { isPlausibleOtpWholesale } = await import("../otp-price-guards");
+      if (
+        input.maxPrice != null &&
+        Number(input.maxPrice) > 0 &&
+        isPlausibleOtpWholesale(Number(input.maxPrice))
+      ) {
         params.maxPrice = String(input.maxPrice);
       }
       // Prefer explicit providerIds; else treat operator as provider id when numeric / non-tier
@@ -94,7 +100,10 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       if (providerIds) params.providerIds = providerIds;
       if (input.operator?.startsWith("tier:") && !params.maxPrice) {
         const tier = Number(input.operator.slice(5));
-        if (tier > 0) params.maxPrice = String(tier);
+        // Only true USD tiers — never provider ids mislabeled as tier:1015
+        if (tier > 0 && isPlausibleOtpWholesale(tier)) {
+          params.maxPrice = String(tier);
+        }
       }
 
       const text = await call(params);

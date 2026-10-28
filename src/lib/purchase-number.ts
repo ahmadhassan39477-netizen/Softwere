@@ -10,6 +10,7 @@ import {
   CUSTOMER_SERVER_UNAVAILABLE,
   sanitizeCustomerBuyError,
 } from "@/lib/sms/customer-errors";
+import { isPlausibleMarkedUpOtp } from "@/lib/sms/otp-price-guards";
 import { decimalJson } from "@/lib/money";
 import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { worldCountryByCode } from "@/lib/world-countries";
@@ -185,6 +186,13 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
   const slotMarkup = purchase.markupPercent ?? userMarkup ?? 20;
   let chargePrice = price;
   if (Number(wholesale) > 0) {
+    // Never debit thousand-dollar "Tier $1015" misparses (provider id as USD)
+    if (!isPlausibleMarkedUpOtp(Number(wholesale), slotMarkup)) {
+      await smsAggregator
+        .cancel(purchase.providerKey, purchase.providerOrderId)
+        .catch(() => undefined);
+      throw Object.assign(new Error(CUSTOMER_BUY_FAILED), { status: 502 });
+    }
     const fromWholesale = new Prisma.Decimal(
       (Number(wholesale) * (1 + slotMarkup / 100)).toFixed(4),
     );
