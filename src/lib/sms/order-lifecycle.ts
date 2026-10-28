@@ -2,6 +2,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { creditOrderRefund } from "@/lib/wallet";
 import { dismissOrderFromServices } from "@/lib/services-panel";
+import { loadSmsBowerMailCreds } from "@/lib/gmail-catalog";
+import {
+  GMAIL_CANCEL_WINDOW_SECONDS,
+  getMailCode,
+  isGmailMailOperator,
+  setMailStatus,
+} from "@/lib/smsbower-mail";
 import { smsAggregator } from "./aggregator";
 import { recordOfferOutcome } from "./offer-success";
 
@@ -74,31 +81,70 @@ export async function pollOrder(orderId: string) {
 
   if (order.providerOrderId) {
     try {
-      const sms = await smsAggregator.checkSMS(order.providerKey, order.providerOrderId);
-      if (sms.status === "RECEIVED" && sms.code) {
-        const updated = await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            status: "RECEIVED",
-            otpCode: sms.code,
-            otpMessage: sms.message,
-          },
-        });
-        void trackOrderOutcome(updated.id, true);
-        return {
-          id: updated.id,
-          status: updated.status,
-          code: updated.otpCode,
-          message: updated.otpMessage,
-          expiresAt: updated.expiresAt,
-          phoneNumber: updated.phoneNumber,
-        };
-      }
-      if (sms.status === "CANCELLED" || sms.status === "EXPIRED") {
-        return expireAndRefund(
-          order,
-          sms.status === "CANCELLED" ? "provider_cancelled" : "provider_expired",
-        );
+      if (isGmailMailOperator(order.operator)) {
+        const creds = await loadSmsBowerMailCreds();
+        if (creds.ready) {
+          const mail = await getMailCode(
+            creds.apiKey,
+            order.providerOrderId,
+            creds.handlerBaseUrl,
+          );
+          if (mail.status === "RECEIVED" && mail.code) {
+            const updated = await prisma.order.update({
+              where: { id: order.id },
+              data: {
+                status: "RECEIVED",
+                otpCode: mail.code,
+                otpMessage: mail.message,
+              },
+            });
+            void trackOrderOutcome(updated.id, true);
+            await setMailStatus(
+              creds.apiKey,
+              order.providerOrderId,
+              3,
+              creds.handlerBaseUrl,
+            ).catch(() => undefined);
+            return {
+              id: updated.id,
+              status: updated.status,
+              code: updated.otpCode,
+              message: updated.otpMessage,
+              expiresAt: updated.expiresAt,
+              phoneNumber: updated.phoneNumber,
+            };
+          }
+          if (mail.status === "CANCELLED") {
+            return expireAndRefund(order, "provider_cancelled");
+          }
+        }
+      } else {
+        const sms = await smsAggregator.checkSMS(order.providerKey, order.providerOrderId);
+        if (sms.status === "RECEIVED" && sms.code) {
+          const updated = await prisma.order.update({
+            where: { id: order.id },
+            data: {
+              status: "RECEIVED",
+              otpCode: sms.code,
+              otpMessage: sms.message,
+            },
+          });
+          void trackOrderOutcome(updated.id, true);
+          return {
+            id: updated.id,
+            status: updated.status,
+            code: updated.otpCode,
+            message: updated.otpMessage,
+            expiresAt: updated.expiresAt,
+            phoneNumber: updated.phoneNumber,
+          };
+        }
+        if (sms.status === "CANCELLED" || sms.status === "EXPIRED") {
+          return expireAndRefund(
+            order,
+            sms.status === "CANCELLED" ? "provider_cancelled" : "provider_expired",
+          );
+        }
       }
     } catch {
       // keep waiting — never log API keys
@@ -116,6 +162,27 @@ export async function pollOrder(orderId: string) {
   };
 }
 
+async function cancelProviderActivation(order: {
+  providerKey: string;
+  providerOrderId: string | null;
+  operator: string | null;
+}) {
+  if (!order.providerOrderId) return;
+  if (isGmailMailOperator(order.operator)) {
+    const creds = await loadSmsBowerMailCreds();
+    if (creds.ready) {
+      await setMailStatus(
+        creds.apiKey,
+        order.providerOrderId,
+        2,
+        creds.handlerBaseUrl,
+      ).catch(() => undefined);
+    }
+    return;
+  }
+  await smsAggregator.cancel(order.providerKey, order.providerOrderId).catch(() => undefined);
+}
+
 async function expireAndRefund(
   order: {
     id: string;
@@ -123,15 +190,18 @@ async function expireAndRefund(
     price: Prisma.Decimal;
     providerKey: string;
     providerOrderId: string | null;
+    operator?: string | null;
     expiresAt: Date;
     phoneNumber: string | null;
   },
   reason = "expired_no_otp",
 ) {
   if (order.providerOrderId) {
-    await smsAggregator
-      .cancel(order.providerKey, order.providerOrderId)
-      .catch(() => undefined);
+    await cancelProviderActivation({
+      providerKey: order.providerKey,
+      providerOrderId: order.providerOrderId,
+      operator: order.operator ?? null,
+    });
   }
 
   // Atomic claim + exact order.price credit (at most once)
@@ -180,21 +250,37 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
   }
 
   if (!opts?.force) {
-    const cancelWindow = await prisma.setting.findUnique({
-      where: { key: "cancel_window_seconds" },
-    });
-    const windowSec = resolveCancelWindowSeconds(cancelWindow?.value);
     const ageSec = (Date.now() - order.createdAt.getTime()) / 1000;
-    if (ageSec > windowSec) {
-      throw Object.assign(
-        new Error(`Manual cancel only allowed within ${windowSec}s of purchase`),
-        { status: 403 },
-      );
+    // Gmail/mail: mirror SMSBower — cancel+refund only while waiting, within the 25m product window
+    if (isGmailMailOperator(order.operator)) {
+      if (ageSec > GMAIL_CANCEL_WINDOW_SECONDS) {
+        throw Object.assign(
+          new Error(
+            `Gmail cancel only while waiting (within ${GMAIL_CANCEL_WINDOW_SECONDS}s). After the code arrives there is no refund.`,
+          ),
+          { status: 403 },
+        );
+      }
+    } else {
+      const cancelWindow = await prisma.setting.findUnique({
+        where: { key: "cancel_window_seconds" },
+      });
+      const windowSec = resolveCancelWindowSeconds(cancelWindow?.value);
+      if (ageSec > windowSec) {
+        throw Object.assign(
+          new Error(`Manual cancel only allowed within ${windowSec}s of purchase`),
+          { status: 403 },
+        );
+      }
     }
   }
 
   if (order.providerOrderId) {
-    await smsAggregator.cancel(order.providerKey, order.providerOrderId).catch(() => undefined);
+    await cancelProviderActivation({
+      providerKey: order.providerKey,
+      providerOrderId: order.providerOrderId,
+      operator: order.operator,
+    });
   }
 
   const result = await creditOrderRefund(order.id, userId, {
