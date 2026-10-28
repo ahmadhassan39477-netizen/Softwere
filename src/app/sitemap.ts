@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import {
   PRIORITY_SEO_COUNTRIES,
   SEO_COUNTRIES,
-  allSeoParams,
+  SEO_SERVICES,
 } from "@/lib/seo-catalog";
 import { DISPOSABLE_GUIDE_URL } from "@/lib/disposable-guide";
 import { FACEBOOK_GUIDE_URL } from "@/lib/facebook-guide";
@@ -12,70 +12,73 @@ import { WHATSAPP_GUIDE_URL } from "@/lib/whatsapp-guide";
 
 const BASE = "https://www.tempempire.store";
 
+/** Sitemap is UK/USA/Canada only — long-tail /buy grids stay live but off-sitemap to cut GSC discover-noise. */
+const SITEMAP_COUNTRIES = SEO_COUNTRIES.filter((c) =>
+  (PRIORITY_SEO_COUNTRIES as readonly string[]).includes(c.slug),
+);
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const hubs = SEO_COUNTRIES.map((c) => ({
+  const now = new Date();
+
+  const hubs = SITEMAP_COUNTRIES.map((c) => ({
     url: `${BASE}/buy/${c.slug}`,
-    lastModified: new Date(),
+    lastModified: now,
     changeFrequency: "weekly" as const,
-    priority: (PRIORITY_SEO_COUNTRIES as readonly string[]).includes(c.slug) ? 0.95 : 0.75,
+    priority: c.slug === "canada" ? 0.8 : 0.95,
   }));
 
-  const buy = allSeoParams().map(({ country, service }) => {
-    const priority =
-      (PRIORITY_SEO_COUNTRIES as readonly string[]).includes(country) &&
-      (service === "whatsapp" ||
-        service === "facebook" ||
-        service === "telegram" ||
-        service === "google")
-        ? 0.9
-        : (PRIORITY_SEO_COUNTRIES as readonly string[]).includes(country)
-          ? 0.8
-          : 0.65;
-    return {
-      url: `${BASE}/buy/${country}/${service}`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority,
-    };
-  });
+  const buy = SITEMAP_COUNTRIES.flatMap((c) =>
+    SEO_SERVICES.map((service) => {
+      const money =
+        service.slug === "whatsapp" ||
+        service.slug === "facebook" ||
+        service.slug === "telegram" ||
+        service.slug === "google";
+      return {
+        url: `${BASE}/buy/${c.slug}/${service.slug}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: money ? 0.9 : 0.75,
+      };
+    }),
+  );
 
   return [
-    { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
-    { url: `${BASE}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.55 },
-    { url: `${BASE}/privacy`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/terms`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/support`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.35 },
-    { url: `${BASE}/register`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.55 },
-    // /services stays signup-gated (middleware 307) — omit from sitemap to cut discover-not-indexed noise
-    { url: `${BASE}/mail`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: BASE, lastModified: now, changeFrequency: "daily", priority: 1 },
+    { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.55 },
+    { url: `${BASE}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE}/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE}/support`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    // Bare /login skipped — skip SEO; gated /services already omitted
+    { url: `${BASE}/register`, lastModified: now, changeFrequency: "monthly", priority: 0.55 },
+    { url: `${BASE}/mail`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     {
       url: GUIDES_HUB_URL,
-      lastModified: new Date(),
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.95,
+    },
+    {
+      url: WHATSAPP_GUIDE_URL,
+      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.92,
     },
     {
-      url: WHATSAPP_GUIDE_URL,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.9,
-    },
-    {
       url: FACEBOOK_GUIDE_URL,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.9,
     },
     {
       url: DISPOSABLE_GUIDE_URL,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.9,
     },
     {
       url: RESELLER_API_GUIDE_URL,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.9,
     },

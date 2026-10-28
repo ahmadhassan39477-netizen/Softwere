@@ -35,7 +35,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { TrustFacts } from "@/components/trust-facts";
 import {
   REGISTER_API,
-  REGISTER_FACEBOOK,
   REGISTER_SERVICES,
   REGISTER_UK,
   REGISTER_USA,
@@ -829,29 +828,29 @@ export default function LandingPage() {
         />
         <div className="grid gap-4 md:grid-cols-2">
           <Link
-            href={REGISTER_FACEBOOK}
+            href="/buy/uk/facebook"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">Facebook OTP verification</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              Facebook OTP number and verification phone number on a US temp num. If the Facebook
-              OTP code is not received, eligible orders refund.
+              UK Facebook OTP number and verification phone number on a +44 temp num. If the
+              Facebook OTP code is not received, eligible orders refund after signup.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              Facebook OTP (USA) <ArrowRight size={14} />
+              UK Facebook OTP hub <ArrowRight size={14} />
             </span>
           </Link>
           <Link
-            href={REGISTER_UK}
+            href="/buy/usa/whatsapp"
             className="panel panel-accent p-6 block hover:border-[var(--accent)] transition-colors"
           >
             <h3 className="text-xl font-semibold tracking-tight">OTP website for WhatsApp</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">
-              Rent a UK temp num, request the WhatsApp SMS yourself, and copy the code from your
+              Rent a US temp num, request the WhatsApp SMS yourself, and copy the code from your
               inbox — a temp OTP website, not a shared wall.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm text-[var(--accent)]">
-              WhatsApp UK guide <ArrowRight size={14} />
+              US WhatsApp OTP hub <ArrowRight size={14} />
             </span>
           </Link>
           <Link

@@ -12,6 +12,7 @@ import {
   WHATSAPP_GUIDE_H1,
   WHATSAPP_GUIDE_INTRO,
   WHATSAPP_GUIDE_KEYWORDS,
+  WHATSAPP_GUIDE_MODIFIED,
   WHATSAPP_GUIDE_PUBLISHED,
   WHATSAPP_GUIDE_SECTIONS,
   WHATSAPP_GUIDE_STEPS,
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
     type: "article",
     siteName: "Temp Empire",
     publishedTime: WHATSAPP_GUIDE_PUBLISHED,
-    modifiedTime: WHATSAPP_GUIDE_PUBLISHED,
+    modifiedTime: WHATSAPP_GUIDE_MODIFIED,
   },
   twitter: {
     card: "summary_large_image",
@@ -70,7 +71,7 @@ export default function WhatsAppTemporaryNumberGuidePage() {
           {WHATSAPP_GUIDE_H1}
         </h1>
         <p className="mt-3 text-sm text-[var(--text-muted)]">
-          Updated {WHATSAPP_GUIDE_PUBLISHED} · Temp Empire ·{" "}
+          Updated {WHATSAPP_GUIDE_MODIFIED} · Temp Empire ·{" "}
           <Link href="/" className="text-[var(--accent)]">
             www.tempempire.store
           </Link>
@@ -137,8 +138,8 @@ export default function WhatsAppTemporaryNumberGuidePage() {
             currentId="whatsapp"
             extras={[
               { href: "/buy/usa/whatsapp", label: "US WhatsApp hub" },
-              { href: "/buy/india/whatsapp", label: "India WhatsApp hub" },
               { href: "/buy/uk/whatsapp", label: "UK WhatsApp hub" },
+              { href: "/buy/uk/facebook", label: "UK Facebook hub" },
             ]}
           />
           <GuideShopCtas />
