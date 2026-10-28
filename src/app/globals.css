@@ -500,3 +500,33 @@ a {
 .shop-mode-pill {
   animation: shop-pill-glow 2.8s ease-in-out infinite;
 }
+
+/* OTP offer cards — calm stock badge + soft row hover */
+@keyframes stock-badge-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 10px color-mix(in oklab, var(--success) 28%, transparent);
+  }
+}
+
+.badge-stock-live {
+  animation: stock-badge-breathe 3.2s ease-in-out infinite;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.offer-row {
+  transition:
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease;
+}
+
+.offer-row:hover {
+  border-color: var(--hairline);
+  background: color-mix(in oklab, var(--accent) 4%, var(--bg-elevated));
+}

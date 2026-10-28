@@ -157,6 +157,45 @@ function liveRowToOffer(
   };
 }
 
+/** Local mock only — multi-tier rows with raw Provider ids so shop UI polish is visible. */
+function mockMultiDemoRows(slug: string): ProviderPriceRow[] | null {
+  if (process.env.USE_MOCK_PROVIDERS !== "true") return null;
+  if (process.env.NODE_ENV === "production") return null;
+  if (slug !== "facebook" && slug !== "whatsapp") return null;
+  return [
+    {
+      countryCode: "US",
+      serviceSlug: slug,
+      wholesale: 0.026,
+      available: true,
+      stock: 156_662,
+      operator: "143",
+      networkLabel: "Provider 143",
+      providerRate: 80.2,
+    },
+    {
+      countryCode: "US",
+      serviceSlug: slug,
+      wholesale: 0.039,
+      available: true,
+      stock: 26610,
+      operator: "11",
+      networkLabel: "Provider 11",
+      providerRate: 54.1,
+    },
+    {
+      countryCode: "US",
+      serviceSlug: slug,
+      wholesale: 0.52,
+      available: true,
+      stock: 20,
+      operator: "163",
+      networkLabel: "Provider 163",
+      providerRate: 100,
+    },
+  ];
+}
+
 /** Overlay seed offers with live multi-operator / multi-price rows, ranked by success. */
 function expandOffersForService(
   seedOffers: { id: string; server: number; price: Prisma.Decimal | string; stock: number }[],
@@ -186,7 +225,10 @@ function expandOffersForService(
     }
 
     const slotLive = liveBySlot.get(seed.server);
-    const liveList = slotLive?.offersBySlug.get(slug) ?? [];
+    let liveList = slotLive?.offersBySlug.get(slug) ?? [];
+    if (liveList.length === 0) {
+      liveList = mockMultiDemoRows(slug) ?? [];
+    }
     if (liveList.length > 0) {
       const ranked = rankProviderRows(liveList, seed.server, stats).slice(
         0,
