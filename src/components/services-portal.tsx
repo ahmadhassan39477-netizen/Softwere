@@ -952,11 +952,11 @@ export function ServicesPortal() {
       >
         <p className="eyebrow mb-2">OTP marketplace</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">
-          {shopMode === "gmails" ? "Buy a Gmail" : "Buy a number"}
+          {shopMode === "gmails" ? "Buy Google Gmail" : "Buy a number"}
         </h1>
         <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-2xl leading-relaxed">
           {shopMode === "gmails"
-            ? "Real @gmail.com for verification · 25 minutes · no code, no pay. After the code arrives there is no refund."
+            ? "Real Google Gmail (@gmail.com) for verification · 25 minutes · no code, no pay. After the code arrives there is no refund."
             : isDesktop
               ? "Select a country, pick a service and server pool, then receive the SMS OTP in the live panel. Unused numbers refund automatically."
               : mobileStep === "country"
@@ -973,39 +973,61 @@ export function ServicesPortal() {
         role="tablist"
         aria-label="Shop mode"
       >
-        <div className="relative flex gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_92%,transparent)] p-1 backdrop-blur-md shadow-[0_8px_28px_color-mix(in_oklab,var(--bg)_55%,transparent)]">
-          <button
+        <div className="services-shop-bar__track relative flex gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_92%,transparent)] p-1 backdrop-blur-md shadow-[0_8px_28px_color-mix(in_oklab,var(--bg)_55%,transparent)]">
+          <motion.button
             type="button"
             role="tab"
             aria-selected={shopMode === "sms"}
             className={cn(
-              "relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
+              "shop-mode-btn relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-              shopMode === "sms" ? "text-[var(--on-accent)]" : "text-[var(--text-muted)] hover:text-[var(--text)]",
+              shopMode === "sms"
+                ? "shop-mode-btn--active text-[var(--on-accent)]"
+                : "shop-mode-btn--idle text-[var(--text-muted)] hover:text-[var(--text)]",
             )}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.975 }}
+            transition={{ type: "spring", stiffness: 460, damping: 28 }}
             onClick={() => openShopMode("sms")}
           >
             {shopMode === "sms" && (
               <motion.span
                 layoutId="shop-mode-pill"
-                className="absolute inset-0 rounded-xl bg-[var(--accent)]"
+                className="shop-mode-pill absolute inset-0 rounded-xl bg-[var(--accent)]"
                 transition={{ type: "spring", stiffness: 420, damping: 34 }}
               />
             )}
-            <Smartphone size={16} className="relative z-[1]" />
+            <motion.span
+              className="relative z-[1] inline-flex"
+              animate={
+                shopMode === "sms"
+                  ? { y: [0, -1.5, 0] }
+                  : { y: 0 }
+              }
+              transition={
+                shopMode === "sms"
+                  ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.2 }
+              }
+            >
+              <Smartphone size={16} />
+            </motion.span>
             <span className="relative z-[1]">SMS numbers</span>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             role="tab"
             aria-selected={shopMode === "gmails"}
             className={cn(
-              "gmails-nav-btn relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
+              "shop-mode-btn relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
               shopMode === "gmails"
-                ? "text-[var(--on-accent)]"
-                : "text-[var(--text-muted)] hover:text-[var(--text)]",
+                ? "shop-mode-btn--active text-[var(--on-accent)]"
+                : "shop-mode-btn--idle text-[var(--text-muted)] hover:text-[var(--text)]",
             )}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.975 }}
+            transition={{ type: "spring", stiffness: 460, damping: 28 }}
             onMouseEnter={prefetchGmailsCatalog}
             onFocus={prefetchGmailsCatalog}
             onClick={() => openShopMode("gmails")}
@@ -1013,21 +1035,27 @@ export function ServicesPortal() {
             {shopMode === "gmails" && (
               <motion.span
                 layoutId="shop-mode-pill"
-                className="absolute inset-0 rounded-xl bg-[var(--accent)]"
+                className="shop-mode-pill absolute inset-0 rounded-xl bg-[var(--accent)]"
                 transition={{ type: "spring", stiffness: 420, damping: 34 }}
               />
             )}
-            <Mail size={16} className="relative z-[1]" />
+            <motion.span
+              className="relative z-[1] inline-flex"
+              animate={
+                shopMode === "gmails"
+                  ? { y: [0, -1.5, 0] }
+                  : { y: 0 }
+              }
+              transition={
+                shopMode === "gmails"
+                  ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.2 }
+              }
+            >
+              <Mail size={16} />
+            </motion.span>
             <span className="relative z-[1]">Gmails</span>
-            {shopMode !== "gmails" && (
-              <motion.span
-                aria-hidden
-                className="gmails-nav-btn__spark relative z-[1] hidden sm:inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]"
-                animate={{ opacity: [0.35, 1, 0.35], scale: [0.85, 1.15, 0.85] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-              />
-            )}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -1161,20 +1189,21 @@ export function ServicesPortal() {
           >
             <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
               <div>
-                <p className="eyebrow mb-1">Temporary email</p>
+                <p className="eyebrow mb-1">Google Gmail</p>
                 <h2 id="gmails-heading" className="text-lg font-semibold tracking-tight">
-                  Gmails
+                  Real Google Gmail
                 </h2>
                 <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xl">
-                  Ranked by delivery quality. Cancel unused within 25 minutes for a full refund.
+                  Temporary @gmail.com addresses for verification · ranked by delivery quality.
+                  Cancel unused within 25 minutes for a full refund.
                 </p>
               </div>
               {gmailsQuery.data?.ready ? (
-                <span className="badge badge-success text-xs">Live · +40%</span>
+                <span className="badge badge-success text-xs">@gmail.com · live</span>
               ) : gmailsQuery.isFetching ? (
                 <span className="badge text-xs">Connecting…</span>
               ) : (
-                <span className="badge text-xs">Gmails</span>
+                <span className="badge text-xs">Google Gmail</span>
               )}
             </div>
 
