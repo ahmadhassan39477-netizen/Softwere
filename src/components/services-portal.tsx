@@ -76,6 +76,9 @@ type ActiveOrder = {
   otpCode?: string | null;
   otpMessage?: string | null;
   providerKey?: string;
+  operator?: string | null;
+  networkLabel?: string | null;
+  kind?: "sms" | "gmail";
 };
 
 type HistoryOrder = {
@@ -91,11 +94,31 @@ type HistoryOrder = {
   createdAt: string;
   country: { code: string; name: string; flag: string };
   service: { slug: string; name: string };
+  operator?: string | null;
+  networkLabel?: string | null;
+  kind?: "sms" | "gmail";
+};
+
+type GmailOffer = {
+  serviceSlug: string;
+  serviceName: string;
+  domain: string;
+  retail: number;
+  stock: number;
+  quality: number;
+  successAttempts: number;
+  successHits: number;
 };
 
 type MobileStep = "country" | "services" | "order";
 
 const LIVE_PANEL_STATUSES = new Set(["ACTIVE", "PENDING", "WAITING", "RECEIVED"]);
+
+function isGmailOrder(order: { kind?: string; country?: { code?: string }; operator?: string | null }) {
+  if (order.kind === "gmail") return true;
+  if (order.country?.code === "GMAIL") return true;
+  return (order.operator ?? "").toLowerCase().startsWith("mail:gmail");
+}
 
 function toActiveOrder(o: HistoryOrder | ActiveOrder): ActiveOrder {
   return {
@@ -110,10 +133,14 @@ function toActiveOrder(o: HistoryOrder | ActiveOrder): ActiveOrder {
     service: o.service,
     otpCode: o.otpCode ?? null,
     otpMessage: "otpMessage" in o ? (o.otpMessage ?? null) : null,
+    operator: o.operator ?? null,
+    networkLabel: o.networkLabel ?? null,
+    kind: isGmailOrder(o) ? "gmail" : "sms",
   };
 }
 
 function serverLabel(order: ActiveOrder): string {
+  if (isGmailOrder(order)) return "Gmails";
   if (order.serverMode === "auto") return "Auto";
   if (order.server === 1) return "Primary";
   if (order.server === 2) return "Backup";
@@ -203,6 +230,7 @@ function LiveOrderPanel({
   const countdown = useCountdown(order.expiresAt);
   const waiting = ["ACTIVE", "PENDING", "WAITING"].includes(order.status) && !order.otpCode;
   const hasCode = Boolean(order.otpCode) || order.status === "RECEIVED";
+  const gmail = isGmailOrder(order);
 
   return (
     <motion.section
@@ -229,7 +257,7 @@ function LiveOrderPanel({
           <div>
             <p className="eyebrow mb-1">Live order · stays until Cancel</p>
             <h2 className="text-lg font-semibold tracking-tight">
-              {order.country.flag} {order.service.name}
+              {gmail ? "✉️" : order.country.flag} {order.service.name}
               <span className="text-[var(--text-muted)] font-normal text-sm">
                 {" "}
                 · {serverLabel(order)}
@@ -244,7 +272,9 @@ function LiveOrderPanel({
           </div>
         </div>
         <div>
-          <div className="text-xs text-[var(--text-muted)] mb-1">Phone number</div>
+          <div className="text-xs text-[var(--text-muted)] mb-1">
+            {gmail ? "Gmail address" : "Phone number"}
+          </div>
           <div className="flex gap-2">
             <code className="flex-1 panel px-3 py-2.5 font-mono text-sm break-all">
               {order.phoneNumber}
@@ -253,7 +283,7 @@ function LiveOrderPanel({
               type="button"
               className="btn btn-ghost px-3"
               onClick={() => onCopy(`phone-${order.id}`, order.phoneNumber ?? "")}
-              aria-label="Copy phone"
+              aria-label={gmail ? "Copy Gmail" : "Copy phone"}
             >
               {copied === `phone-${order.id}` ? <Check size={16} /> : <Copy size={16} />}
             </button>
@@ -267,7 +297,8 @@ function LiveOrderPanel({
                 order.otpCode ? "text-[var(--accent)] font-bold" : "text-[var(--text-muted)] text-lg tracking-normal font-medium"
               }`}
             >
-              {order.otpCode ?? (waiting ? "Waiting for SMS…" : "—")}
+              {order.otpCode ??
+                (waiting ? (gmail ? "Waiting for email…" : "Waiting for SMS…") : "—")}
             </code>
             {order.otpCode && (
               <button
@@ -283,7 +314,7 @@ function LiveOrderPanel({
           {order.otpMessage ? (
             <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5">
               <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-1">
-                Full SMS
+                {gmail ? "Email message" : "Full SMS"}
               </div>
               <OtpSmsBody message={order.otpMessage} code={order.otpCode} />
             </div>
@@ -311,7 +342,9 @@ function LiveOrderPanel({
         <p className="text-xs text-[var(--text-muted)]">
           {hasCode
             ? "OTP received — this card stays here until you dismiss. Account history keeps the order."
-            : "This card stays on Services if you leave and come back. You have at least 20 minutes (or the provider wait if longer). Cancel anytime unused for a refund; auto-refund if no SMS when the timer ends."}
+            : gmail
+              ? "No code, no pay — cancel unused within 25 minutes for a full refund. After the code arrives the charge sticks (no refund). Auto-refund if nothing arrives when the timer ends."
+              : "This card stays on Services if you leave and come back. You have at least 20 minutes (or the provider wait if longer). Cancel anytime unused for a refund; auto-refund if no SMS when the timer ends."}
         </p>
       </div>
     </motion.section>
@@ -468,6 +501,20 @@ export function ServicesPortal() {
     };
   }, [authStatus, qc]);
 
+  const gmailsQuery = useQuery({
+    queryKey: ["gmails-catalog"],
+    enabled: authStatus === "authenticated",
+    staleTime: 45_000,
+    refetchOnWindowFocus: true,
+    queryFn: () =>
+      api<{
+        ready: boolean;
+        message: string;
+        markupPercent: number;
+        offers: GmailOffer[];
+      }>("/api/gmails"),
+  });
+
   const purchase = useMutation({
     mutationFn: (payload: {
       countryCode: string;
@@ -504,6 +551,40 @@ export function ServicesPortal() {
       qc.invalidateQueries({ queryKey: ["orders-history"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       // Buy success → one smooth scroll only (never on later poll/history sync)
+      if (!scrolledBuyIdsRef.current.has(order.id)) {
+        scrolledBuyIdsRef.current.add(order.id);
+        smoothScrollToLiveOrder(order.id, "start");
+      }
+    },
+    onError: (e: Error) => setError(sanitizeCustomerBuyError(e.message)),
+    onSettled: () => {
+      setBuyingKey(null);
+    },
+  });
+
+  const purchaseGmail = useMutation({
+    mutationFn: (payload: { serviceSlug: string; _buyKey: string }) =>
+      api<{ order: ActiveOrder }>("/api/gmails", {
+        method: "POST",
+        body: JSON.stringify({ serviceSlug: payload.serviceSlug }),
+      }),
+    onMutate: (payload) => {
+      setError("");
+      setBuyingKey(payload._buyKey);
+    },
+    onSuccess: async (data) => {
+      setError("");
+      const order = toActiveOrder({
+        ...data.order,
+        otpCode: data.order.otpCode ?? null,
+        createdAt: new Date().toISOString(),
+        kind: "gmail",
+      });
+      setLiveOrders((prev) => [order, ...prev.filter((o) => o.id !== order.id)]);
+      await update();
+      qc.invalidateQueries({ queryKey: ["orders-history"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["gmails-catalog"] });
       if (!scrolledBuyIdsRef.current.has(order.id)) {
         scrolledBuyIdsRef.current.add(order.id);
         smoothScrollToLiveOrder(order.id, "start");
@@ -921,6 +1002,87 @@ export function ServicesPortal() {
           />
         ))}
       </AnimatePresence>
+
+      {/* Gmails — temporary @gmail.com via Extra mail API · 40% markup · quality-ranked */}
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, ease: easeOut }}
+        className="panel panel-accent p-4 sm:p-5"
+        aria-labelledby="gmails-heading"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+          <div>
+            <p className="eyebrow mb-1">Temporary email</p>
+            <h2 id="gmails-heading" className="text-lg font-semibold tracking-tight">
+              Gmails
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xl">
+              Real @gmail.com for verification · 25 minutes · no code, no pay.
+              Ranked by delivery quality. After the code arrives there is no refund.
+            </p>
+          </div>
+          {gmailsQuery.data?.ready ? (
+            <span className="badge badge-success text-xs">Live · +40%</span>
+          ) : (
+            <span className="badge text-xs">Connecting…</span>
+          )}
+        </div>
+        {gmailsQuery.isLoading && (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="svc-skeleton h-20" />
+            ))}
+          </div>
+        )}
+        {gmailsQuery.isError && (
+          <p className="text-sm text-[#fda4af]">Couldn’t load Gmails. Refresh the page.</p>
+        )}
+        {!gmailsQuery.isLoading &&
+          !gmailsQuery.isError &&
+          (gmailsQuery.data?.offers.length ?? 0) === 0 && (
+            <p className="text-sm text-[var(--text-muted)]">
+              {gmailsQuery.data?.message ??
+                "No Gmail stock right now. Check back shortly."}
+            </p>
+          )}
+        {(gmailsQuery.data?.offers.length ?? 0) > 0 && (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-[min(40vh,360px)] overflow-y-auto scrollbar-thin pr-0.5">
+            {gmailsQuery.data!.offers.map((offer) => {
+              const buyKey = `gmail:${offer.serviceSlug}`;
+              const busy = buyingKey === buyKey;
+              const qualityPct = Math.round((offer.quality ?? 0.45) * 100);
+              return (
+                <div
+                  key={offer.serviceSlug}
+                  className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
+                >
+                  <ServiceLogo slug={offer.serviceSlug} name={offer.serviceName} />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm truncate">{offer.serviceName}</div>
+                    <div className="text-[11px] text-[var(--text-muted)] mono-data">
+                      ${offer.retail.toFixed(4)} · {offer.stock} left · Q{qualityPct}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary text-xs px-3 py-1.5 shrink-0"
+                    disabled={busy || Boolean(buyingKey) || walletEmpty || offer.stock <= 0}
+                    onClick={() =>
+                      purchaseGmail.mutate({
+                        serviceSlug: offer.serviceSlug,
+                        _buyKey: buyKey,
+                      })
+                    }
+                  >
+                    {busy ? "Buying…" : walletEmpty ? "Deposit" : "Buy"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.section>
 
       <div className="grid gap-5 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
         {/* Countries — full focus on mobile until picked */}

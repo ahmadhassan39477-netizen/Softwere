@@ -10,6 +10,7 @@ import {
 } from "../types";
 import { SA_COUNTRY, SA_SERVICE } from "../service-map";
 import {
+  extractOtpCode,
   parseActiveActivationSms,
   parseSaGetStatusText,
   parseSaGetStatusV2Json,
@@ -22,6 +23,11 @@ export type SaCompatibleOptions = {
   providerKey: ProviderKey;
   displayName: string;
   baseUrl: string;
+  /**
+   * Optional activation wait (minutes) advertised by the wholesale product.
+   * SMSBower numbers = 25 minutes — shop TTL becomes max(floor, this).
+   */
+  activationTtlMinutes?: number;
 };
 
 type PriceCell = {
@@ -39,7 +45,7 @@ export { extractSaServicePriceMap } from "../sa-multi-prices";
 
 /** SMS-Activate–compatible handler_api (SMS-Activate, Grizzly, custom). */
 export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter {
-  const { apiKey, providerKey, displayName, baseUrl } = opts;
+  const { apiKey, providerKey, displayName, baseUrl, activationTtlMinutes } = opts;
 
   async function call(params: Record<string, string>) {
     const url = new URL(baseUrl);
@@ -130,6 +136,13 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
         }
       }
 
+      const providerExpiresAt =
+        activationTtlMinutes != null &&
+        Number.isFinite(activationTtlMinutes) &&
+        activationTtlMinutes > 0
+          ? new Date(Date.now() + Math.floor(activationTtlMinutes) * 60_000)
+          : undefined;
+
       return {
         providerKey,
         providerOrderId: id,
@@ -137,11 +150,12 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
         wholesaleCost,
         operator: input.operator,
         networkLabel: input.networkLabel,
+        providerExpiresAt,
       };
     },
 
     async checkSMS(providerOrderId: string): Promise<SmsStatus> {
-      // 1) Classic getStatus text protocol
+      // 1) Classic getStatus text protocol (SMSBower / SA / Grizzly)
       try {
         const text = await call({ action: "getStatus", id: providerOrderId });
         const parsed = parseSaGetStatusText(text);
@@ -150,7 +164,7 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
         /* fall through */
       }
 
-      // 2) Grizzly getStatusV2 JSON (sms.code / sms.text)
+      // 2) Grizzly getStatusV2 JSON (sms.code / sms.text) — harmless on SMSBower if unsupported
       try {
         const v2text = await call({ action: "getStatusV2", id: providerOrderId });
         if (v2text && !v2text.startsWith("BAD") && !v2text.startsWith("NO_")) {
@@ -175,6 +189,24 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
             if (hit?.status === "RECEIVED") return hit;
           } catch {
             /* ignore */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
+      // 4) getFullSms — SMSBower/SA sometimes surface the body here before STATUS_OK
+      try {
+        const full = await call({ action: "getFullSms", id: providerOrderId });
+        if (full && full.startsWith("FULL_SMS:")) {
+          const body = full.slice("FULL_SMS:".length).trim();
+          const code = extractOtpCode(body);
+          if (code) {
+            return {
+              status: "RECEIVED",
+              code,
+              message: body || `Your verification code is ${code}`,
+            };
           }
         }
       } catch {

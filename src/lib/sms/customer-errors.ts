@@ -5,6 +5,9 @@
 export const CUSTOMER_NO_STOCK =
   "This server has no numbers right now. Try another server or Auto.";
 
+export const CUSTOMER_GMAIL_NO_STOCK =
+  "No Gmail addresses available for that service right now. Try another service or check back shortly.";
+
 export const CUSTOMER_SERVER_UNAVAILABLE =
   "This server isn’t available right now. Try another server or Auto.";
 
@@ -28,7 +31,7 @@ export const ADMIN_HINT_BALANCE =
 export function sanitizeCustomerBuyError(raw: string | null | undefined): string {
   const text = (raw ?? "").trim();
   if (!text) return CUSTOMER_BUY_FAILED;
-  if (/MISSING_KEYS|API keys not configured|FIVESIM_|GRIZZLY_|SMS_MAN_|SMS_ACTIVATE_|Paste keys in Admin|5SIM|Grizzly|SMS-Man|SMS-Activate|wholesale/i.test(text)) {
+  if (/MISSING_KEYS|API keys not configured|FIVESIM_|GRIZZLY_|SMS_MAN_|SMS_ACTIVATE_|SMSBOWER_|Paste keys in Admin|5SIM|Grizzly|SMS-Man|SMS-Activate|SMSBower|smsbower|wholesale/i.test(text)) {
     if (/NO_BALANCE|balance/i.test(text)) return CUSTOMER_PROVIDER_BALANCE;
     if (/MISSING_KEYS|not configured|Paste keys/i.test(text)) return CUSTOMER_SERVER_UNAVAILABLE;
     return CUSTOMER_NO_STOCK;

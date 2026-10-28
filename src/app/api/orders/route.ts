@@ -18,20 +18,28 @@ export async function GET(req: NextRequest) {
     take: 100,
   });
 
-  const mapped = orders.map((o) => ({
-    id: o.id,
-    status: o.status,
-    phoneNumber: o.phoneNumber,
-    otpCode: o.otpCode,
-    otpMessage: o.otpMessage,
-    price: decimalJson(o.price),
-    server: o.server,
-    serverMode: o.serverMode,
-    expiresAt: o.expiresAt,
-    createdAt: o.createdAt,
-    country: { code: o.country.code, name: o.country.name, flag: o.country.flag },
-    service: { slug: o.service.slug, name: o.service.name },
-  }));
+  const mapped = orders.map((o) => {
+    const isGmail =
+      o.country.code === "GMAIL" ||
+      (o.operator ?? "").toLowerCase().startsWith("mail:gmail");
+    return {
+      id: o.id,
+      status: o.status,
+      phoneNumber: o.phoneNumber,
+      otpCode: o.otpCode,
+      otpMessage: o.otpMessage,
+      price: decimalJson(o.price),
+      server: o.server,
+      serverMode: o.serverMode,
+      expiresAt: o.expiresAt,
+      createdAt: o.createdAt,
+      operator: o.operator,
+      networkLabel: o.networkLabel,
+      kind: isGmail ? ("gmail" as const) : ("sms" as const),
+      country: { code: o.country.code, name: o.country.name, flag: o.country.flag },
+      service: { slug: o.service.slug, name: o.service.name },
+    };
+  });
 
   const dismissed = await getDismissedOrderIds(user.id);
   const livePanel = filterServicesLiveOrders(mapped, dismissed);

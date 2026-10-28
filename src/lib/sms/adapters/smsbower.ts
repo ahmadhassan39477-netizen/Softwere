@@ -102,6 +102,9 @@ export async function probeSmsBowerApiKey(
   }
 }
 
+/** SMSBower number activation window (product FAQ: issued for 25 minutes). */
+export const SMSBOWER_NUMBER_TTL_MINUTES = 25;
+
 /** SMSBower — SMS-Activate–compatible handler_api.php. */
 export function createSmsBowerAdapter(
   apiKey: string,
@@ -112,5 +115,7 @@ export function createSmsBowerAdapter(
     providerKey: "smsbower",
     displayName: "SMSBower",
     baseUrl: resolveSmsBowerBaseUrl(baseUrl),
+    // Extra Server 3: same 25‑minute wait as SMSBower numbers → SSE/order card TTL
+    activationTtlMinutes: SMSBOWER_NUMBER_TTL_MINUTES,
   });
 }
