@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
       prisma.order.findMany({
         where: { userId: detailId },
         orderBy: { createdAt: "desc" },
-        take: 40,
+        // Wallet audits need full recent history (aqbeds 100+ buys)
+        take: 200,
         include: {
           country: { select: { code: true, name: true, flag: true } },
           service: { select: { slug: true, name: true } },
