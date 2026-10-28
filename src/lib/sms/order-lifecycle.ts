@@ -3,6 +3,31 @@ import { prisma } from "@/lib/prisma";
 import { creditOrderRefund } from "@/lib/wallet";
 import { dismissOrderFromServices } from "@/lib/services-panel";
 import { smsAggregator } from "./aggregator";
+import { recordOfferOutcome } from "./offer-success";
+
+async function trackOrderOutcome(orderId: string, success: boolean) {
+  try {
+    const o = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        country: { select: { code: true } },
+        service: { select: { slug: true } },
+      },
+    });
+    if (!o) return;
+    await recordOfferOutcome({
+      server: o.server,
+      countryCode: o.country.code,
+      serviceSlug: o.service.slug,
+      operator: o.operator,
+      wholesaleCost: o.wholesaleCost,
+      retailPrice: o.price,
+      success,
+    });
+  } catch {
+    /* never break poll/cancel */
+  }
+}
 
 /** Minimum wait window before auto-refund if no SMS (minutes). */
 export const DEFAULT_ORDER_TTL_MINUTES = 20;
@@ -59,6 +84,7 @@ export async function pollOrder(orderId: string) {
             otpMessage: sms.message,
           },
         });
+        void trackOrderOutcome(updated.id, true);
         return {
           id: updated.id,
           status: updated.status,
@@ -111,6 +137,9 @@ async function expireAndRefund(
   // Atomic claim + exact order.price credit (at most once)
   const result = await creditOrderRefund(order.id, order.userId, { reason });
   const updated = result.order;
+  if (result.credited) {
+    void trackOrderOutcome(order.id, false);
+  }
 
   return {
     id: updated?.id ?? order.id,
@@ -173,6 +202,10 @@ export async function cancelOrder(orderId: string, userId: string, opts?: { forc
   });
 
   await dismissOrderFromServices(userId, order.id).catch(() => undefined);
+
+  if (result.credited) {
+    void trackOrderOutcome(order.id, false);
+  }
 
   if (!result.order) {
     throw Object.assign(new Error("Order not found"), { status: 404 });

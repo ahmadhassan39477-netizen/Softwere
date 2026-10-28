@@ -10,6 +10,14 @@ export type BuyInput = {
   serviceSlug: string;
   /** 1 | 2 | 3 preferred pool hint; Auto omits and tries all providers */
   server?: number | "auto";
+  /** 5SIM operator / Grizzly provider id when buying a specific multi-offer row */
+  operator?: string;
+  /** Human network label persisted on the order */
+  networkLabel?: string;
+  /** Grizzly/SA FreePrice ceiling (wholesale USD) */
+  maxPrice?: number;
+  /** Grizzly providerIds (comma-joinable); usually a single id */
+  providerIds?: string;
 };
 
 export type BuyResult = {
@@ -26,6 +34,9 @@ export type BuyResult = {
    * Shop wait window = max(floor TTL, this time).
    */
   providerExpiresAt?: Date;
+  /** Echo of the selected operator/network when known */
+  operator?: string;
+  networkLabel?: string;
 };
 
 export type SmsStatus = {
@@ -41,6 +52,16 @@ export type ProviderPriceRow = {
   available: boolean;
   /** Optional live qty from wholesale (e.g. 5SIM Qty). */
   stock?: number;
+  /** Network/operator code (5SIM virtual28, Grizzly provider id, etc.) */
+  operator?: string;
+  /** Display label for the shop */
+  networkLabel?: string;
+  /** Provider-reported delivery rate 0–100 (5SIM rate) when available */
+  providerRate?: number;
+  /** Grizzly FreePrice ceiling — usually same as wholesale for a bucket */
+  maxPrice?: number;
+  /** Stable id for this offer row within a slot */
+  offerKey?: string;
 };
 
 export interface SmsAdapter {
@@ -52,7 +73,7 @@ export interface SmsAdapter {
   cancel(providerOrderId: string): Promise<void>;
   /** Optional balance probe — never throw secrets */
   getBalance(): Promise<number | null>;
-  /** Optional live prices; return [] if unsupported */
+  /** Optional live prices; return [] if unsupported. May include multiple rows per service. */
   getPrices?(countryCode?: string): Promise<ProviderPriceRow[]>;
 }
 

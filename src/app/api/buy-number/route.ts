@@ -10,6 +10,9 @@ const schema = z.object({
   service: z.string().min(1).optional(),
   country: z.string().min(2).max(4).optional(),
   server: z.number().int().min(1).max(3).default(1),
+  operator: z.string().min(1).max(64).optional(),
+  networkLabel: z.string().min(1).max(80).optional(),
+  maxPrice: z.number().positive().max(500).optional(),
 });
 
 /**
@@ -39,6 +42,9 @@ export async function POST(req: NextRequest) {
       countryCode,
       serviceSlug,
       server: parsed.data.server,
+      operator: parsed.data.operator,
+      networkLabel: parsed.data.networkLabel,
+      maxPrice: parsed.data.maxPrice,
     });
     return Response.json(
       {

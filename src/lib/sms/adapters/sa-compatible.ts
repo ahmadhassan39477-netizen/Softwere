@@ -14,6 +14,7 @@ import {
   parseSaGetStatusText,
   parseSaGetStatusV2Json,
 } from "../sa-status";
+import { extractSaMultiOffers, extractSaServicePriceMap } from "../sa-multi-prices";
 
 export type SaCompatibleOptions = {
   apiKey: string;
@@ -33,36 +34,7 @@ function cellWholesale(info: PriceCell): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function isServicePriceMap(obj: unknown): obj is Record<string, PriceCell> {
-  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
-  const vals = Object.values(obj as Record<string, unknown>);
-  if (vals.length === 0) return false;
-  // Reject error / balance-shaped objects
-  if ("error_code" in (obj as object) || "success" in (obj as object)) return false;
-  return vals.every(
-    (v) =>
-      v &&
-      typeof v === "object" &&
-      ("cost" in v || "price" in v || "count" in v),
-  );
-}
-
-/**
- * SA/Grizzly getPrices may return:
- * - { [countryId]: { [serviceCode]: { cost, count } } }
- * - { [serviceCode]: { cost, count } } when country is filtered
- */
-export function extractSaServicePriceMap(
-  json: unknown,
-  countryId: string,
-): Record<string, PriceCell> | null {
-  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
-  const tree = json as Record<string, unknown>;
-  const nested = tree[String(countryId)] ?? tree[countryId];
-  if (isServicePriceMap(nested)) return nested;
-  if (isServicePriceMap(tree)) return tree;
-  return null;
-}
+export { extractSaServicePriceMap } from "../sa-multi-prices";
 
 /** SMS-Activate–compatible handler_api (SMS-Activate, Grizzly, custom). */
 export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter {
@@ -76,6 +48,30 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
     return (await res.text()).trim();
   }
 
+  function slugByCodeMap() {
+    return new Map(
+      Object.entries(SA_SERVICE).map(([slug, code]) => [code.toLowerCase(), slug]),
+    );
+  }
+
+  async function fetchPriceJson(
+    action: string,
+    country: string,
+    service?: string,
+  ): Promise<unknown | null> {
+    const params: Record<string, string> = { action, country };
+    if (service) params.service = service;
+    const text = await call(params);
+    if (!text || text.startsWith("BAD") || text.startsWith("ERROR") || text.startsWith("NO_")) {
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
   return {
     key: providerKey,
     displayName,
@@ -85,7 +81,23 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       const country = SA_COUNTRY[input.countryCode.toUpperCase()];
       if (!service || !country) throw new ProviderNoStockError("UNSUPPORTED_ROUTE");
 
-      const text = await call({ action: "getNumber", service, country });
+      const params: Record<string, string> = { action: "getNumber", service, country };
+      if (input.maxPrice != null && Number(input.maxPrice) > 0) {
+        params.maxPrice = String(input.maxPrice);
+      }
+      // Prefer explicit providerIds; else treat operator as provider id when numeric / non-tier
+      const providerIds =
+        input.providerIds?.trim() ||
+        (input.operator && !input.operator.startsWith("tier:")
+          ? input.operator.trim()
+          : "");
+      if (providerIds) params.providerIds = providerIds;
+      if (input.operator?.startsWith("tier:") && !params.maxPrice) {
+        const tier = Number(input.operator.slice(5));
+        if (tier > 0) params.maxPrice = String(tier);
+      }
+
+      const text = await call(params);
       if (text === "NO_NUMBERS" || text === "NO_NUMBER") throw new ProviderNoStockError(text);
       if (text === "NO_BALANCE") throw new ProviderBalanceError(text);
       if (!text.startsWith("ACCESS_NUMBER:")) throw new Error(text.slice(0, 120) || "buy_failed");
@@ -97,15 +109,17 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       await call({ action: "setStatus", status: "1", id }).catch(() => undefined);
 
       // Best-effort wholesale for retail charge (never throws)
-      let wholesaleCost = 0;
-      try {
-        const priceText = await call({ action: "getPrices", country });
-        const priceJson = priceText ? JSON.parse(priceText) : null;
-        const map = extractSaServicePriceMap(priceJson, String(country));
-        const cell = map?.[service];
-        if (cell) wholesaleCost = cellWholesale(cell);
-      } catch {
-        wholesaleCost = 0;
+      let wholesaleCost = Number(input.maxPrice ?? 0);
+      if (!(wholesaleCost > 0)) {
+        try {
+          const priceText = await call({ action: "getPrices", country, service });
+          const priceJson = priceText ? JSON.parse(priceText) : null;
+          const map = extractSaServicePriceMap(priceJson, String(country));
+          const cell = map?.[service];
+          if (cell) wholesaleCost = cellWholesale(cell);
+        } catch {
+          wholesaleCost = 0;
+        }
       }
 
       return {
@@ -113,6 +127,8 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
         providerOrderId: id,
         phoneNumber: phone.startsWith("+") ? phone : `+${phone}`,
         wholesaleCost,
+        operator: input.operator,
+        networkLabel: input.networkLabel,
       };
     },
 
@@ -174,47 +190,63 @@ export function createSaCompatibleAdapter(opts: SaCompatibleOptions): SmsAdapter
       }
     },
 
-    /** Live SA-compatible prices (Grizzly/SMS-Activate). Costs are USD on Grizzly since 2025-09. */
+    /**
+     * Live SA-compatible prices (Grizzly/SMS-Activate).
+     * Tries getPricesV3 → V2 → V1 so multi price/provider rows surface when available.
+     */
     async getPrices(countryCode?: string): Promise<ProviderPriceRow[]> {
       const iso = (countryCode ?? "US").toUpperCase();
       const country = SA_COUNTRY[iso];
       if (!country) return [];
+      const ctx = {
+        countryCode: iso,
+        countryId: String(country),
+        slugByCode: slugByCodeMap(),
+      };
+
       try {
-        // Prefer country-scoped; fall back to full table if empty/unparseable
-        let text = await call({ action: "getPrices", country });
-        if (!text || text.startsWith("BAD") || text.startsWith("ERROR") || text.startsWith("NO_")) {
-          text = await call({ action: "getPrices" });
-        }
-        if (!text || text.startsWith("BAD") || text.startsWith("ERROR")) return [];
-        let json: unknown;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          return [];
-        }
+        for (const action of ["getPricesV3", "getPricesV2", "getPrices"] as const) {
+          let json = await fetchPriceJson(action, String(country));
+          if (!json) {
+            // Country-wide empty — try without filter once on V1 only
+            if (action === "getPrices") {
+              const text = await call({ action: "getPrices" });
+              if (text && !text.startsWith("BAD") && !text.startsWith("ERROR")) {
+                try {
+                  json = JSON.parse(text);
+                } catch {
+                  json = null;
+                }
+              }
+            }
+          }
+          if (!json) continue;
+          const multi = extractSaMultiOffers(json, ctx);
+          if (multi.length > 0) return multi;
 
-        const serviceMap = extractSaServicePriceMap(json, String(country));
-        if (!serviceMap) return [];
-
-        const slugByCode = new Map(
-          Object.entries(SA_SERVICE).map(([slug, code]) => [code.toLowerCase(), slug]),
-        );
-        const rows: ProviderPriceRow[] = [];
-        for (const [code, info] of Object.entries(serviceMap)) {
-          const slug = slugByCode.get(String(code).toLowerCase());
-          if (!slug || !info || typeof info !== "object") continue;
-          const cost = cellWholesale(info);
-          if (!(cost > 0)) continue;
-          const count = Number(info.count ?? 0);
-          rows.push({
-            countryCode: iso,
-            serviceSlug: slug,
-            wholesale: cost,
-            available: count > 0,
-            stock: Number.isFinite(count) ? count : 0,
-          });
+          // Classic flat fallback for this payload
+          const serviceMap = extractSaServicePriceMap(json, String(country));
+          if (!serviceMap) continue;
+          const rows: ProviderPriceRow[] = [];
+          for (const [code, info] of Object.entries(serviceMap)) {
+            const slug = ctx.slugByCode.get(String(code).toLowerCase());
+            if (!slug || !info || typeof info !== "object") continue;
+            const cost = cellWholesale(info);
+            if (!(cost > 0)) continue;
+            const count = Number(info.count ?? 0);
+            rows.push({
+              countryCode: iso,
+              serviceSlug: slug,
+              wholesale: cost,
+              available: count > 0,
+              stock: Number.isFinite(count) ? count : 0,
+              networkLabel: "Any network",
+              offerKey: `${slug}::${cost.toFixed(4)}`,
+            });
+          }
+          if (rows.length > 0) return rows;
         }
-        return rows;
+        return [];
       } catch {
         return [];
       }

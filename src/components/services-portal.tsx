@@ -39,7 +39,22 @@ type Country = {
   availability: number;
 };
 
-type Offer = { id: string; server: number; price: string; stock: number; inStock: boolean };
+type Offer = {
+  id: string;
+  server: number;
+  price: string;
+  stock: number;
+  inStock: boolean;
+  live?: boolean;
+  operator?: string;
+  networkLabel?: string;
+  providerRate?: number;
+  quality?: number;
+  successAttempts?: number;
+  successHits?: number;
+  maxPrice?: number;
+  wholesale?: number;
+};
 type Service = {
   id: string;
   slug: string;
@@ -458,6 +473,9 @@ export function ServicesPortal() {
       countryCode: string;
       serviceSlug: string;
       server: 1 | 2 | 3 | "auto";
+      operator?: string;
+      networkLabel?: string;
+      maxPrice?: number;
       _buyKey: string;
     }) =>
       api<{ order: ActiveOrder }>("/api/orders/buy", {
@@ -466,6 +484,9 @@ export function ServicesPortal() {
           countryCode: payload.countryCode,
           serviceSlug: payload.serviceSlug,
           server: payload.server,
+          operator: payload.operator,
+          networkLabel: payload.networkLabel,
+          maxPrice: payload.maxPrice,
         }),
       }),
     onMutate: (payload) => {
@@ -1116,26 +1137,35 @@ export function ServicesPortal() {
                   ))}
                 {!servicesLoading &&
                   services.map((svc) => {
-                    const offer =
+                    const poolOffers =
                       server === "auto"
-                        ? // Auto shows the cheapest in-stock pool (not always Server 1)
-                          [...svc.offers]
+                        ? [...svc.offers]
                             .filter((o) => o.inStock)
-                            .sort((a, b) => Number(a.price) - Number(b.price))[0] ??
-                          svc.offers[0]
-                        : svc.offers.find((o) => o.server === server) ?? svc.offers[0];
-                    if (!offer) return null;
-                    const inStock =
-                      server === "auto"
-                        ? svc.offers.some((o) => o.inStock)
-                        : offer.inStock;
-                    const stockLabel =
-                      server === "auto"
-                        ? svc.offers.reduce((n, o) => n + (o.inStock ? o.stock : 0), 0)
-                        : offer.stock;
-                    const affordable = canAfford(offer.price);
-                    const buyKey = `${svc.slug}:${String(server)}`;
-                    const thisBuying = buyingKey === buyKey;
+                            .sort((a, b) => {
+                              const q = (b.quality ?? 0) - (a.quality ?? 0);
+                              if (q !== 0) return q;
+                              return Number(a.price) - Number(b.price);
+                            })
+                        : svc.offers
+                            .filter((o) => o.server === server)
+                            .sort((a, b) => {
+                              const q = (b.quality ?? 0) - (a.quality ?? 0);
+                              if (q !== 0) return q;
+                              return Number(a.price) - Number(b.price);
+                            });
+                    const offers =
+                      poolOffers.length > 0
+                        ? poolOffers
+                        : server === "auto"
+                          ? svc.offers.slice(0, 1)
+                          : svc.offers.filter((o) => o.server === server).slice(0, 1);
+                    if (offers.length === 0) return null;
+                    const inStock = offers.some((o) => o.inStock);
+                    const stockLabel = offers.reduce(
+                      (n, o) => n + (o.inStock ? o.stock : 0),
+                      0,
+                    );
+                    const multi = offers.length > 1;
                     return (
                       <div
                         key={svc.id}
@@ -1148,6 +1178,7 @@ export function ServicesPortal() {
                               <div className="font-semibold tracking-tight truncate">{svc.name}</div>
                               <div className="text-xs text-[var(--text-muted)] mt-0.5">
                                 {svc.category ?? "General"}
+                                {multi ? ` · ${offers.length} networks` : null}
                               </div>
                             </div>
                           </div>
@@ -1157,56 +1188,96 @@ export function ServicesPortal() {
                             {inStock ? `${stockLabel} left` : "Sold out"}
                           </span>
                         </div>
-                        <div className="flex items-end justify-between gap-2">
-                          <div>
-                            <div className="text-[11px] text-[var(--text-muted)]">Price</div>
-                            <div className="mono-data text-[var(--accent)] text-lg">
-                              ${offer.price}
-                            </div>
-                          </div>
-                          <div className="text-right text-[11px] text-[var(--text-muted)]">
-                            <div className="inline-flex items-center gap-1">
-                              <Clock size={12} /> 20 min window
-                            </div>
-                            <div className="mt-0.5">{pool.label}</div>
-                          </div>
+                        <div className="text-[11px] text-[var(--text-muted)] inline-flex items-center gap-1">
+                          <Clock size={12} /> 20 min window · {pool.label}
+                          {multi ? " · ranked by OTP success" : null}
                         </div>
-                        {!inStock ? (
-                          <button type="button" className="btn btn-ghost w-full" disabled>
-                            Sold out
-                          </button>
-                        ) : !affordable ? (
-                          <div className="space-y-2">
-                            <Link
-                              href="/deposit"
-                              className="btn btn-primary w-full inline-flex items-center justify-center gap-2 min-h-12"
-                            >
-                              <Wallet size={15} />
-                              Deposit to buy · ${offer.price}
-                            </Link>
-                            <p className="text-center text-[11px] text-[var(--danger)] font-medium">
-                              {shortfallLabel(offer.price)}
-                            </p>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-primary w-full min-h-11"
-                            disabled={buyInFlight || !session}
-                            aria-busy={thisBuying}
-                            onClick={() => {
-                              if (buyInFlight || !session) return;
-                              purchase.mutate({
-                                countryCode,
-                                serviceSlug: svc.slug,
-                                server,
-                                _buyKey: buyKey,
-                              });
-                            }}
-                          >
-                            {thisBuying ? "Buying…" : "Buy number"}
-                          </button>
-                        )}
+                        <div className="flex flex-col gap-2">
+                          {offers.slice(0, 8).map((offer, idx) => {
+                            const affordable = canAfford(offer.price);
+                            const buyKey = `${svc.slug}:${String(server)}:${offer.operator ?? "any"}:${offer.price}`;
+                            const thisBuying = buyingKey === buyKey;
+                            const qualityPct =
+                              typeof offer.quality === "number"
+                                ? Math.round(offer.quality * 100)
+                                : null;
+                            return (
+                              <div
+                                key={offer.id}
+                                className="rounded-xl border border-[var(--hairline)] px-3 py-2.5 flex flex-col gap-2"
+                              >
+                                <div className="flex items-end justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-[var(--text-muted)] truncate">
+                                      {offer.networkLabel || offer.operator || "Any network"}
+                                      {idx === 0 && multi ? " · best success" : null}
+                                    </div>
+                                    <div className="mono-data text-[var(--accent)] text-lg leading-tight">
+                                      ${offer.price}
+                                    </div>
+                                    {qualityPct != null && (offer.successAttempts ?? 0) > 0 ? (
+                                      <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                                        ~{qualityPct}% OTP success
+                                        {offer.successAttempts
+                                          ? ` (${offer.successHits ?? 0}/${offer.successAttempts})`
+                                          : null}
+                                      </div>
+                                    ) : typeof offer.providerRate === "number" ? (
+                                      <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                                        Provider rate {Math.round(offer.providerRate)}%
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="text-right text-[11px] text-[var(--text-muted)] shrink-0">
+                                    {offer.inStock ? `${offer.stock} left` : "Sold out"}
+                                  </div>
+                                </div>
+                                {!offer.inStock ? (
+                                  <button type="button" className="btn btn-ghost w-full" disabled>
+                                    Sold out
+                                  </button>
+                                ) : !affordable ? (
+                                  <div className="space-y-1">
+                                    <Link
+                                      href="/deposit"
+                                      className="btn btn-primary w-full inline-flex items-center justify-center gap-2 min-h-10 text-sm"
+                                    >
+                                      <Wallet size={14} />
+                                      Deposit · ${offer.price}
+                                    </Link>
+                                    <p className="text-center text-[11px] text-[var(--danger)] font-medium">
+                                      {shortfallLabel(offer.price)}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary w-full min-h-10 text-sm"
+                                    disabled={buyInFlight || !session}
+                                    aria-busy={thisBuying}
+                                    onClick={() => {
+                                      if (buyInFlight || !session) return;
+                                      purchase.mutate({
+                                        countryCode,
+                                        serviceSlug: svc.slug,
+                                        server:
+                                          server === "auto"
+                                            ? (offer.server as 1 | 2 | 3)
+                                            : server,
+                                        operator: offer.operator,
+                                        networkLabel: offer.networkLabel,
+                                        maxPrice: offer.maxPrice ?? offer.wholesale,
+                                        _buyKey: buyKey,
+                                      });
+                                    }}
+                                  >
+                                    {thisBuying ? "Buying…" : "Buy number"}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}

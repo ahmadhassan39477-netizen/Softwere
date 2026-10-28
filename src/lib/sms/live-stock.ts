@@ -7,21 +7,46 @@ export type SlotLiveStock = {
   providerType: string;
   enabled: boolean;
   hasKey: boolean;
+  /** Cheapest in-stock row per service (legacy single-offer callers). */
   bySlug: Map<string, ProviderPriceRow>;
+  /** All live offer rows per service slug (multi-operator / multi-price). */
+  offersBySlug: Map<string, ProviderPriceRow[]>;
   /** Plain customer/admin hint — never brands or env names */
   status: "live" | "empty" | "disabled" | "no_key" | "error";
 };
 
 /** Hard cap so one slow wholesale never 504s the whole /services response. */
-const OVERALL_BUDGET_MS = 4_000;
-const SLOT_TIMEOUT_MS = 2_500;
-const FIVESIM_SLOT_TIMEOUT_MS = 3_000;
+const OVERALL_BUDGET_MS = 4_500;
+const SLOT_TIMEOUT_MS = 2_800;
+const FIVESIM_SLOT_TIMEOUT_MS = 3_200;
+
+function indexRows(rows: ProviderPriceRow[]): {
+  bySlug: Map<string, ProviderPriceRow>;
+  offersBySlug: Map<string, ProviderPriceRow[]>;
+} {
+  const offersBySlug = new Map<string, ProviderPriceRow[]>();
+  for (const r of rows) {
+    if (!r.serviceSlug) continue;
+    if (!(r.wholesale > 0)) continue;
+    const list = offersBySlug.get(r.serviceSlug) ?? [];
+    list.push(r);
+    offersBySlug.set(r.serviceSlug, list);
+  }
+  const bySlug = new Map<string, ProviderPriceRow>();
+  for (const [slug, list] of offersBySlug) {
+    const inStock = list.filter((x) => x.available !== false && (x.stock ?? 1) > 0);
+    const pool = inStock.length > 0 ? inStock : list;
+    pool.sort((a, b) => a.wholesale - b.wholesale);
+    bySlug.set(slug, pool[0]!);
+  }
+  return { bySlug, offersBySlug };
+}
 
 async function pricesForSlot(
   slot: SlotRow,
   countryCode: string,
-): Promise<Map<string, ProviderPriceRow>> {
-  const out = new Map<string, ProviderPriceRow>();
+): Promise<{ bySlug: Map<string, ProviderPriceRow>; offersBySlug: Map<string, ProviderPriceRow[]> }> {
+  const empty = { bySlug: new Map<string, ProviderPriceRow>(), offersBySlug: new Map<string, ProviderPriceRow[]>() };
   try {
     // 5SIM guest catalog is public — still overlay when Disabled / key missing / URL junk
     let adapter = buildAdapterForSlot(slot);
@@ -29,7 +54,7 @@ async function pricesForSlot(
       const { createFiveSimAdapter } = await import("./adapters/fivesim");
       adapter = createFiveSimAdapter("guest");
     }
-    if (!adapter?.getPrices) return out;
+    if (!adapter?.getPrices) return empty;
 
     const timeoutMs =
       slot.providerType === "5sim" ? FIVESIM_SLOT_TIMEOUT_MS : SLOT_TIMEOUT_MS;
@@ -55,18 +80,14 @@ async function pricesForSlot(
       }
     }
 
-    for (const r of rows) {
-      if (!r.serviceSlug) continue;
-      if (!(r.wholesale > 0)) continue;
-      out.set(r.serviceSlug, r);
-    }
+    return indexRows(rows);
   } catch (err) {
     console.error(
       `[live-stock] slot ${slot.priority} ${slot.providerType}`,
       err instanceof Error ? err.message.slice(0, 120) : "error",
     );
+    return empty;
   }
-  return out;
 }
 
 function emptyEntry(slot: SlotRow, status: SlotLiveStock["status"]): SlotLiveStock {
@@ -76,6 +97,7 @@ function emptyEntry(slot: SlotRow, status: SlotLiveStock["status"]): SlotLiveSto
     enabled: slot.enabled,
     hasKey: Boolean(slot.apiKey?.trim()),
     bySlug: new Map(),
+    offersBySlug: new Map(),
     status,
   };
 }
@@ -107,7 +129,7 @@ export async function fetchLiveStockBySlot(
           return;
         }
         try {
-          const bySlug = await pricesForSlot(slot, countryCode);
+          const { bySlug, offersBySlug } = await pricesForSlot(slot, countryCode);
           const status: SlotLiveStock["status"] =
             bySlug.size > 0
               ? "live"
@@ -122,6 +144,7 @@ export async function fetchLiveStockBySlot(
             enabled: slot.enabled,
             hasKey: Boolean(slot.apiKey?.trim()),
             bySlug,
+            offersBySlug,
             status,
           });
         } catch {
