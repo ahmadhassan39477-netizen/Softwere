@@ -23,7 +23,11 @@ import {
 } from "@/lib/sms/provider-slots";
 import { isSmsManDocsUrl, probeSmsManToken } from "@/lib/sms/adapters/sms-man";
 import { probeGrizzlyApiKey } from "@/lib/sms/adapters/grizzlysms";
-import { probeSmsBowerApiKey } from "@/lib/sms/adapters/smsbower";
+import {
+  isStaleSmsBowerBaseUrl,
+  probeSmsBowerApiKey,
+  resolveSmsBowerBaseUrl,
+} from "@/lib/sms/adapters/smsbower";
 import { probeFiveSimApiKey } from "@/lib/sms/adapters/fivesim";
 import { fetchLiveStockBySlot } from "@/lib/sms/live-stock";
 
@@ -294,13 +298,19 @@ export async function PATCH(req: NextRequest) {
       }
     }
     if (nextApiKey && typeForSanitize === "smsbower") {
-      const probe = await probeSmsBowerApiKey(nextApiKey, existing.baseUrl);
-      if (!probe.ok) {
+      // Never probe against leftover SMS-Man / docs baseUrl on the slot
+      const probeBase = resolveSmsBowerBaseUrl(existing.baseUrl);
+      const probe = await probeSmsBowerApiKey(nextApiKey, probeBase);
+      // Hard-reject only clear auth failures — network/HTML blips must not block Save
+      if (!probe.ok && probe.authRejected) {
         return jsonError(
           probe.error ??
             "SMSBower rejected this API key. Paste the full api_key from your SMSBower account (Admin only — never chat).",
           400,
         );
+      }
+      if (probe.ok && probe.balance != null) {
+        probedFiveSimBalance = probe.balance; // reuse lastBalance write path below
       }
     }
   }
@@ -334,6 +344,23 @@ export async function PATCH(req: NextRequest) {
     nextEnabled = true;
   }
 
+  // SMSBower: strip leftover SMS-Man/docs baseUrl so probe/buy hit smsbower.page
+  const effectiveTypeAfter: SlotProviderType =
+    nextType ??
+    (isSlotProviderType(existing.providerType) ? existing.providerType : "sms-activate");
+  let nextBaseUrl = parsed.data.baseUrl;
+  if (
+    effectiveTypeAfter === "smsbower" &&
+    nextBaseUrl === undefined &&
+    isStaleSmsBowerBaseUrl(existing.baseUrl)
+  ) {
+    nextBaseUrl = null;
+  }
+  if (effectiveTypeAfter === "smsbower" && nextBaseUrl != null && nextBaseUrl.trim()) {
+    const resolved = resolveSmsBowerBaseUrl(nextBaseUrl);
+    nextBaseUrl = resolved.includes("smsbower") ? resolved : null;
+  }
+
   const updated = await prisma.providerSetting.update({
     where: { key },
     data: {
@@ -345,7 +372,7 @@ export async function PATCH(req: NextRequest) {
           : {}),
       ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
       ...(nextType ? { providerType: nextType, name: `Server ${existing.priority}` } : {}),
-      ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
+      ...(nextBaseUrl !== undefined ? { baseUrl: nextBaseUrl } : {}),
       ...(nextMarkup !== undefined
         ? { markupPercent: new Prisma.Decimal(nextMarkup) }
         : {}),
