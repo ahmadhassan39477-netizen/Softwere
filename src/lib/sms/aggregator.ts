@@ -25,8 +25,10 @@ import {
   type SlotProviderType,
   type SlotRow,
 } from "./provider-slots";
-import { isPlausibleOtpWholesale } from "./otp-price-guards";
-import { loadSuccessStatMap, lookupQuality, priceBucket } from "./offer-success";
+import {
+  loadSuccessStatMap,
+  rankProviderRows,
+} from "./offer-success";
 import type { ProviderPriceRow } from "./types";
 
 function mocksAllowed() {
@@ -103,30 +105,12 @@ function bestOfferScore(
   if (!rows?.length) return null;
   const inStock = rows.filter((r) => r.available !== false && (r.stock ?? 1) > 0);
   const pool = inStock.length > 0 ? inStock : rows;
-  let best: { quality: number; wholesale: number } | null = null;
-  for (const r of pool) {
-    if (!(r.wholesale > 0)) continue;
-    if (!isPlausibleOtpWholesale(r.wholesale)) continue;
-    const q = lookupQuality(
-      stats,
-      {
-        server,
-        countryCode: r.countryCode,
-        serviceSlug: r.serviceSlug,
-        operator: (r.operator ?? "").toLowerCase(),
-        priceBucket: priceBucket(r.wholesale),
-      },
-      r.providerRate,
-    );
-    if (
-      !best ||
-      q.quality > best.quality ||
-      (q.quality === best.quality && r.wholesale < best.wholesale)
-    ) {
-      best = { quality: q.quality, wholesale: r.wholesale };
-    }
-  }
-  return best;
+  // Mirror rankProviderRows: history quality first, then cheapest wholesale.
+  // Do not let a high provider delivery % on an expensive tier win Auto.
+  const ranked = rankProviderRows(pool, server, stats);
+  const top = ranked[0];
+  if (!top) return null;
+  return { quality: top.quality, wholesale: top.wholesale };
 }
 
 /**

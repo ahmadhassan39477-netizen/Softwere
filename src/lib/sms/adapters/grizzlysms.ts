@@ -1,5 +1,6 @@
 import { createSaCompatibleAdapter } from "./sa-compatible";
-import type { SmsAdapter } from "../types";
+import { fetchGrizzlyWebMultiOffers } from "./grizzly-web-prices";
+import type { ProviderPriceRow, SmsAdapter } from "../types";
 
 function defaultBaseUrl() {
   return (
@@ -44,14 +45,50 @@ export async function probeGrizzlyApiKey(
   }
 }
 
+/**
+ * Merge web multi-offers with SA handler fallback.
+ * Prefer distinct web provider/price rows; fill services the web catalog omits
+ * from classic getPrices (still no invented stock).
+ */
+export function mergeGrizzlyPriceRows(
+  webRows: ProviderPriceRow[],
+  saRows: ProviderPriceRow[],
+): ProviderPriceRow[] {
+  const haveSlug = new Set(webRows.map((r) => r.serviceSlug));
+  const out = [...webRows];
+  for (const row of saRows) {
+    if (haveSlug.has(row.serviceSlug)) continue;
+    out.push(row);
+  }
+  return out;
+}
+
 export function createGrizzlySmsAdapter(
   apiKey: string,
   baseUrl?: string | null,
 ): SmsAdapter {
-  return createSaCompatibleAdapter({
+  const sa = createSaCompatibleAdapter({
     apiKey,
     providerKey: "grizzlysms",
     displayName: "Grizzly SMS",
     baseUrl: baseUrl?.trim() || defaultBaseUrl(),
   });
+
+  return {
+    ...sa,
+    /**
+     * Prefer Grizzly website multi-network/price tiers (same as grizzlysms.com),
+     * then fill gaps from SA getPrices. Ranking / 8-cap / 20% markup happen in shop.
+     */
+    async getPrices(countryCode?: string): Promise<ProviderPriceRow[]> {
+      const iso = (countryCode ?? "US").toUpperCase();
+      const [webRows, saRows] = await Promise.all([
+        fetchGrizzlyWebMultiOffers(iso).catch(() => [] as ProviderPriceRow[]),
+        sa.getPrices?.(iso).catch(() => [] as ProviderPriceRow[]) ??
+          Promise.resolve([] as ProviderPriceRow[]),
+      ]);
+      if (webRows.length > 0) return mergeGrizzlyPriceRows(webRows, saRows);
+      return saRows;
+    },
+  };
 }
