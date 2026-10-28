@@ -9,6 +9,9 @@ const schema = z.object({
   countryCode: z.string().min(2).max(4),
   serviceSlug: z.string().min(1),
   server: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal("auto")]).default("auto"),
+  operator: z.string().min(1).max(64).optional(),
+  networkLabel: z.string().min(1).max(80).optional(),
+  maxPrice: z.number().positive().max(500).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -28,6 +31,9 @@ export async function POST(req: NextRequest) {
       countryCode: parsed.data.countryCode,
       serviceSlug: parsed.data.serviceSlug,
       server: parsed.data.server,
+      operator: parsed.data.operator,
+      networkLabel: parsed.data.networkLabel,
+      maxPrice: parsed.data.maxPrice,
     });
     return Response.json({ order }, { status: 201, headers: rateLimitHeaders(rl) });
   } catch (e) {

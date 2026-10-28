@@ -98,9 +98,14 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
       const product = FIVESIM_PRODUCT[input.serviceSlug.toLowerCase()];
       if (!country || !product) throw new ProviderNoStockError("UNSUPPORTED_ROUTE");
 
+      const operator =
+        input.operator?.trim() && input.operator !== "any" && !input.operator.startsWith("tier:")
+          ? encodeURIComponent(input.operator.trim())
+          : "any";
+
       const { ok, status, text, json } = await api(
         USER_API,
-        `/buy/activation/${country}/any/${product}`,
+        `/buy/activation/${country}/${operator}/${product}`,
       );
       if (status === 400 || /no free|not enough|no numbers/i.test(text)) {
         throw new ProviderNoStockError(text.slice(0, 80) || "NO_NUMBERS");
@@ -126,6 +131,8 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
         phoneNumber: data.phone.startsWith("+") ? data.phone : `+${data.phone}`,
         wholesaleCost: Number(data.price ?? 0),
         providerExpiresAt,
+        operator: input.operator && input.operator !== "any" ? input.operator : undefined,
+        networkLabel: input.networkLabel,
       };
     },
 
@@ -175,22 +182,65 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
 
     /**
      * Live product qty/price for one ISO country.
-     * Uses public guest /products (stock ≠ wallet balance). Deposit on 5sim.net
-     * only adds credit for buy — it does not change Qty here.
+     * Prefer guest /prices?country=… (multi-operator rows with delivery rate).
+     * Fall back to /products/{country}/any (single collapsed row per product).
      */
     async getPrices(countryCode?: string): Promise<ProviderPriceRow[]> {
       const iso = (countryCode ?? "US").toUpperCase();
       const country = FIVESIM_COUNTRY[iso];
       if (!country) return [];
+      const slugByProduct = new Map(
+        Object.entries(FIVESIM_PRODUCT).map(([slug, product]) => [
+          product.toLowerCase(),
+          slug,
+        ]),
+      );
+
       try {
+        const priced = await api(GUEST_API, `/prices?country=${encodeURIComponent(country)}`);
+        if (priced.ok && priced.json && typeof priced.json === "object") {
+          const rows: ProviderPriceRow[] = [];
+          const root = priced.json as Record<string, unknown>;
+          const countryNode = (root[country] ?? root) as Record<string, unknown>;
+          for (const [product, operators] of Object.entries(countryNode)) {
+            const slug = slugByProduct.get(product.toLowerCase());
+            if (!slug || !operators || typeof operators !== "object") continue;
+            // Shape A: product → operator → {cost,count,rate}
+            const opMap = operators as Record<string, unknown>;
+            const firstVal = Object.values(opMap)[0];
+            if (
+              firstVal &&
+              typeof firstVal === "object" &&
+              ("cost" in (firstVal as object) || "count" in (firstVal as object))
+            ) {
+              for (const [op, info] of Object.entries(opMap)) {
+                if (!info || typeof info !== "object") continue;
+                const cell = info as { cost?: number; count?: number; rate?: number };
+                const cost = Number(cell.cost ?? 0);
+                const count = Number(cell.count ?? 0);
+                if (!(cost > 0) || !(count > 0)) continue;
+                const rate = Number(cell.rate);
+                rows.push({
+                  countryCode: iso,
+                  serviceSlug: slug,
+                  wholesale: cost,
+                  available: true,
+                  stock: count,
+                  operator: op,
+                  networkLabel: op,
+                  providerRate: Number.isFinite(rate) ? rate : undefined,
+                  offerKey: `${slug}:${op}:${cost.toFixed(4)}`,
+                });
+              }
+              continue;
+            }
+            // Shape B: nested country/product already unwrapped incorrectly — skip
+          }
+          if (rows.length > 0) return rows;
+        }
+
         const { ok, json } = await api(GUEST_API, `/products/${country}/any`);
         if (!ok || !json || typeof json !== "object") return [];
-        const slugByProduct = new Map(
-          Object.entries(FIVESIM_PRODUCT).map(([slug, product]) => [
-            product.toLowerCase(),
-            slug,
-          ]),
-        );
         const rows: ProviderPriceRow[] = [];
         for (const [product, info] of Object.entries(
           json as Record<
@@ -210,6 +260,8 @@ export function createFiveSimAdapter(apiKey: string): SmsAdapter {
             wholesale: Number.isFinite(price) ? price : 0,
             available: qty > 0,
             stock: Number.isFinite(qty) ? qty : 0,
+            networkLabel: "Any network",
+            offerKey: `${slug}:any:${Number(price).toFixed(4)}`,
           });
         }
         return rows;

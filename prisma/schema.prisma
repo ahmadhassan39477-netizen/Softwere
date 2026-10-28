@@ -135,6 +135,10 @@ model Order {
   otpMessage      String?
   providerOrderId String?
   providerKey     String    @default("mock")
+  /// Wholesale network/operator code when the user picked a multi-offer row (5SIM op / Grizzly provider).
+  operator        String?
+  /// Human label shown at buy time (e.g. virtual28, Provider 12).
+  networkLabel    String?
   expiresAt       DateTime
   cancelledAt     DateTime?
   refundedAt      DateTime?
@@ -148,6 +152,7 @@ model Order {
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([server, status])
 }
 
 model Transaction {
@@ -258,6 +263,24 @@ model ProviderSetting {
   meta          String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+/// Rolling OTP success tallies for ranking multi-offer rows (server × route × network × price band).
+model OfferSuccessStat {
+  id           String   @id @default(cuid())
+  server       Int
+  countryCode  String
+  serviceSlug  String
+  /// Empty string = unknown / any operator (legacy orders).
+  operator     String   @default("")
+  /// Wholesale price bucket, 2 decimal places (e.g. "0.07").
+  priceBucket  String
+  attempts     Int      @default(0)
+  successes    Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([server, countryCode, serviceSlug, operator, priceBucket])
+  @@index([server, countryCode, serviceSlug])
 }
 
 /// Denormalized retail catalog row for search UI (country × service).

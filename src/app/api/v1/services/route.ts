@@ -13,6 +13,12 @@ import {
   loadProviderSlots,
   retailFromWholesale,
 } from "@/lib/sms/provider-slots";
+import {
+  loadSuccessStatMap,
+  MAX_OFFERS_PER_SERVICE,
+  rankProviderRows,
+} from "@/lib/sms/offer-success";
+import type { ProviderPriceRow } from "@/lib/sms/types";
 
 async function slotMarkupMap(): Promise<Record<number, number>> {
   try {
@@ -80,11 +86,15 @@ function synthServices(
           inStock: true,
           live: false,
           markupPercent: markups[server] ?? 20,
+          networkLabel: "Catalog",
+          quality: 0.45,
         };
       }),
     })),
     liveStock: false,
     slotMarkups: markups,
+    rankingRule:
+      "Offers sort by historical OTP success (server × country × service × network × price band), then by price. Only real wholesale rows are listed.",
     slotStatuses: {
       1: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
       2: { status: "empty", liveRows: 0, message: "Catalog only — live stock unavailable." },
@@ -93,43 +103,116 @@ function synthServices(
   };
 }
 
-/** Overlay one offer with that server slot's live wholesale × markup. */
-function applySlotLive(
-  offer: { id: string; server: number; price: Prisma.Decimal | string; stock: number },
+type ApiOffer = {
+  id: string;
+  server: number;
+  price: string;
+  stock: number;
+  inStock: boolean;
+  live: boolean;
+  markupPercent: number;
+  wholesale?: number;
+  operator?: string;
+  networkLabel?: string;
+  providerRate?: number;
+  quality?: number;
+  successAttempts?: number;
+  successHits?: number;
+  maxPrice?: number;
+};
+
+function liveRowToOffer(
+  seedId: string,
+  server: number,
+  slug: string,
+  row: ProviderPriceRow & {
+    quality?: number;
+    successAttempts?: number;
+    successHits?: number;
+  },
+  markup: number,
+  index: number,
+): ApiOffer {
+  const retail = retailFromWholesale(row.wholesale, markup);
+  const stock = row.stock ?? (row.available ? 1 : 0);
+  const op = row.operator ?? "";
+  return {
+    id: `${seedId}:live:${op || index}:${row.wholesale.toFixed(4)}`,
+    server,
+    price: decimalJson(new Prisma.Decimal(retail.toFixed(4))),
+    stock,
+    inStock: stock > 0 && row.available !== false,
+    live: true,
+    markupPercent: markup,
+    wholesale: Number(row.wholesale.toFixed?.(4) ?? row.wholesale),
+    operator: row.operator,
+    networkLabel: row.networkLabel ?? row.operator ?? "Network",
+    providerRate: row.providerRate,
+    quality: row.quality,
+    successAttempts: row.successAttempts,
+    successHits: row.successHits,
+    maxPrice: row.maxPrice ?? row.wholesale,
+  };
+}
+
+/** Overlay seed offers with live multi-operator / multi-price rows, ranked by success. */
+function expandOffersForService(
+  seedOffers: { id: string; server: number; price: Prisma.Decimal | string; stock: number }[],
   slug: string,
   liveBySlot: Map<number, SlotLiveStock>,
   markups: Record<number, number>,
-) {
-  const slotLive = liveBySlot.get(offer.server);
-  const liveRow = slotLive?.bySlug.get(slug);
-  const markup = markups[offer.server] ?? DEFAULT_SLOT_MARKUP;
+  stats: Awaited<ReturnType<typeof loadSuccessStatMap>>,
+  wantLive: boolean,
+): ApiOffer[] {
+  const out: ApiOffer[] = [];
 
-  if (liveRow && liveRow.wholesale > 0) {
-    const retail = retailFromWholesale(liveRow.wholesale, markup);
-    const stock = liveRow.stock ?? (liveRow.available ? Math.max(offer.stock, 1) : 0);
-    return {
-      id: offer.id,
-      server: offer.server,
-      price: decimalJson(new Prisma.Decimal(retail.toFixed(4))),
-      stock,
-      inStock: stock > 0 && liveRow.available !== false,
-      live: true,
+  for (const seed of seedOffers) {
+    const markup = markups[seed.server] ?? DEFAULT_SLOT_MARKUP;
+    if (!wantLive) {
+      out.push({
+        id: seed.id,
+        server: seed.server,
+        price: decimalJson(seed.price),
+        stock: seed.stock,
+        inStock: seed.stock > 0,
+        live: false,
+        markupPercent: markup,
+        networkLabel: "Catalog",
+        quality: 0.45,
+      });
+      continue;
+    }
+
+    const slotLive = liveBySlot.get(seed.server);
+    const liveList = slotLive?.offersBySlug.get(slug) ?? [];
+    if (liveList.length > 0) {
+      const ranked = rankProviderRows(liveList, seed.server, stats).slice(
+        0,
+        MAX_OFFERS_PER_SERVICE,
+      );
+      ranked.forEach((row, i) => {
+        out.push(liveRowToOffer(seed.id, seed.server, slug, row, markup, i));
+      });
+      continue;
+    }
+
+    // No live multi rows — keep catalog seed so other tabs / browse still work
+    const seedStock = Math.max(0, Number(seed.stock) || 0);
+    out.push({
+      id: seed.id,
+      server: seed.server,
+      price: decimalJson(seed.price),
+      stock: seedStock,
+      inStock: seedStock > 0,
+      live: false,
       markupPercent: markup,
-      wholesale: Number(liveRow.wholesale.toFixed?.(4) ?? liveRow.wholesale),
-    };
+      networkLabel: "Catalog",
+      quality: 0.45,
+    });
   }
 
-  // No live row — keep catalog seed so other tabs / browse still work
-  const seedStock = Math.max(0, Number(offer.stock) || 0);
-  return {
-    id: offer.id,
-    server: offer.server,
-    price: decimalJson(offer.price),
-    stock: seedStock,
-    inStock: seedStock > 0,
-    live: false,
-    markupPercent: markup,
-  };
+  // Auto / cross-server: already have per-server rows. Sort within each server already done.
+  return out;
 }
 
 export async function GET(req: NextRequest) {
@@ -222,7 +305,14 @@ export async function GET(req: NextRequest) {
       liveBySlot = await fetchLiveStockBySlot(countryCode).catch(() => new Map());
     }
 
-    const liveCount = [...liveBySlot.values()].reduce((n, s) => n + s.bySlug.size, 0);
+    const stats = wantLive
+      ? await loadSuccessStatMap().catch(() => new Map())
+      : new Map();
+
+    const liveCount = [...liveBySlot.values()].reduce(
+      (n, s) => n + [...s.offersBySlug.values()].reduce((a, list) => a + list.length, 0),
+      0,
+    );
 
     const slotStatuses: Record<
       string,
@@ -230,9 +320,12 @@ export async function GET(req: NextRequest) {
     > = {};
     for (const n of [1, 2, 3] as const) {
       const entry = liveBySlot.get(n);
+      const offerCount = entry
+        ? [...entry.offersBySlug.values()].reduce((a, list) => a + list.length, 0)
+        : 0;
       slotStatuses[String(n)] = {
         status: entry?.status ?? (wantLive ? "empty" : "catalog"),
-        liveRows: entry?.bySlug.size ?? 0,
+        liveRows: offerCount,
         enabled: entry?.enabled,
         message: wantLive
           ? slotCustomerMessage(entry)
@@ -253,27 +346,26 @@ export async function GET(req: NextRequest) {
           slug: s.slug,
           name: s.name,
           category: s.category,
-          offers: s.offers.map((o) =>
-            wantLive
-              ? applySlotLive(o, s.slug, liveBySlot, markups)
-              : {
-                  id: o.id,
-                  server: o.server,
-                  price: decimalJson(o.price),
-                  stock: o.stock,
-                  inStock: o.stock > 0,
-                  live: false,
-                  markupPercent: markups[o.server] ?? 20,
-                },
+          offers: expandOffersForService(
+            s.offers,
+            s.slug,
+            liveBySlot,
+            markups,
+            stats,
+            wantLive,
           ),
         })),
         liveStock: liveCount > 0,
         slotMarkups: markups,
+        rankingRule:
+          "Best historical OTP success first (server × country × service × network × wholesale price band; Laplace-smoothed). Tie-break: lower price. Provider delivery rate used only when shop history is empty. Only real wholesale offers — never invented stock.",
         // Never send wholesale providerType to the customer browser
         slotProviders: Object.fromEntries(
           [...liveBySlot.entries()].map(([k, v]) => [
             k,
-            { liveRows: v.bySlug.size },
+            {
+              liveRows: [...v.offersBySlug.values()].reduce((a, list) => a + list.length, 0),
+            },
           ]),
         ),
         slotStatuses,

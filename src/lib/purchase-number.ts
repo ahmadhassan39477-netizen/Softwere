@@ -20,6 +20,11 @@ export type PurchaseNumberInput = {
   serviceSlug: string;
   /** 1 | 2 | 3 | "auto" — Auto failovers Server 1 → 2 → 3 */
   server?: number | "auto";
+  /** Specific multi-offer network (5SIM operator / Grizzly provider id) */
+  operator?: string;
+  networkLabel?: string;
+  /** Wholesale FreePrice ceiling for Grizzly/SA */
+  maxPrice?: number;
 };
 
 /** Clear customer copy: need exact retail that would be debited vs wallet. */
@@ -122,6 +127,13 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
       countryCode: country.code,
       serviceSlug: service.slug,
       server: serverMode === "auto" ? "auto" : preferredServer,
+      operator: input.operator,
+      networkLabel: input.networkLabel,
+      maxPrice: input.maxPrice,
+      providerIds:
+        input.operator && !input.operator.startsWith("tier:")
+          ? input.operator
+          : undefined,
     });
   } catch (e) {
     if (e instanceof AllProvidersFailedError) {
@@ -204,6 +216,11 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
         data: { balance: balanceAfter },
       });
 
+      const operator =
+        purchase.operator ?? input.operator ?? null;
+      const networkLabel =
+        purchase.networkLabel ?? input.networkLabel ?? null;
+
       const created = await tx.order.create({
         data: {
           userId: input.userId,
@@ -217,6 +234,8 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
           wholesaleCost: wholesale,
           providerOrderId: purchase.providerOrderId,
           providerKey: purchase.providerKey,
+          operator,
+          networkLabel,
           expiresAt,
         },
         include: { country: true, service: true },
@@ -238,6 +257,9 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
             serverMode,
             provider: purchase.providerKey,
             markupPercent: slotMarkup,
+            operator,
+            networkLabel,
+            maxPrice: input.maxPrice ?? null,
           }),
         },
       });
@@ -261,6 +283,8 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
       serverMode: order.serverMode,
       expiresAt: order.expiresAt.toISOString(),
       providerKey: order.providerKey,
+      operator: order.operator,
+      networkLabel: order.networkLabel,
       country: { code: order.country.code, name: order.country.name, flag: order.country.flag },
       service: { slug: order.service.slug, name: order.service.name },
     };
