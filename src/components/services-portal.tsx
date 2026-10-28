@@ -27,6 +27,11 @@ import { copyText, statusColor } from "@/lib/utils";
 import { MARKETPLACE_FACTS, SERVER_POOLS } from "@/lib/catalog-content";
 import { cn } from "@/lib/utils";
 import { sanitizeCustomerBuyError } from "@/lib/sms/customer-errors";
+import {
+  displayNetworkLabel,
+  offerRankHint,
+  stockBadgeLabel,
+} from "@/lib/sms/offer-display";
 import { ServiceLogo } from "@/components/service-logo";
 import { CatalogSearch } from "@/components/catalog-search";
 import Link from "next/link";
@@ -1261,7 +1266,9 @@ export function ServicesPortal() {
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{offer.serviceName}</div>
                           <div className="text-[11px] text-[var(--text-muted)] mono-data">
-                            ${offer.retail.toFixed(4)} · {offer.stock} left · Q{qualityPct}
+                            ${offer.retail.toFixed(4)} ·{" "}
+                            {stockBadgeLabel(offer.stock > 0, offer.stock)} · Q
+                            {qualityPct}
                           </div>
                         </div>
                         <button
@@ -1560,9 +1567,13 @@ export function ServicesPortal() {
                             </div>
                           </div>
                           <span
-                            className={`badge shrink-0 ${inStock ? "badge-success" : "badge-danger"}`}
+                            className={`badge shrink-0 ${
+                              inStock
+                                ? "badge-success badge-stock-live"
+                                : "badge-danger"
+                            }`}
                           >
-                            {inStock ? `${stockLabel} left` : "Sold out"}
+                            {stockBadgeLabel(inStock, stockLabel, "card")}
                           </span>
                         </div>
                         <div className="text-[11px] text-[var(--text-muted)] inline-flex items-center gap-1">
@@ -1578,16 +1589,29 @@ export function ServicesPortal() {
                               typeof offer.quality === "number"
                                 ? Math.round(offer.quality * 100)
                                 : null;
+                            const networkLine = displayNetworkLabel(
+                              offer.networkLabel || offer.operator,
+                              idx,
+                              multi,
+                            );
+                            const rankHint = offerRankHint(idx, multi);
                             return (
-                              <div
+                              <motion.div
                                 key={offer.id}
-                                className="rounded-xl border border-[var(--hairline)] px-3 py-2.5 flex flex-col gap-2"
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{
+                                  duration: 0.28,
+                                  delay: Math.min(idx, 5) * 0.04,
+                                  ease: easeOut,
+                                }}
+                                className="offer-row rounded-xl border border-[var(--hairline)] px-3 py-2.5 flex flex-col gap-2"
                               >
                                 <div className="flex items-end justify-between gap-2">
                                   <div className="min-w-0">
                                     <div className="text-[11px] text-[var(--text-muted)] truncate">
-                                      {offer.networkLabel || offer.operator || "Any network"}
-                                      {idx === 0 && multi ? " · best success" : null}
+                                      {networkLine}
+                                      {rankHint ? ` · ${rankHint}` : null}
                                     </div>
                                     <div className="mono-data text-[var(--accent)] text-lg leading-tight">
                                       ${offer.price}
@@ -1601,12 +1625,18 @@ export function ServicesPortal() {
                                       </div>
                                     ) : typeof offer.providerRate === "number" ? (
                                       <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                                        Provider rate {Math.round(offer.providerRate)}%
+                                        ~{Math.round(offer.providerRate)}% delivery
                                       </div>
                                     ) : null}
                                   </div>
-                                  <div className="text-right text-[11px] text-[var(--text-muted)] shrink-0">
-                                    {offer.inStock ? `${offer.stock} left` : "Sold out"}
+                                  <div
+                                    className={`text-right text-[11px] shrink-0 ${
+                                      offer.inStock
+                                        ? "text-[var(--accent-2)]"
+                                        : "text-[var(--text-muted)]"
+                                    }`}
+                                  >
+                                    {stockBadgeLabel(offer.inStock, offer.stock)}
                                   </div>
                                 </div>
                                 {!offer.inStock ? (
@@ -1651,7 +1681,7 @@ export function ServicesPortal() {
                                     {thisBuying ? "Buying…" : "Buy number"}
                                   </button>
                                 )}
-                              </div>
+                              </motion.div>
                             );
                           })}
                         </div>

@@ -77,7 +77,8 @@ const usVirtualFb = {
   assert.ok(rows.every((r) => (r.stock ?? 0) > 0));
   assert.ok(rows.every((r) => (r.maxPrice ?? 0) === r.wholesale));
   assert.equal(rows[0]!.operator, "438,64");
-  assert.ok(rows[0]!.networkLabel?.includes("438"));
+  assert.equal(rows[0]!.networkLabel, "Network");
+  assert.ok(!/provider/i.test(rows[0]!.networkLabel ?? ""));
   assert.equal(rows[1]!.operator, "11");
   assert.ok((rows[1]!.providerRate ?? 0) > 50);
 }

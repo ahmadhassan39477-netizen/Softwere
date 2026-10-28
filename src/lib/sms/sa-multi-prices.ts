@@ -1,3 +1,4 @@
+import { wholesaleNetworkLabel } from "./offer-display";
 import { isPlausibleOtpWholesale } from "./otp-price-guards";
 import type { ProviderPriceRow } from "./types";
 
@@ -255,10 +256,15 @@ export function extractSaMultiOffers(json: unknown, ctx: MultiCtx): ProviderPric
     const wholesale = Number(o.cost ?? o.price ?? o.wholesale ?? 0);
     const stock = Number(o.count ?? o.qty ?? o.stock ?? o.numbers_count ?? 0);
     const rate = Number(o.rate ?? o.delivery_percent ?? o.deliveryPercent ?? NaN);
-    const name =
-      (typeof o.name === "string" && o.name) ||
-      (typeof o.operator === "string" && o.operator) ||
-      (id ? `Provider ${id}` : "Network");
+    // Prefer real carrier names; never expose raw "Provider 143" in the shop.
+    const name = wholesaleNetworkLabel(
+      typeof o.name === "string"
+        ? o.name
+        : typeof o.operator === "string"
+          ? o.operator
+          : null,
+      id || null,
+    );
     if (!(wholesale > 0) || !(stock > 0)) return false;
     push({
       serviceSlug: slug,

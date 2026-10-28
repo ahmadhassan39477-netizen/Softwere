@@ -174,19 +174,13 @@ export function expandGrizzlyWebCountryRow(
         .map((s) => s.trim())
         .filter(Boolean);
       const operator = providerIds.join(",") || undefined;
-      const primary = providerIds[0];
       const delivery = asFinite(tier.delivery);
-      const label =
-        providerIds.length > 1
-          ? `Providers ${providerIds.slice(0, 3).join("+")}${providerIds.length > 3 ? "…" : ""}`
-          : primary
-            ? `Provider ${primary}`
-            : "Network";
+      // Keep operator ids for purchase routing; shop UI shows calm Primary / Network N.
       push({
         wholesale,
         stock,
         operator,
-        networkLabel: label,
+        networkLabel: "Network",
         providerRate: delivery > 0 ? delivery : undefined,
       });
     }
