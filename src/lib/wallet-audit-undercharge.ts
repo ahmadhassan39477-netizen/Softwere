@@ -327,7 +327,7 @@ export async function auditUnderchargeSuccessfulOtps(opts: {
       before: money(before),
       after: money(result.balanceAfter),
     },
-    adjustmentTxnId: result.transaction?.id ?? prior?.id ?? null,
+    adjustmentTxnId: result.transaction ? result.transaction.id : null,
   };
 }
 
