@@ -444,3 +444,28 @@ a {
 .animate-marquee {
   animation: marquee 42s linear infinite;
 }
+
+/* Services bar — SMS ↔ Gmails product switcher */
+.services-shop-bar {
+  isolation: isolate;
+}
+
+@keyframes gmails-btn-sheen {
+  0% {
+    background-position: 120% 50%;
+  }
+  100% {
+    background-position: -20% 50%;
+  }
+}
+
+.gmails-nav-btn:not([aria-selected="true"]) {
+  background-image: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in oklab, var(--accent) 14%, transparent) 50%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: gmails-btn-sheen 3.6s ease-in-out infinite;
+}

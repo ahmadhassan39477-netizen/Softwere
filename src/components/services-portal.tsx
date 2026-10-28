@@ -15,9 +15,12 @@ import {
   XCircle,
   Check,
   ChevronLeft,
+  ChevronDown,
   Clock,
+  Mail,
   ShieldCheck,
   Signal,
+  Smartphone,
   Wallet,
 } from "lucide-react";
 import { copyText, statusColor } from "@/lib/utils";
@@ -111,8 +114,14 @@ type GmailOffer = {
 };
 
 type MobileStep = "country" | "services" | "order";
+type ShopMode = "sms" | "gmails";
 
 const LIVE_PANEL_STATUSES = new Set(["ACTIVE", "PENDING", "WAITING", "RECEIVED"]);
+
+function readShopModeFromHash(): ShopMode {
+  if (typeof window === "undefined") return "sms";
+  return window.location.hash.toLowerCase() === "#gmails" ? "gmails" : "sms";
+}
 
 function isGmailOrder(order: { kind?: string; country?: { code?: string }; operator?: string | null }) {
   if (order.kind === "gmail") return true;
@@ -357,6 +366,8 @@ export function ServicesPortal() {
   const isDesktop = useIsDesktop();
   const [countryQ, setCountryQ] = useState("");
   const [serviceQ, setServiceQ] = useState("");
+  const [gmailQ, setGmailQ] = useState("");
+  const [shopMode, setShopMode] = useState<ShopMode>("sms");
   const [countryCode, setCountryCode] = useState<string>("US");
   const [server, setServer] = useState<1 | 2 | 3 | "auto">("auto");
   /** All live / OTP-received orders pinned on /services until Cancel */
@@ -366,6 +377,7 @@ export function ServicesPortal() {
   /** In-flight Buy lock — prevents double-submit / multi-button flash */
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
   const activeOrderRef = useRef<HTMLDivElement | null>(null);
+  const gmailsPanelRef = useRef<HTMLElement | null>(null);
   /** One smooth scroll per order on Buy — never on poll/refetch/catalog picks */
   const scrolledBuyIdsRef = useRef<Set<string>>(new Set());
   /** One smooth scroll per order when OTP first arrives */
@@ -501,9 +513,18 @@ export function ServicesPortal() {
     };
   }, [authStatus, qc]);
 
+  // Sync SMS / Gmails mode with #gmails (deep link + browser back)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const apply = () => setShopMode(readShopModeFromHash());
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
+
   const gmailsQuery = useQuery({
     queryKey: ["gmails-catalog"],
-    enabled: authStatus === "authenticated",
+    enabled: authStatus === "authenticated" && shopMode === "gmails",
     staleTime: 45_000,
     refetchOnWindowFocus: true,
     queryFn: () =>
@@ -514,6 +535,42 @@ export function ServicesPortal() {
         offers: GmailOffer[];
       }>("/api/gmails"),
   });
+
+  function prefetchGmailsCatalog() {
+    if (authStatus !== "authenticated") return;
+    void qc.prefetchQuery({
+      queryKey: ["gmails-catalog"],
+      staleTime: 45_000,
+      queryFn: () =>
+        api<{
+          ready: boolean;
+          message: string;
+          markupPercent: number;
+          offers: GmailOffer[];
+        }>("/api/gmails"),
+    });
+  }
+
+  function openShopMode(mode: ShopMode) {
+    setShopMode(mode);
+    if (typeof window === "undefined") return;
+    if (mode === "gmails") {
+      if (window.location.hash.toLowerCase() !== "#gmails") {
+        window.location.hash = "gmails";
+      } else {
+        window.requestAnimationFrame(() => {
+          const el = gmailsPanelRef.current ?? document.getElementById("gmails");
+          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+      return;
+    }
+    if (window.location.hash) {
+      const url = `${window.location.pathname}${window.location.search}`;
+      window.history.replaceState(null, "", url);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
+  }
 
   const purchase = useMutation({
     mutationFn: (payload: {
@@ -781,6 +838,21 @@ export function ServicesPortal() {
     );
   }, [allServices, serviceQ]);
 
+  const allGmailOffers = useMemo(
+    () => gmailsQuery.data?.offers ?? [],
+    [gmailsQuery.data?.offers],
+  );
+  const filteredGmailOffers = useMemo(() => {
+    const needle = gmailQ.trim().toLowerCase();
+    if (!needle) return allGmailOffers;
+    return allGmailOffers.filter(
+      (o) =>
+        o.serviceName.toLowerCase().includes(needle) ||
+        o.serviceSlug.toLowerCase().includes(needle) ||
+        o.domain.toLowerCase().includes(needle),
+    );
+  }, [allGmailOffers, gmailQ]);
+
   const selectedCountry =
     allCountries.find((c) => c.code === countryCode) ?? servicesQuery.data?.country;
 
@@ -879,43 +951,113 @@ export function ServicesPortal() {
         transition={{ duration: 0.45, ease: easeOut }}
       >
         <p className="eyebrow mb-2">OTP marketplace</p>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">Buy a number</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em]">
+          {shopMode === "gmails" ? "Buy a Gmail" : "Buy a number"}
+        </h1>
         <p className="text-[var(--text-muted)] mt-1.5 text-sm max-w-2xl leading-relaxed">
-          {isDesktop
-            ? "Select a country, pick a service and server pool, then receive the SMS OTP in the live panel. Unused numbers refund automatically."
-            : mobileStep === "country"
-              ? "Step 1 — choose the country route for your verification."
-              : mobileStep === "services"
-                ? "Step 2 — pick the app and server pool, then buy."
-                : "Step 3 — watch the inbox for your code."}
+          {shopMode === "gmails"
+            ? "Real @gmail.com for verification · 25 minutes · no code, no pay. After the code arrives there is no refund."
+            : isDesktop
+              ? "Select a country, pick a service and server pool, then receive the SMS OTP in the live panel. Unused numbers refund automatically."
+              : mobileStep === "country"
+                ? "Step 1 — choose the country route for your verification."
+                : mobileStep === "services"
+                  ? "Step 2 — pick the app and server pool, then buy."
+                  : "Step 3 — watch the inbox for your code."}
         </p>
       </motion.div>
 
-      {/* Reference facts */}
-      <motion.div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-        initial="hidden"
-        animate="show"
-        variants={{
-          hidden: {},
-          show: { transition: { staggerChildren: 0.06 } },
-        }}
+      {/* Services bar — SMS numbers ↔ Gmails */}
+      <div
+        className="services-shop-bar sticky top-14 sm:top-[4.25rem] z-20 -mx-1 px-1 py-1"
+        role="tablist"
+        aria-label="Shop mode"
       >
-        {MARKETPLACE_FACTS.map((f) => (
-          <motion.div
-            key={f.label}
-            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-            className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
+        <div className="relative flex gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-elevated)_92%,transparent)] p-1 backdrop-blur-md shadow-[0_8px_28px_color-mix(in_oklab,var(--bg)_55%,transparent)]">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={shopMode === "sms"}
+            className={cn(
+              "relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+              shopMode === "sms" ? "text-[var(--on-accent)]" : "text-[var(--text-muted)] hover:text-[var(--text)]",
+            )}
+            onClick={() => openShopMode("sms")}
           >
-            <div className="mono-data text-[var(--accent)] text-sm">{f.value}</div>
-            <div className="text-xs font-medium mt-0.5">{f.label}</div>
-            <div className="text-[11px] text-[var(--text-muted)]">{f.hint}</div>
-          </motion.div>
-        ))}
-      </motion.div>
+            {shopMode === "sms" && (
+              <motion.span
+                layoutId="shop-mode-pill"
+                className="absolute inset-0 rounded-xl bg-[var(--accent)]"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+            <Smartphone size={16} className="relative z-[1]" />
+            <span className="relative z-[1]">SMS numbers</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={shopMode === "gmails"}
+            className={cn(
+              "gmails-nav-btn relative z-[1] flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+              shopMode === "gmails"
+                ? "text-[var(--on-accent)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text)]",
+            )}
+            onMouseEnter={prefetchGmailsCatalog}
+            onFocus={prefetchGmailsCatalog}
+            onClick={() => openShopMode("gmails")}
+          >
+            {shopMode === "gmails" && (
+              <motion.span
+                layoutId="shop-mode-pill"
+                className="absolute inset-0 rounded-xl bg-[var(--accent)]"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+            <Mail size={16} className="relative z-[1]" />
+            <span className="relative z-[1]">Gmails</span>
+            {shopMode !== "gmails" && (
+              <motion.span
+                aria-hidden
+                className="gmails-nav-btn__spark relative z-[1] hidden sm:inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent)]"
+                animate={{ opacity: [0.35, 1, 0.35], scale: [0.85, 1.15, 0.85] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+          </button>
+        </div>
+      </div>
 
-      {/* Mobile step indicator */}
-      {!isDesktop && (
+      {/* Reference facts — SMS shop only */}
+      {shopMode === "sms" && (
+        <motion.div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.06 } },
+          }}
+        >
+          {MARKETPLACE_FACTS.map((f) => (
+            <motion.div
+              key={f.label}
+              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+              className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
+            >
+              <div className="mono-data text-[var(--accent)] text-sm">{f.value}</div>
+              <div className="text-xs font-medium mt-0.5">{f.label}</div>
+              <div className="text-[11px] text-[var(--text-muted)]">{f.hint}</div>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+
+      {/* Mobile step indicator — SMS shop only */}
+      {!isDesktop && shopMode === "sms" && (
         <div className="flex items-center gap-2 mono-data text-[10px] uppercase tracking-[0.16em]">
           {(
             [
@@ -1003,87 +1145,131 @@ export function ServicesPortal() {
         ))}
       </AnimatePresence>
 
-      {/* Gmails — temporary @gmail.com via Extra mail API · 40% markup · quality-ranked */}
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: easeOut }}
-        className="panel panel-accent p-4 sm:p-5"
-        aria-labelledby="gmails-heading"
-      >
-        <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
-          <div>
-            <p className="eyebrow mb-1">Temporary email</p>
-            <h2 id="gmails-heading" className="text-lg font-semibold tracking-tight">
-              Gmails
-            </h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xl">
-              Real @gmail.com for verification · 25 minutes · no code, no pay.
-              Ranked by delivery quality. After the code arrives there is no refund.
-            </p>
-          </div>
-          {gmailsQuery.data?.ready ? (
-            <span className="badge badge-success text-xs">Live · +40%</span>
-          ) : (
-            <span className="badge text-xs">Connecting…</span>
-          )}
-        </div>
-        {gmailsQuery.isLoading && (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="svc-skeleton h-20" />
-            ))}
-          </div>
-        )}
-        {gmailsQuery.isError && (
-          <p className="text-sm text-[#fda4af]">Couldn’t load Gmails. Refresh the page.</p>
-        )}
-        {!gmailsQuery.isLoading &&
-          !gmailsQuery.isError &&
-          (gmailsQuery.data?.offers.length ?? 0) === 0 && (
-            <p className="text-sm text-[var(--text-muted)]">
-              {gmailsQuery.data?.message ??
-                "No Gmail stock right now. Check back shortly."}
-            </p>
-          )}
-        {(gmailsQuery.data?.offers.length ?? 0) > 0 && (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-[min(40vh,360px)] overflow-y-auto scrollbar-thin pr-0.5">
-            {gmailsQuery.data!.offers.map((offer) => {
-              const buyKey = `gmail:${offer.serviceSlug}`;
-              const busy = buyingKey === buyKey;
-              const qualityPct = Math.round((offer.quality ?? 0.45) * 100);
-              return (
-                <div
-                  key={offer.serviceSlug}
-                  className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
-                >
-                  <ServiceLogo slug={offer.serviceSlug} name={offer.serviceName} />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm truncate">{offer.serviceName}</div>
-                    <div className="text-[11px] text-[var(--text-muted)] mono-data">
-                      ${offer.retail.toFixed(4)} · {offer.stock} left · Q{qualityPct}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary text-xs px-3 py-1.5 shrink-0"
-                    disabled={busy || Boolean(buyingKey) || walletEmpty || offer.stock <= 0}
-                    onClick={() =>
-                      purchaseGmail.mutate({
-                        serviceSlug: offer.serviceSlug,
-                        _buyKey: buyKey,
-                      })
-                    }
-                  >
-                    {busy ? "Buying…" : walletEmpty ? "Deposit" : "Buy"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </motion.section>
+      {/* Gmails panel — only when opened from Services bar / #gmails (not dumped on SMS top) */}
+      <AnimatePresence mode="wait">
+        {shopMode === "gmails" && (
+          <motion.section
+            key="gmails-panel"
+            ref={gmailsPanelRef}
+            id="gmails"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.28, ease: easeOut }}
+            className="panel panel-accent scroll-mt-28 p-4 sm:p-5"
+            aria-labelledby="gmails-heading"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+              <div>
+                <p className="eyebrow mb-1">Temporary email</p>
+                <h2 id="gmails-heading" className="text-lg font-semibold tracking-tight">
+                  Gmails
+                </h2>
+                <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xl">
+                  Ranked by delivery quality. Cancel unused within 25 minutes for a full refund.
+                </p>
+              </div>
+              {gmailsQuery.data?.ready ? (
+                <span className="badge badge-success text-xs">Live · +40%</span>
+              ) : gmailsQuery.isFetching ? (
+                <span className="badge text-xs">Connecting…</span>
+              ) : (
+                <span className="badge text-xs">Gmails</span>
+              )}
+            </div>
 
+            <CatalogSearch
+              className="mb-4"
+              label="Find a Gmail offer"
+              placeholder="Search Instagram, Telegram, Discord…"
+              value={gmailQ}
+              onChange={setGmailQ}
+              autoFocus={isDesktop}
+            />
+
+            {gmailsQuery.isLoading && (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="svc-skeleton h-20" />
+                ))}
+              </div>
+            )}
+            {gmailsQuery.isError && (
+              <p className="text-sm text-[#fda4af]">Couldn’t load Gmails. Refresh the page.</p>
+            )}
+            {!gmailsQuery.isLoading &&
+              !gmailsQuery.isError &&
+              allGmailOffers.length === 0 && (
+                <p className="text-sm text-[var(--text-muted)]">
+                  {gmailsQuery.data?.message ??
+                    "No Gmail stock right now. Check back shortly."}
+                </p>
+              )}
+            {!gmailsQuery.isLoading &&
+              allGmailOffers.length > 0 &&
+              filteredGmailOffers.length === 0 && (
+                <p className="text-sm text-[var(--text-muted)]">
+                  No offers match “{gmailQ.trim()}”. Try another name.
+                </p>
+              )}
+            {filteredGmailOffers.length > 0 && (
+              <>
+                <p className="mb-2 text-[11px] text-[var(--text-muted)] mono-data">
+                  {filteredGmailOffers.length}
+                  {gmailQ.trim() ? ` of ${allGmailOffers.length}` : ""} offers
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-[min(62vh,560px)] overflow-y-auto scrollbar-thin pr-0.5">
+                  {filteredGmailOffers.map((offer) => {
+                    const buyKey = `gmail:${offer.serviceSlug}`;
+                    const busy = buyingKey === buyKey;
+                    const qualityPct = Math.round((offer.quality ?? 0.45) * 100);
+                    return (
+                      <div
+                        key={offer.serviceSlug}
+                        className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5"
+                      >
+                        <ServiceLogo slug={offer.serviceSlug} name={offer.serviceName} />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{offer.serviceName}</div>
+                          <div className="text-[11px] text-[var(--text-muted)] mono-data">
+                            ${offer.retail.toFixed(4)} · {offer.stock} left · Q{qualityPct}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary text-xs px-3 py-1.5 shrink-0"
+                          disabled={busy || Boolean(buyingKey) || walletEmpty || offer.stock <= 0}
+                          onClick={() =>
+                            purchaseGmail.mutate({
+                              serviceSlug: offer.serviceSlug,
+                              _buyKey: buyKey,
+                            })
+                          }
+                        >
+                          {busy ? "Buying…" : walletEmpty ? "Deposit" : "Buy"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+              <button
+                type="button"
+                className="btn btn-ghost text-xs px-3 py-1.5 inline-flex items-center gap-1.5"
+                onClick={() => openShopMode("sms")}
+              >
+                <ChevronDown size={14} className="-rotate-90" />
+                Back to SMS numbers
+              </button>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {shopMode === "sms" && (
       <div className="grid gap-5 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr_320px]">
         {/* Countries — full focus on mobile until picked */}
         <AnimatePresence mode="wait">
@@ -1504,6 +1690,7 @@ export function ServicesPortal() {
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Order history */}
       <section className="panel p-4">
