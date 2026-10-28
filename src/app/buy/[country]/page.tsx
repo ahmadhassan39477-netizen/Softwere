@@ -100,6 +100,35 @@ export default async function BuyCountryHubPage({ params }: Props) {
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             Open a guide for each app, then sign up to buy from live stock.
           </p>
+          {(country.slug === "usa" || country.slug === "uk") && (
+            <p className="mt-4 text-sm text-[var(--text-muted)] leading-relaxed">
+              Start with{" "}
+              {country.slug === "usa" ? (
+                <>
+                  the{" "}
+                  <Link href="/buy/usa/whatsapp" className="text-[var(--accent)]">
+                    US WhatsApp temp number
+                  </Link>{" "}
+                  or{" "}
+                  <Link href="/buy/usa/facebook" className="text-[var(--accent)]">
+                    US Facebook OTP number
+                  </Link>
+                </>
+              ) : (
+                <>
+                  the{" "}
+                  <Link href="/buy/uk/facebook" className="text-[var(--accent)]">
+                    UK Facebook OTP number
+                  </Link>{" "}
+                  or{" "}
+                  <Link href="/buy/uk/whatsapp" className="text-[var(--accent)]">
+                    UK WhatsApp temp number
+                  </Link>
+                </>
+              )}
+              , then browse the full list below.
+            </p>
+          )}
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
             {SEO_SERVICES.map((service) => (
               <li key={service.slug}>

@@ -6,6 +6,8 @@ import type { SeoFaq } from "@/lib/seo-catalog";
 export const WHATSAPP_GUIDE_PATH = "/guides/whatsapp-temporary-number";
 export const WHATSAPP_GUIDE_URL = `https://www.tempempire.store${WHATSAPP_GUIDE_PATH}`;
 export const WHATSAPP_GUIDE_PUBLISHED = "2026-10-18";
+/** Bumped when crawl/link targets for this guide change — keeps sitemap freshness honest. */
+export const WHATSAPP_GUIDE_MODIFIED = "2026-10-28";
 
 export const WHATSAPP_GUIDE_KEYWORDS = [
   "temporary phone number",
@@ -152,7 +154,7 @@ export function whatsappArticleJsonLd() {
     headline: title,
     description,
     datePublished: WHATSAPP_GUIDE_PUBLISHED,
-    dateModified: WHATSAPP_GUIDE_PUBLISHED,
+    dateModified: WHATSAPP_GUIDE_MODIFIED,
     inLanguage: "en",
     mainEntityOfPage: {
       "@type": "WebPage",

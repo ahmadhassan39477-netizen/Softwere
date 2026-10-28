@@ -86,6 +86,14 @@ export default function SupportPage() {
         </form>
 
         <p className="mt-8 text-sm text-[var(--text-muted)]">
+          <Link href="/guides" className="text-[var(--accent)]">
+            OTP guides
+          </Link>
+          {" · "}
+          <Link href="/mail" className="text-[var(--accent)]">
+            Temp Mail Plus
+          </Link>
+          {" · "}
           <Link href="/privacy" className="text-[var(--accent)]">
             Privacy
           </Link>

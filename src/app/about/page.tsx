@@ -45,6 +45,25 @@ export default function AboutPage() {
           not help anyone evade security checks, and we do not publish a public shared-code wall.
         </p>
         <p className="text-[var(--text-muted)] leading-relaxed">
+          Read the{" "}
+          <Link href="/guides" className="text-[var(--accent)]">
+            OTP guides
+          </Link>
+          , try{" "}
+          <Link href="/mail" className="text-[var(--accent)]">
+            Temp Mail Plus
+          </Link>
+          , or browse{" "}
+          <Link href="/buy/usa" className="text-[var(--accent)]">
+            US temp numbers
+          </Link>{" "}
+          and{" "}
+          <Link href="/buy/uk" className="text-[var(--accent)]">
+            UK temp numbers
+          </Link>
+          .
+        </p>
+        <p className="text-[var(--text-muted)] leading-relaxed">
           Questions:{" "}
           <Link href="/support" className="text-[var(--accent)]">
             Contact
