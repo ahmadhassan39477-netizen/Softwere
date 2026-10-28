@@ -278,9 +278,23 @@ export function rankProviderRows(
         successHits: q.successes,
       };
     });
+  // Success history first, then price, then delivery — never let a 100% delivery
+  // estimate bury cheaper tiers or beat real OTP outcomes on another band.
   scored.sort((a, b) => {
-    if (b.quality !== a.quality) return b.quality - a.quality;
-    return a.wholesale - b.wholesale;
+    const aHist = a.successAttempts > 0;
+    const bHist = b.successAttempts > 0;
+    if (aHist && bHist && b.quality !== a.quality) return b.quality - a.quality;
+    if (aHist !== bHist) return aHist ? -1 : 1;
+    if (a.wholesale !== b.wholesale) return a.wholesale - b.wholesale;
+    const ar =
+      typeof a.providerRate === "number" && Number.isFinite(a.providerRate)
+        ? a.providerRate
+        : -1;
+    const br =
+      typeof b.providerRate === "number" && Number.isFinite(b.providerRate)
+        ? b.providerRate
+        : -1;
+    return br - ar;
   });
   return scored;
 }
