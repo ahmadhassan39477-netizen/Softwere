@@ -85,6 +85,7 @@ export function serverFromSlotKey(key: string): 1 | 2 | 3 | null {
 }
 
 export function defaultMarkupForType(_type?: SlotProviderType): number {
+  void _type;
   return DEFAULT_SLOT_MARKUP;
 }
 

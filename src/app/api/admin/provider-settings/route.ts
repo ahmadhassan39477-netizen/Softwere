@@ -216,7 +216,7 @@ export async function PATCH(req: NextRequest) {
   const nextType: SlotProviderType | undefined = parsed.data.providerType;
   // Only write markup when Admin explicitly sent it (Save margin).
   // Type flips must NOT wipe a custom Server 3 margin (e.g. 50%).
-  let nextMarkup =
+  const nextMarkup =
     parsed.data.markupPercent !== undefined
       ? coerceMarkupPercent(parsed.data.markupPercent)
       : undefined;
