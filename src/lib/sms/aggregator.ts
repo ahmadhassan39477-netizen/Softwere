@@ -17,6 +17,7 @@ import { createSaCompatibleAdapter } from "./adapters/sa-compatible";
 import { mockAdapter } from "./adapters/mock";
 import {
   DEFAULT_SLOT_MARKUP,
+  coerceMarkupPercent,
   defaultBaseUrlForType,
   displayNameForType,
   envKeyForType,
@@ -146,8 +147,7 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
           providerType: "grizzlysms",
           apiKey: slot3.apiKey,
           baseUrl: slot3.baseUrl,
-          markupPercent:
-            slot3.markupPercent > 0 ? slot3.markupPercent : DEFAULT_SLOT_MARKUP,
+          markupPercent: coerceMarkupPercent(slot3.markupPercent),
         };
       }
     }
@@ -157,7 +157,7 @@ export function resolveSlotAdapters(slots: SlotRow[]): SlotAdapter[] {
   for (const slot of effective.sort((a, b) => a.priority - b.priority)) {
     const adapter = buildAdapterForSlot(slot);
     if (!adapter) continue;
-    const markup = slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP;
+    const markup = coerceMarkupPercent(slot.markupPercent);
     out.push({
       slot: slot.priority as 1 | 2 | 3,
       providerType: slot.providerType,
@@ -324,7 +324,7 @@ export class SmsAggregator {
         enabled: slot.enabled,
         hasApiKey,
         envConfigured: Boolean(envKeyForType(slot.providerType)) && !hasApiKey,
-        markupPercent: slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP,
+        markupPercent: coerceMarkupPercent(slot.markupPercent),
       });
     }
     if (mocksAllowed()) {
@@ -337,7 +337,7 @@ export class SmsAggregator {
         enabled: true,
         hasApiKey: false,
         envConfigured: false,
-        markupPercent: 20,
+        markupPercent: DEFAULT_SLOT_MARKUP,
       });
     }
     return out;

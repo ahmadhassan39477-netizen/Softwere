@@ -9,6 +9,7 @@ import { maskKey } from "@/lib/sms/service-map";
 import {
   DEFAULT_SLOT_MARKUP,
   PROVIDER_TYPE_OPTIONS,
+  coerceMarkupPercent,
   defaultMarkupForType,
   displayNameForType,
   ensureProviderSlots,
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
     for (const s of slots) {
       const entry = bySlot.get(s.priority);
       const wa = entry?.bySlug.get("whatsapp");
-      const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
+      const markupPct = coerceMarkupPercent(s.markupPercent);
       liveProbe[s.key] = {
         liveRows: entry?.bySlug.size ?? 0,
         whatsappWholesale: wa && wa.wholesale > 0 ? wa.wholesale : null,
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest) {
     liveProbe,
     providers: slots.map((s) => {
       const bal = balances.find((b) => b.key === s.key);
-      const markupPct = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
+      const markupPct = coerceMarkupPercent(s.markupPercent);
       const rawRow = rawByKey.get(s.key);
       const rawDb = rawRow?.apiKey?.trim() ?? "";
       const typeOk = isSlotProviderType(s.providerType)
@@ -213,12 +214,12 @@ export async function PATCH(req: NextRequest) {
   if (!existing) return jsonError("Unknown server slot", 404);
 
   const nextType: SlotProviderType | undefined = parsed.data.providerType;
-  let nextMarkup = parsed.data.markupPercent;
-
-  // When changing type without an explicit margin, use uniform 20% default
-  if (nextType && nextMarkup === undefined) {
-    nextMarkup = DEFAULT_SLOT_MARKUP;
-  }
+  // Only write markup when Admin explicitly sent it (Save margin).
+  // Type flips must NOT wipe a custom Server 3 margin (e.g. 50%).
+  const nextMarkup =
+    parsed.data.markupPercent !== undefined
+      ? coerceMarkupPercent(parsed.data.markupPercent)
+      : undefined;
 
   const typeForSanitize: SlotProviderType =
     nextType ??
@@ -407,7 +408,7 @@ export async function PATCH(req: NextRequest) {
     })
     .catch(() => undefined);
 
-  const markupOut = Number(updated.markupPercent) || DEFAULT_SLOT_MARKUP;
+  const markupOut = coerceMarkupPercent(updated.markupPercent);
 
   const savedKey = sanitizeApiKeyForType(
     isSlotProviderType(updated.providerType) ? updated.providerType : "sms-activate",

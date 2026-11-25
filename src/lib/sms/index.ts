@@ -6,7 +6,9 @@ export { ensureServiceCountryCatalog } from "./ensure-service-catalog";
 export {
   DEFAULT_SLOT_MARKUP,
   GRIZZLY_DEFAULT_MARKUP,
+  coerceMarkupPercent,
   ensureProviderSlots,
   loadProviderSlots,
   markupForServer,
+  retailFromWholesale,
 } from "./provider-slots";
