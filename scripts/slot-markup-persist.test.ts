@@ -17,11 +17,11 @@ function main() {
   assert.equal(retailFromWholesale(0.08, 30), 0.104);
   assert.equal(retailFromWholesale(0.08, 20), 0.096);
 
-  // 40% (legacy Grizzly / Gmail-like) must NOT be coerced away
+  // 40% (legacy) must NOT be coerced away
   assert.equal(coerceMarkupPercent(40), 40);
   assert.equal(retailFromWholesale(1, 40), 1.4);
 
-  // Gmail stays on its own 40% constant path — OTP slots stay independent
+  // Gmail margin is a separate Admin Setting — OTP slots stay independent
   assert.equal(coerceMarkupPercent(50), 50);
   assert.equal(coerceMarkupPercent(30), 30);
 

@@ -3,16 +3,37 @@ import {
   extractMailPriceRests,
   GMAIL_CANCEL_WINDOW_SECONDS,
   GMAIL_MARKUP_PERCENT,
+  GMAIL_MARKUP_SETTING_KEY,
   GMAIL_TTL_MINUTES,
   isGmailMailOperator,
+  parseGmailMarkupPercent,
   retailFromGmailWholesale,
 } from "../src/lib/smsbower-mail";
 import { parseSaGetStatusText, extractOtpCode } from "../src/lib/sms/sa-status";
+import { expectedGmailRetail } from "../src/lib/wallet-audit-gmails-margin";
 
-// Markup: retail = wholesale × 1.40
-assert.equal(GMAIL_MARKUP_PERCENT, 40);
-assert.equal(retailFromGmailWholesale(1), 1.4);
-assert.equal(retailFromGmailWholesale(0.25), 0.35);
+// Default markup: retail = wholesale × 1.50 (Admin Setting overrides live)
+assert.equal(GMAIL_MARKUP_PERCENT, 50);
+assert.equal(GMAIL_MARKUP_SETTING_KEY, "gmail_markup_percent");
+assert.equal(retailFromGmailWholesale(1), 1.5);
+assert.equal(retailFromGmailWholesale(0.25), 0.375);
+assert.equal(retailFromGmailWholesale(1, 40), 1.4);
+assert.equal(retailFromGmailWholesale(0.12, 50), 0.18);
+assert.equal(parseGmailMarkupPercent(undefined), 50);
+assert.equal(parseGmailMarkupPercent("40"), 40);
+assert.equal(parseGmailMarkupPercent(-1), 0); // clamped like VPN parseMarkupPercent
+
+// Undercharge helper: prior 40% charge vs intended 50%
+{
+  const under = expectedGmailRetail({
+    price: "0.1680", // 0.12 × 1.40
+    wholesaleCost: "0.1200",
+    targetMarkupPercent: 50,
+  });
+  assert.equal(under.source, "wholesale*markup");
+  assert.equal(under.expected.toFixed(4), "0.1800");
+  assert.ok(Number(under.expected) > Number("0.1680"));
+}
 
 // Product window mirrors SMSBower temporary Gmail (25 min)
 assert.equal(GMAIL_TTL_MINUTES, 25);

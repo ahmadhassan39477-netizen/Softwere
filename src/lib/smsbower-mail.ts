@@ -6,8 +6,14 @@
 import { resolveSmsBowerBaseUrl } from "@/lib/sms/adapters/smsbower";
 
 export const GMAIL_DOMAIN = "gmail.com";
-/** Customer retail = wholesale × 1.40 */
-export const GMAIL_MARKUP_PERCENT = 40;
+/**
+ * Default customer Gmail retail margin when Admin Setting is unset.
+ * retail = wholesale × (1 + GMAIL_MARKUP_PERCENT / 100). Target: 50% → ×1.50.
+ * Live value is Admin-editable via Setting `gmail_markup_percent` (not Server 3 OTP margin).
+ */
+export const GMAIL_MARKUP_PERCENT = 50;
+/** Admin Setting key — independent of ProviderSetting server-3 Extra OTP margin. */
+export const GMAIL_MARKUP_SETTING_KEY = "gmail_markup_percent";
 /** Synthetic country for Order rows — never shown in the OTP country picker. */
 export const GMAIL_COUNTRY_CODE = "GMAIL";
 export const GMAIL_OPERATOR = "mail:gmail.com";
@@ -22,6 +28,17 @@ export const GMAIL_NETWORK_LABEL = "Gmail";
 export const GMAIL_TTL_MINUTES = 25;
 /** Cancel allowed for the full Gmail wait window (same as product TTL). */
 export const GMAIL_CANCEL_WINDOW_SECONDS = GMAIL_TTL_MINUTES * 60;
+
+/** Clamp Admin / Setting markup % for Gmails (0–500). */
+export function parseGmailMarkupPercent(
+  raw: string | number | null | undefined,
+  fallback = GMAIL_MARKUP_PERCENT,
+): number {
+  if (raw == null || String(raw).trim() === "") return fallback;
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(500, Math.max(0, n));
+}
 
 export function isGmailMailOperator(operator: string | null | undefined): boolean {
   const o = (operator ?? "").trim().toLowerCase();
@@ -229,6 +246,11 @@ export async function setMailStatus(
   }).catch(() => undefined);
 }
 
-export function retailFromGmailWholesale(wholesale: number): number {
-  return Number((wholesale * (1 + GMAIL_MARKUP_PERCENT / 100)).toFixed(4));
+/** retail = wholesale × (1 + markupPercent/100). Defaults to GMAIL_MARKUP_PERCENT (50). */
+export function retailFromGmailWholesale(
+  wholesale: number,
+  markupPercent: number = GMAIL_MARKUP_PERCENT,
+): number {
+  const m = parseGmailMarkupPercent(markupPercent);
+  return Number((wholesale * (1 + m / 100)).toFixed(4));
 }
