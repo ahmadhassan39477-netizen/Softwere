@@ -16,11 +16,39 @@ export type SlotProviderType =
   | "smsbower"
   | "custom-sa";
 
-/** Uniform retail markup for every server: retail = wholesale × 1.20 */
+/**
+ * Default OTP retail markup when a slot has no Admin margin set.
+ * Live catalog + buy debit use each slot's ProviderSetting.markupPercent
+ * (Server 3 Extra can be 50% while S1/S2 stay at 20%). Gmail mail uses a
+ * separate constant (40%) — never this default.
+ */
 export const DEFAULT_SLOT_MARKUP = 20;
 
-/** @deprecated Use DEFAULT_SLOT_MARKUP — all providers use 20%. */
+/** @deprecated Use DEFAULT_SLOT_MARKUP. */
 export const GRIZZLY_DEFAULT_MARKUP = DEFAULT_SLOT_MARKUP;
+
+/**
+ * Coerce Admin/DB markup %. null/empty/0 → fallback (same as prior `> 0` gate).
+ * Valid range after coerce: (0, 500].
+ */
+export function coerceMarkupPercent(
+  value: unknown,
+  fallback: number = DEFAULT_SLOT_MARKUP,
+): number {
+  if (value == null || value === "") return fallback;
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "object" &&
+          value !== null &&
+          "toNumber" in value &&
+          typeof (value as { toNumber: unknown }).toNumber === "function"
+        ? Number((value as { toNumber: () => number }).toNumber())
+        : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  if (n > 500) return 500;
+  return n;
+}
 
 export const PROVIDER_TYPE_OPTIONS: {
   value: SlotProviderType;
@@ -172,11 +200,14 @@ const LEGACY_KEY_SOURCES: { oldKey: string; slot: 1 | 2 | 3 }[] = [
 
 /**
  * Ensure server-1/2/3 slots exist.
- * Defaults: S1=5SIM, S2=Grizzly, S3=SMSBower; all margins 20%.
- * Preserves real API keys; clears mistaken docs URLs / wrong-type tokens.
+ * Defaults: S1=5SIM, S2=Grizzly, S3=SMSBower; default margin 20% on create only.
+ * Preserves real API keys and Admin-configured markupPercent (e.g. Server 3 = 50%).
+ * Clears mistaken docs URLs / wrong-type tokens.
  */
 export async function ensureProviderSlots(): Promise<void> {
-  const markupDefault = Number(process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? DEFAULT_SLOT_MARKUP);
+  const markupDefault = coerceMarkupPercent(
+    process.env.GLOBAL_PRICE_MARKUP_PERCENT ?? DEFAULT_SLOT_MARKUP,
+  );
 
   for (const slot of [1, 2, 3] as const) {
     const slotKey = slotKeyForServer(slot);
@@ -263,13 +294,12 @@ export async function ensureProviderSlots(): Promise<void> {
       const patch: {
         providerType: SlotProviderType;
         name: string;
-        markupPercent: Prisma.Decimal;
         apiKey?: string | null;
         enabled?: boolean;
       } = {
         providerType: nextType,
         name: `Server ${slot}`,
-        markupPercent: new Prisma.Decimal(DEFAULT_SLOT_MARKUP),
+        // Do NOT reset markupPercent — Admin may have set Server 3 to 50% etc.
       };
       if (nextKey !== row.apiKey) patch.apiKey = nextKey;
       // Never force-enable Server 3 without an SMSBower token
@@ -333,7 +363,8 @@ export async function ensureProviderSlots(): Promise<void> {
     });
   } else {
     // Lightweight hygiene on every request (must stay cheap — /services calls this).
-    // Strip URL junk, force 20%, and keep a *valid on-row key* Enabled.
+    // Strip URL junk and keep a *valid on-row key* Enabled.
+    // NEVER overwrite Admin markupPercent (Server 3 at 50% must stick for Extra retail).
     // Do NOT call resolveSlotApiKey here (extra DB + writes) — recovery stays in loadProviderSlots.
     for (const slot of [1, 2, 3] as const) {
       const slotKey = slotKeyForServer(slot);
@@ -343,14 +374,10 @@ export async function ensureProviderSlots(): Promise<void> {
         ? row.providerType
         : SLOT_TYPE_DEFAULTS[slot];
       const patch: {
-        markupPercent?: Prisma.Decimal;
         apiKey?: string | null;
         baseUrl?: string | null;
         enabled?: boolean;
       } = {};
-      if (Number(row.markupPercent) === 40) {
-        patch.markupPercent = new Prisma.Decimal(DEFAULT_SLOT_MARKUP);
-      }
       if (looksLikeApiDocsUrl(row.apiKey)) {
         // Clear GET/https/product-balance pastes (e.g. 5SIM URL mistaken for token)
         patch.apiKey = null;
@@ -476,20 +503,22 @@ export async function loadProviderSlots(): Promise<SlotRow[]> {
       apiKey,
       enabled: row?.enabled ?? true,
       priority: slot,
-      markupPercent: Number(row?.markupPercent ?? DEFAULT_SLOT_MARKUP),
+      markupPercent: coerceMarkupPercent(row?.markupPercent, DEFAULT_SLOT_MARKUP),
     });
   }
   return out;
 }
 
-/** Markup % for a server slot (all servers default 20%). */
+/** Markup % for a server slot (Admin-configured; default 20% when unset). */
 export async function markupForServer(server: 1 | 2 | 3): Promise<number> {
   const slots = await loadProviderSlots();
   const slot = slots.find((s) => s.priority === server);
   if (!slot) return DEFAULT_SLOT_MARKUP;
-  return slot.markupPercent > 0 ? slot.markupPercent : DEFAULT_SLOT_MARKUP;
+  return coerceMarkupPercent(slot.markupPercent, DEFAULT_SLOT_MARKUP);
 }
 
+/** retail = wholesale × (1 + markupPercent/100) */
 export function retailFromWholesale(wholesale: number, markupPercent: number): number {
-  return Number((wholesale * (1 + markupPercent / 100)).toFixed(4));
+  const m = coerceMarkupPercent(markupPercent, DEFAULT_SLOT_MARKUP);
+  return Number((wholesale * (1 + m / 100)).toFixed(4));
 }

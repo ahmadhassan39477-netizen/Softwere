@@ -110,6 +110,7 @@ export default function AdminPage() {
         providers: ProviderRow[];
         providerTypes?: ProviderTypeOption[];
         grizzlyDefaultMarkup?: number;
+        defaultSlotMarkup?: number;
         liveProbe?: Record<
           string,
           {
@@ -270,6 +271,7 @@ export default function AdminPage() {
           apiKeyMasked?: string;
           balance?: number | null;
           buyReady?: boolean;
+          markupPercent?: string;
         };
       };
     },
@@ -317,6 +319,13 @@ export default function AdminPage() {
       }
       // Keep optimistic slot state from PATCH before slow probe=1 refetch
       if (data.provider?.key) {
+        const savedMarkup = data.provider.markupPercent;
+        if (savedMarkup != null) {
+          setMarkupDrafts((prev) => ({
+            ...prev,
+            [data.provider!.key]: savedMarkup,
+          }));
+        }
         qc.setQueryData(["admin-provider-settings"], (old: unknown) => {
           if (!old || typeof old !== "object") return old;
           const cur = old as { providers?: ProviderRow[] };
@@ -345,6 +354,8 @@ export default function AdminPage() {
                         ? null
                         : "no_balance"
                       : "no_key",
+                    markupPercent:
+                      savedMarkup != null ? savedMarkup : p.markupPercent,
                   }
                 : p,
             ),
@@ -832,9 +843,11 @@ export default function AdminPage() {
       <div className="panel p-5 space-y-4">
         <div className="flex flex-wrap items-end gap-3 justify-between">
           <div>
-            <h2 className="font-semibold">Global retail markup</h2>
+            <h2 className="font-semibold">Global seed markup (fallback)</h2>
             <p className="text-xs text-[var(--text-muted)] mt-1">
-              Retail = wholesale × (1 + markup%). Current: {settings.data?.markupPercent ?? "…"}%
+              Used for catalog seeds / fallback only — not live Primary/Backup/Extra prices.
+              Live OTP retail uses each server&apos;s Margin % below. Current seed:{" "}
+              {settings.data?.markupPercent ?? "…"}%
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -869,11 +882,12 @@ export default function AdminPage() {
           <div>
             <h2 className="font-semibold mb-1">SMS providers — Server 1 / 2 / 3</h2>
             <p className="text-xs text-[var(--text-muted)]">
-              Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMSBower (Extra). Margin{" "}
-              {settings.data?.grizzlyDefaultMarkup ?? 20}% (retail = wholesale × 1.20). A saved
-              key stays after refresh; URL/docs pastes are rejected. Customer /services never
-              shows wholesale brand names. Keys stay in Admin — never in chat. Paste the full
-              SMSBower api_key on Server 3 (not a handler URL, not a chat-masked fragment).
+              Defaults: Server 1 = 5SIM, Server 2 = Grizzly, Server 3 = SMSBower (Extra). Each
+              server&apos;s Margin % drives that tab&apos;s live retail and buy debit (retail =
+              wholesale × (1 + margin/100)). Save margin on Server 3 for Extra — e.g. 50% → ×1.50.
+              Default when unset: {settings.data?.defaultSlotMarkup ?? settings.data?.grizzlyDefaultMarkup ?? 20}%.
+              A saved key stays after refresh; URL/docs pastes are rejected. Customer /services
+              never shows wholesale brand names. Keys stay in Admin — never in chat.
             </p>
           </div>
           <button
@@ -997,11 +1011,10 @@ export default function AdminPage() {
                       disabled={patch.isPending}
                       onChange={(e) => {
                         const providerType = e.target.value;
-                        const opt = types.find((t) => t.value === providerType);
+                        // Keep Admin margin (e.g. Server 3 = 50%); do not wipe on type change.
                         patch.mutate({
                           key: p.key,
                           providerType,
-                          markupPercent: opt?.defaultMarkup ?? 20,
                         });
                       }}
                     >

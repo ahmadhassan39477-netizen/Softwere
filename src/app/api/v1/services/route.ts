@@ -10,6 +10,7 @@ import { worldCountryByCode } from "@/lib/world-countries";
 import { fetchLiveStockBySlot, type SlotLiveStock } from "@/lib/sms/live-stock";
 import {
   DEFAULT_SLOT_MARKUP,
+  coerceMarkupPercent,
   loadProviderSlots,
   retailFromWholesale,
 } from "@/lib/sms/provider-slots";
@@ -30,7 +31,8 @@ async function slotMarkupMap(): Promise<Record<number, number>> {
       3: DEFAULT_SLOT_MARKUP,
     };
     for (const s of slots) {
-      map[s.priority] = s.markupPercent > 0 ? s.markupPercent : DEFAULT_SLOT_MARKUP;
+      // Live Extra/Primary/Backup retail uses Admin slot Margin % (e.g. S3=50).
+      map[s.priority] = coerceMarkupPercent(s.markupPercent);
     }
     return map;
   } catch {

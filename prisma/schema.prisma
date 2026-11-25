@@ -256,7 +256,7 @@ model ProviderSetting {
   enabled       Boolean   @default(true)
   /// Server slot 1 | 2 | 3
   priority      Int       @default(1)
-  /// Retail markup % for this slot (Grizzly default 40 → retail = wholesale × 1.40)
+  /// Admin retail markup % for this slot (live catalog + buy). Default 20; Server 3 Extra may be 50.
   markupPercent Decimal   @default(20)
   lastBalance   Decimal?
   lastBalanceAt DateTime?

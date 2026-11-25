@@ -11,6 +11,7 @@ import {
   sanitizeCustomerBuyError,
 } from "@/lib/sms/customer-errors";
 import { isPlausibleMarkedUpOtp } from "@/lib/sms/otp-price-guards";
+import { coerceMarkupPercent, markupForServer } from "@/lib/sms/provider-slots";
 import { decimalJson } from "@/lib/money";
 import { ensureCatalogSeeded, ensureCountryOffers } from "@/lib/ensure-catalog";
 import { worldCountryByCode } from "@/lib/world-countries";
@@ -182,8 +183,13 @@ export async function purchaseNumber(input: PurchaseNumberInput) {
     purchase.serverSlot ?? serverNumberForProvider(purchase.providerKey);
   const wholesale = new Prisma.Decimal(purchase.wholesaleCost || offer.costPrice || 0);
 
-  // Exact retail debit = live wholesale × (1 + slotMarkup/100); fallback to catalog offer.
-  const slotMarkup = purchase.markupPercent ?? userMarkup ?? 20;
+  // Exact retail debit = live wholesale × (1 + Admin slot Margin %/100).
+  // Prefer buy-time slot markup (Server 3 Extra can be 50%); re-read Admin if missing.
+  const serverSlot = (serverUsed === 2 || serverUsed === 3 ? serverUsed : 1) as 1 | 2 | 3;
+  const adminSlotMarkup = await markupForServer(serverSlot).catch(() => userMarkup);
+  const slotMarkup = coerceMarkupPercent(
+    purchase.markupPercent ?? adminSlotMarkup ?? userMarkup,
+  );
   let chargePrice = price;
   if (Number(wholesale) > 0) {
     // Never debit thousand-dollar "Tier $1015" misparses (provider id as USD)
