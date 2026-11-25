@@ -11,6 +11,7 @@ import {
   coerceMarkupPercent,
   retailFromWholesale,
 } from "./sms/provider-slots";
+import { isGmailMailOperator } from "./smsbower-mail";
 
 /** Intended Extra margin after Admin change (retail = wholesale × 1.50). */
 export const SERVER3_TARGET_MARKUP_PERCENT = 50;
@@ -233,6 +234,8 @@ export async function auditServer3MarginUndercharge(opts: {
 
   for (const o of orders) {
     if (!isServer3Order(o)) continue;
+    // Gmails mail path has its own Admin margin + audit — skip here.
+    if (isGmailMailOperator(o.operator) || o.country?.code === "GMAIL") continue;
 
     const userBucket = shortfallByUser.get(o.userId) ?? {
       email: o.user.email,

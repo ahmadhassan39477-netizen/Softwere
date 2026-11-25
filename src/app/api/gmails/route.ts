@@ -14,7 +14,7 @@ function readyMessage(ready: boolean, reason?: string, count = 0): string {
   if (count === 0) {
     return "No Gmail stock right now. Check back shortly or try another service.";
   }
-  return "Temporary @gmail.com addresses for verification. Retail is wholesale plus 40%. Sign in required to buy.";
+  return "Temporary @gmail.com addresses for verification. Sign in required to buy.";
 }
 
 export async function GET(req: NextRequest) {

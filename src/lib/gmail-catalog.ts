@@ -1,6 +1,7 @@
 /**
  * Customer Gmail catalog from SMSBower Server 3 mail API.
- * Retail = wholesale × 1.40. Never expose wholesale brand names.
+ * Retail = wholesale × (1 + Admin Gmail margin/100). Default margin 50%.
+ * Never expose wholesale brand names on customer surfaces.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -15,14 +16,16 @@ import {
   GMAIL_COUNTRY_CODE,
   GMAIL_DOMAIN,
   GMAIL_MARKUP_PERCENT,
+  GMAIL_MARKUP_SETTING_KEY,
   GMAIL_OPERATOR,
   getMailPriceRests,
   listMailServices,
+  parseGmailMarkupPercent,
   retailFromGmailWholesale,
   type MailServiceInfo,
 } from "@/lib/smsbower-mail";
 
-export { GMAIL_MARKUP_PERCENT, GMAIL_COUNTRY_CODE };
+export { GMAIL_MARKUP_PERCENT, GMAIL_COUNTRY_CODE, GMAIL_MARKUP_SETTING_KEY };
 
 export type GmailOfferRow = {
   serviceSlug: string;
@@ -44,6 +47,14 @@ export type SmsBowerMailCreds = {
   ready: boolean;
   reason?: string;
 };
+
+/** Admin-editable Gmail margin % (Setting). Independent of Server 3 OTP Extra margin. */
+export async function loadGmailMarkupPercent(): Promise<number> {
+  const row = await prisma.setting.findUnique({
+    where: { key: GMAIL_MARKUP_SETTING_KEY },
+  });
+  return parseGmailMarkupPercent(row?.value, GMAIL_MARKUP_PERCENT);
+}
 
 /** Resolve Server 3 SMSBower key for mail (same wallet as OTP Extra). */
 export async function loadSmsBowerMailCreds(): Promise<SmsBowerMailCreds> {
@@ -103,7 +114,7 @@ function displayNameFor(
 }
 
 /** Local/dev catalog when wholesale mail is not attached (never on production keys). */
-function mockGmailOffers(): GmailOfferRow[] {
+function mockGmailOffers(markupPercent: number): GmailOfferRow[] {
   const samples: Array<{ slug: string; name: string; wholesale: number; stock: number; quality: number }> = [
     { slug: "instagram", name: "Instagram", wholesale: 0.12, stock: 48, quality: 0.72 },
     { slug: "telegram", name: "Telegram", wholesale: 0.09, stock: 62, quality: 0.68 },
@@ -120,7 +131,7 @@ function mockGmailOffers(): GmailOfferRow[] {
     serviceName: s.name,
     domain: GMAIL_DOMAIN,
     wholesale: s.wholesale,
-    retail: retailFromGmailWholesale(s.wholesale),
+    retail: retailFromGmailWholesale(s.wholesale, markupPercent),
     stock: s.stock,
     quality: s.quality,
     successAttempts: 0,
@@ -139,21 +150,22 @@ export async function listGmailOffers(): Promise<{
   markupPercent: number;
   offers: GmailOfferRow[];
 }> {
+  const markupPercent = await loadGmailMarkupPercent();
   const creds = await loadSmsBowerMailCreds();
   if (!creds.ready) {
     if (process.env.USE_MOCK_PROVIDERS === "true") {
-      const offers = mockGmailOffers();
+      const offers = mockGmailOffers(markupPercent);
       return {
         ready: true,
         reason: "mock",
-        markupPercent: GMAIL_MARKUP_PERCENT,
+        markupPercent,
         offers,
       };
     }
     return {
       ready: false,
       reason: creds.reason,
-      markupPercent: GMAIL_MARKUP_PERCENT,
+      markupPercent,
       offers: [],
     };
   }
@@ -211,7 +223,7 @@ export async function listGmailOffers(): Promise<{
       serviceName: displayNameFor(slug, serviceCode, services, db?.name),
       domain: GMAIL_DOMAIN,
       wholesale,
-      retail: retailFromGmailWholesale(wholesale),
+      retail: retailFromGmailWholesale(wholesale, markupPercent),
       stock: gmail.count,
       quality,
       successAttempts: exact?.attempts ?? fallback?.attempts ?? 0,
@@ -228,7 +240,7 @@ export async function listGmailOffers(): Promise<{
 
   return {
     ready: true,
-    markupPercent: GMAIL_MARKUP_PERCENT,
+    markupPercent,
     offers: rows,
   };
 }

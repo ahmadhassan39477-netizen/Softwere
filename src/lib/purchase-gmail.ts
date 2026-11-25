@@ -2,7 +2,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decimalJson } from "@/lib/money";
 import { insufficientBalanceMessage } from "@/lib/purchase-number";
-import { listGmailOffers, loadSmsBowerMailCreds } from "@/lib/gmail-catalog";
+import {
+  listGmailOffers,
+  loadGmailMarkupPercent,
+  loadSmsBowerMailCreds,
+} from "@/lib/gmail-catalog";
 import {
   buyMailActivation,
   GMAIL_COUNTRY_CODE,
@@ -55,7 +59,8 @@ async function ensureService(slug: string, fallbackName: string) {
 
 /**
  * Buy a temporary @gmail.com address for a target service via Server 3 mail API.
- * Wallet charged only after wholesale activation succeeds. Retail = wholesale × 1.40.
+ * Wallet charged only after wholesale activation succeeds.
+ * Retail = wholesale × (1 + Admin Gmail margin/100); default 50%.
  */
 export async function purchaseGmail(input: PurchaseGmailInput) {
   const creds = await loadSmsBowerMailCreds();
@@ -63,7 +68,10 @@ export async function purchaseGmail(input: PurchaseGmailInput) {
     throw Object.assign(new Error(CUSTOMER_SERVER_UNAVAILABLE), { status: 503 });
   }
 
-  const catalog = await listGmailOffers();
+  const [catalog, markupPercent] = await Promise.all([
+    listGmailOffers(),
+    loadGmailMarkupPercent(),
+  ]);
   const offer = catalog.offers.find(
     (o) => o.serviceSlug.toLowerCase() === input.serviceSlug.toLowerCase(),
   );
@@ -105,7 +113,8 @@ export async function purchaseGmail(input: PurchaseGmailInput) {
 
   const wholesale =
     activation.wholesaleCost > 0 ? activation.wholesaleCost : offer.wholesale;
-  const retail = retailFromGmailWholesale(wholesale);
+  // Prefer live Admin margin at debit time (catalog may have been cached briefly).
+  const retail = retailFromGmailWholesale(wholesale, markupPercent);
   const chargePrice = new Prisma.Decimal(retail.toFixed(4));
 
   if (walletNow.lt(chargePrice)) {

@@ -86,6 +86,7 @@ export default function AdminPage() {
   const [vpnMarkup, setVpnMarkup] = useState("20");
   const [vpnDisplay, setVpnDisplay] = useState("VPN & Proxy");
   const [vpnBase, setVpnBase] = useState("https://api.proxy-cheap.com");
+  const [gmailMarkup, setGmailMarkup] = useState("50");
   const [keyFieldUnlocked, setKeyFieldUnlocked] = useState<Record<string, boolean>>({});
   const [repairTried, setRepairTried] = useState(false);
 
@@ -159,6 +160,26 @@ export default function AdminPage() {
         livePlanCount: number | null;
         balance: number | null;
         probeError: string | null;
+      }>;
+    },
+  });
+
+  const gmailsAdmin = useQuery({
+    queryKey: ["admin-gmails"],
+    enabled: status === "authenticated" && session?.user?.role === "ADMIN",
+    queryFn: async () => {
+      const res = await fetch("/api/admin/gmails?probe=1");
+      if (!res.ok) throw new Error("Forbidden");
+      return res.json() as Promise<{
+        markupPercent: number;
+        defaultMarkupPercent: number;
+        independentOfServer3: boolean;
+        ready: boolean;
+        reason: string | null;
+        offerCount: number;
+        sampleWholesale: number | null;
+        sampleRetail: number | null;
+        sampleRatio: number | null;
       }>;
     },
   });
@@ -245,6 +266,11 @@ export default function AdminPage() {
     setVpnEnabled(vpn.data.enabled);
     setVpnMarkup(String(vpn.data.markupPercent ?? 20));
   }, [vpn.data]);
+
+  useEffect(() => {
+    if (gmailsAdmin.data?.markupPercent == null) return;
+    setGmailMarkup(String(gmailsAdmin.data.markupPercent));
+  }, [gmailsAdmin.data?.markupPercent]);
 
   useEffect(() => {
     if (whatsapp.data?.numbers?.length) {
@@ -464,6 +490,34 @@ export default function AdminPage() {
       setVpnKey("");
       setVpnSecret("");
       qc.invalidateQueries({ queryKey: ["admin-vpn"] });
+    },
+    onError: (e: Error) => setMsg(e.message),
+  });
+
+  const saveGmails = useMutation({
+    mutationFn: async (payload: { markupPercent: number }) => {
+      const res = await fetch("/api/admin/gmails", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      return data as {
+        markupPercent: number;
+        sampleWholesale: number | null;
+        sampleRetail: number | null;
+        sampleRatio: number | null;
+        offerCount: number;
+      };
+    },
+    onSuccess: (data) => {
+      const ratio =
+        data.sampleRatio != null ? ` · sample ×${data.sampleRatio}` : "";
+      setMsg(`Gmail margin saved: ${data.markupPercent}%${ratio}`);
+      setGmailMarkup(String(data.markupPercent));
+      qc.invalidateQueries({ queryKey: ["admin-gmails"] });
+      qc.invalidateQueries({ queryKey: ["gmails-catalog"] });
     },
     onError: (e: Error) => setMsg(e.message),
   });
@@ -1139,6 +1193,67 @@ export default function AdminPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="panel p-5 space-y-4" data-testid="admin-gmails-margin">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Gmails margin (mail path)</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-1 max-w-2xl">
+              Temporary @gmail.com catalog + buy debit. Independent of Server 3 Extra OTP Margin
+              above — changing Extra does not change Gmails. Default{" "}
+              {gmailsAdmin.data?.defaultMarkupPercent ?? 50}% when unset (e.g. 50% → ×1.50).
+              Customer UI never shows wholesale brand names. Refund policy unchanged: 25 min wait
+              · no code, no pay · no refund after code.
+            </p>
+          </div>
+          {gmailsAdmin.data?.ready ? (
+            <span className="badge badge-success text-xs">
+              live · {gmailsAdmin.data.offerCount} offers
+            </span>
+          ) : (
+            <span className="badge text-xs">waiting on Extra mail key</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs text-[var(--text-muted)]" htmlFor="gmail-markup">
+              Gmail margin %
+            </label>
+            <div className="mt-1 flex gap-2 items-center">
+              <input
+                id="gmail-markup"
+                className="input w-24"
+                type="number"
+                min={0}
+                max={500}
+                value={gmailMarkup}
+                onChange={(e) => setGmailMarkup(e.target.value)}
+              />
+              <span className="text-sm text-[var(--text-muted)]">%</span>
+              <button
+                type="button"
+                className="btn btn-primary text-sm"
+                disabled={saveGmails.isPending}
+                onClick={() =>
+                  saveGmails.mutate({ markupPercent: Number(gmailMarkup) })
+                }
+              >
+                {saveGmails.isPending ? "Saving…" : "Save Gmail margin"}
+              </button>
+            </div>
+          </div>
+          {gmailsAdmin.data?.sampleWholesale != null &&
+          gmailsAdmin.data?.sampleRetail != null ? (
+            <p className="text-xs text-[var(--text-muted)] mono-data pb-1">
+              Sample: wholesale ${Number(gmailsAdmin.data.sampleWholesale).toFixed(4)} → retail $
+              {Number(gmailsAdmin.data.sampleRetail).toFixed(4)}
+              {gmailsAdmin.data.sampleRatio != null
+                ? ` (×${gmailsAdmin.data.sampleRatio})`
+                : ""}
+            </p>
+          ) : null}
         </div>
       </div>
 

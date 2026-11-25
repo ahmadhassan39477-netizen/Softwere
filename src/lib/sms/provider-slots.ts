@@ -20,7 +20,7 @@ export type SlotProviderType =
  * Default OTP retail markup when a slot has no Admin margin set.
  * Live catalog + buy debit use each slot's ProviderSetting.markupPercent
  * (Server 3 Extra can be 50% while S1/S2 stay at 20%). Gmail mail uses a
- * separate constant (40%) — never this default.
+ * separate Admin Setting (default 50%) — never this OTP slot default.
  */
 export const DEFAULT_SLOT_MARKUP = 20;
 
