@@ -7,7 +7,6 @@ import {
   GMAIL_MARKUP_PERCENT,
   GMAIL_MARKUP_SETTING_KEY,
   parseGmailMarkupPercent,
-  retailFromGmailWholesale,
 } from "@/lib/smsbower-mail";
 
 async function upsertSetting(key: string, value: string) {
@@ -81,9 +80,4 @@ export async function PATCH(req: NextRequest) {
 
   const probe = parsed.data.probe !== false;
   return Response.json(await readGmailAdmin({ probe }));
-}
-
-/** Tiny helper exported for tests — retail preview at Admin margin. */
-export function previewGmailRetail(wholesale: number, markupPercent: number): number {
-  return retailFromGmailWholesale(wholesale, markupPercent);
 }
